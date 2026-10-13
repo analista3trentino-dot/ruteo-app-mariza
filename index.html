@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0A2540" />
+<meta name="theme-color" content="#0C1A2E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" />
-<title>Ruteo por Carteras · TR1 · Trentino</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" />
+<title>Ruteo por Carteras TR1 | Trentino</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <link rel="stylesheet" href="styles.css" />
@@ -16,28 +16,28 @@
 <div id="app">
   <header class="top">
     <div class="brand-top">
-      <div class="credit">Generado por<strong>Mariza Cañiza / Analista Trentino</strong></div>
       <div class="logo-chip"><img src="logo-trentino.png" alt="Trentino S.A." /></div>
+      <div class="today-badge" id="todayBadge"></div>
     </div>
     <div class="title-row">
-      <h1>Ruteo por Carteras<span>TR1</span></h1>
-      <div class="today-badge" id="todayBadge"></div>
+      <h1>Ruteo por carteras <span>TR1</span></h1>
+      <p class="credit">Elaborado por Mariza Cañiza, Analista Trentino</p>
     </div>
     <div class="spv-scroll" id="spvScroll" aria-label="Supervisores"></div>
   </header>
 
-  <section class="kpi-strip">
+  <section class="kpi-strip" aria-label="Resumen">
     <div class="kpi"><b id="kCli">0</b><span>Clientes</span></div>
-    <div class="kpi" style="--k:#7A4BD1"><b id="kCar">0</b><span>Carteras</span></div>
-    <div class="kpi" style="--k:#E58A00"><b id="kCiu">0</b><span>Ciudades</span></div>
-    <div class="kpi" style="--k:#17A34A"><b id="kVis">0</b><span>Visitados hoy</span><em id="kVisPct">0%</em></div>
+    <div class="kpi"><b id="kCar">0</b><span>Carteras</span></div>
+    <div class="kpi"><b id="kCiu">0</b><span>Ciudades</span></div>
+    <div class="kpi kpi-gps"><b id="kGps">0</b><span>Con GPS <em id="kGpsPct">0%</em></span></div>
   </section>
 
   <div class="sticky" id="stickyBar">
     <div class="row1">
       <div class="search-wrap">
         <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="searchInput" type="text" placeholder="Buscar cliente o ciudad..." autocomplete="off" aria-label="Buscar cliente o ciudad" enterkeyhint="search" />
+        <input id="searchInput" type="text" placeholder="Cliente o ciudad" autocomplete="off" aria-label="Buscar cliente o ciudad" enterkeyhint="search" />
         <button class="x-btn" id="clearSearch" type="button" aria-label="Borrar búsqueda">✕</button>
       </div>
       <div class="seg" role="tablist" aria-label="Vista">

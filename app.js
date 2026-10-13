@@ -13,13 +13,14 @@
   const isMixto = c => MIX.codes.includes(numOf(c.vc));
   const pairOf = c => carteras.find(o => o !== c && isMixto(o) && numOf(o.vc) === numOf(c.vc));
 
-  const PALETA = ['#0066CC','#E08A00','#1F9D74','#C2386B','#7A4BD1','#D9542B'];
+  const PALETA = ['#2E5BFF','#E08700','#0EA371','#D6336C','#7048E8','#E8590C'];
   const supColor = {}, supLabel = {};
   sups.forEach((s,i) => { supColor[s.k] = PALETA[i % PALETA.length]; supLabel[s.k] = s.p; });
 
   const ICON = {
     pin:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-    check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17 19 7.5"/></svg>',
+    search:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    nav:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>',
     chev:'<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>',
     map:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>',
     gps:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'
@@ -33,14 +34,11 @@
 
   const state = { spv:'TODOS', query:'', days:new Set(), openId:null, vista:'lista' };
 
-  // ---- Hoy y visitas (solo en este teléfono, no toca los datos) ----
+  // ---- Hoy ----
   const now = new Date();
   const TODAY_LBL = [null,'Lun','Mar','Mié','Jue','Vie','Sáb'][now.getDay()];
-  const todayKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const STORE = 'ruteoTR1_visitas_' + todayKey;
-  let visited = new Set();
-  try { const raw = localStorage.getItem(STORE); if (raw) visited = new Set(JSON.parse(raw)); } catch(e) {}
-  function saveVisited(){ try { localStorage.setItem(STORE, JSON.stringify([...visited])); } catch(e) {} }
+  // Limpieza: borra las marcas de visita que guardaba la versión anterior
+  try { Object.keys(localStorage).forEach(k => { if (k.indexOf('ruteoTR1_visitas_') === 0) localStorage.removeItem(k); }); } catch(e) {}
   const FECHA_TXT = now.toLocaleDateString('es-PY', {weekday:'long', day:'numeric', month:'short'});
   $('todayBadge').textContent = FECHA_TXT.charAt(0).toUpperCase() + FECHA_TXT.slice(1);
 
@@ -72,7 +70,7 @@
   function buildPills(){
     const wrap = $('spvScroll');
     const sum = arr => arr.reduce((a,c) => a + c.cl.length, 0);
-    const items = [{k:'TODOS', p:'Todos', n:sum(carteras), color:'#fff'}, {k:'MIXTOS', p:'⇄ Mixtos', n:sum(carteras.filter(isMixto)), color:'#B18CFF'}]
+    const items = [{k:'TODOS', p:'Todos', n:sum(carteras), color:'#FFFFFF'}, {k:'MIXTOS', p:'⇄ Mixtos', n:sum(carteras.filter(isMixto)), color:'#A78BFA'}]
       .concat(sups.map(s => ({k:s.k, p:s.p, n:sum(carteras.filter(c => c.sup === s.k)), color:supColor[s.k]})));
     wrap.innerHTML = items.map(it =>
       `<button type="button" class="spv-pill" data-k="${esc(it.k)}" style="--dot:${it.color}"><i></i>${esc(it.p)}<small>${it.n.toLocaleString('es-PY')}</small></button>`
@@ -95,9 +93,9 @@
   function buildDays(){
     const wrap = $('dayChips');
     let h = '';
-    if (TODAY_LBL) h += `<button type="button" class="day-chip today" data-today="1">★ Hoy</button>`;
+    if (TODAY_LBL) h += `<button type="button" class="day-chip today" data-today="1"><i></i>Hoy</button>`;
     h += DAY_LABELS.map(d => `<button type="button" class="day-chip" data-d="${d}"><span>${d}</span><small>0</small></button>`).join('');
-    h += `<button type="button" class="day-chip clear" id="clearDays">✕ Limpiar</button>`;
+    h += `<button type="button" class="day-chip clear" id="clearDays">Limpiar</button>`;
     wrap.innerHTML = h;
     wrap.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
       const d = b.dataset.d; state.days.has(d) ? state.days.delete(d) : state.days.add(d); refresh(true);
@@ -135,10 +133,10 @@
     })(t0);
   }
   function renderKPIs(vis){
-    let cli = 0, done = 0; const ciud = new Set();
-    vis.forEach(v => v.idx.forEach(i => { const cl = v.c.cl[i]; cli++; ciud.add(cl[0]); if (visited.has(v.c.vc + '|' + i)) done++; }));
-    setNum('kCli', cli); setNum('kCar', vis.length); setNum('kCiu', ciud.size); setNum('kVis', done);
-    $('kVisPct').textContent = cli ? Math.round(done / cli * 100) + '%' : '0%';
+    let cli = 0, gps = 0; const ciud = new Set();
+    vis.forEach(v => v.idx.forEach(i => { const cl = v.c.cl[i]; cli++; ciud.add(cl[0]); if (hasGps(cl)) gps++; }));
+    setNum('kCli', cli); setNum('kCar', vis.length); setNum('kCiu', ciud.size); setNum('kGps', gps);
+    $('kGpsPct').textContent = cli ? Math.round(gps / cli * 100) + '%' : '0%';
   }
 
   // ---- Lista de carteras ----
@@ -151,7 +149,6 @@
     const p = c.vn.split(/\s+/).filter(Boolean);
     return p[0].charAt(0) + p[0].slice(1).toLowerCase() + (p[1] ? ' ' + p[1].charAt(0) + '.' : '');
   }
-  function doneCount(v){ return v.idx.filter(i => visited.has(v.c.vc + '|' + i)).length; }
 
   function cardHtml(v, k){
     const c = v.c, n = v.idx.length;
@@ -159,8 +156,7 @@
     c.cl.forEach(cl => daysOf(cl).forEach(d => { if (d in wc) wc[d]++; }));
     const max = Math.max(1, ...Object.values(wc));
     const bars = WEEK.map(d => `<span class="wb ${state.days.has(d) ? 'on' : ''}" title="${d}: ${wc[d]} clientes"><span class="bt"><i style="height:${wc[d] ? Math.max(12, Math.round(wc[d] / max * 100)) : 0}%"></i></span><em>${WEEK_LETTER[d]}</em></span>`).join('');
-    const pct = n ? doneCount(v) / n * 100 : 0;
-    return `<article class="cartera ${isVacante(c) ? 'vacante' : ''}" id="c-${esc(c.vc)}" data-id="${esc(c.vc)}" style="--c:${supColor[c.sup] || '#0066CC'}; animation-delay:${Math.min(k, 12) * 25}ms">
+    return `<article class="cartera ${isVacante(c) ? 'vacante' : ''}" id="c-${esc(c.vc)}" data-id="${esc(c.vc)}" style="--c:${supColor[c.sup] || '#2E5BFF'}; animation-delay:${Math.min(k, 12) * 25}ms">
       <div class="head" role="button" tabindex="0" aria-expanded="false">
         <div class="avatar">${esc(initials(c))}</div>
         <div class="info">
@@ -174,7 +170,6 @@
         </div>
         ${ICON.chev}
       </div>
-      <div class="prog"><i style="width:${pct}%"></i></div>
       <div class="body"></div>
     </article>`;
   }
@@ -189,13 +184,11 @@
   function rowHtml(c, i){
     const cl = c.cl[i];
     const [ciudad, pm, nombre, dias, lat, lon] = cl;
-    const key = c.vc + '|' + i, done = visited.has(key);
     const dd = daysOf(cl).map(d => `<span class="dd ${state.days.has(d) ? 'on' : ''} ${d === TODAY_LBL ? 'hoy' : ''}">${esc(d)}</span>`).join('');
     const go = hasGps(cl)
-      ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${esc(nombre)}">${ICON.pin}<span>Ir</span></a>`
+      ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${esc(nombre)}">${ICON.nav}<span>Ir</span></a>`
       : `<span class="nogps">Sin GPS</span>`;
-    return `<div class="client ${done ? 'done' : ''}" data-k="${esc(key)}">
-      <button class="check" type="button" aria-pressed="${done}" aria-label="Marcar como visitado">${ICON.check}</button>
+    return `<div class="client">
       <div class="cbody"><div class="cname">${hl(nombre)}</div>
         <div class="meta"><span class="tag city">${hl(ciudad)}</span>${pm ? `<span class="tag cat">${esc(pm)}</span>` : ''}${dd}</div>
       </div>${go}</div>`;
@@ -213,16 +206,6 @@
       </div></div>`;
   }
   function wireBody(el, v){
-    el.querySelectorAll('.check').forEach(b => b.onclick = e => {
-      e.stopPropagation();
-      const row = b.closest('.client'), k = row.dataset.k, on = !visited.has(k);
-      on ? visited.add(k) : visited.delete(k); saveVisited();
-      row.classList.toggle('done', on); b.setAttribute('aria-pressed', on);
-      row.classList.remove('pop'); void row.offsetWidth; row.classList.add('pop');
-      el.querySelector('.prog i').style.width = (v.idx.length ? doneCount(v) / v.idx.length * 100 : 0) + '%';
-      renderKPIs(current);
-      toast(on ? 'Visita registrada ✓' : 'Visita desmarcada');
-    });
     el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { if (b.dataset.go) openCartera(b.dataset.go); });
     el.querySelector('[data-act="close"]').onclick = () => { collapse(v.c.vc); state.openId = null; scrollToCard(v.c.vc); };
     el.querySelector('[data-act="map"]').onclick = () => verZonaDe(v.c.vc);
@@ -270,15 +253,15 @@
     renderKPIs(current);
     const main = $('main');
     if (!current.length){
-      main.innerHTML = `<div class="empty"><div class="big">🔍</div>Sin resultados para el filtro aplicado.<br><button class="clear-btn" id="clearBtn" type="button">Limpiar filtros</button></div>`;
+      main.innerHTML = `<div class="empty"><div class="big">${ICON.search}</div><b>No hay clientes con estos filtros</b><span>Probá con otro nombre, otra ciudad u otro día.</span><button class="clear-btn" id="clearBtn" type="button">Limpiar filtros</button></div>`;
       $('clearBtn').onclick = () => { state.query = ''; state.days.clear(); $('searchInput').value = ''; refresh(true); };
       $('rail').innerHTML = '';
       return;
     }
     const n = current.reduce((a,v) => a + v.idx.length, 0);
     const hint = filtering()
-      ? `<div class="hint">Mostrando <b>${n.toLocaleString('es-PY')}</b> clientes en <b>${current.length}</b> carteras · tocá una para abrirla</div>`
-      : `<div class="hint">Tocá una cartera para ver sus clientes, o saltá con la barra de arriba</div>`;
+      ? `<div class="hint"><b>${n.toLocaleString('es-PY')}</b> clientes en <b>${current.length}</b> carteras. Tocá una para ver sus clientes.</div>`
+      : `<div class="hint">Tocá una cartera para ver sus clientes.</div>`;
     main.innerHTML = hint + current.map(cardHtml).join('');
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
@@ -295,7 +278,7 @@
   let railActive = null;
   function renderRail(){
     const rail = $('rail');
-    rail.innerHTML = current.map(v => `<button type="button" class="rchip" id="r-${esc(v.c.vc)}" data-id="${esc(v.c.vc)}" style="--c:${supColor[v.c.sup] || '#0066CC'}"><i></i><b>${esc(v.c.vc)}</b>${isMixto(v.c) ? '⇄ ' : ''}${esc(shortName(v.c))}<small>${v.idx.length}</small></button>`).join('');
+    rail.innerHTML = current.map(v => `<button type="button" class="rchip" id="r-${esc(v.c.vc)}" data-id="${esc(v.c.vc)}" style="--c:${supColor[v.c.sup] || '#2E5BFF'}"><i></i><b>${esc(v.c.vc)}</b>${isMixto(v.c) ? '⇄ ' : ''}${esc(shortName(v.c))}<small>${v.idx.length}</small></button>`).join('');
     rail.querySelectorAll('.rchip').forEach(b => b.onclick = () => openCartera(b.dataset.id));
     railActive = null; syncRail(state.openId || spyId());
   }
@@ -340,8 +323,8 @@
     const base = vendedorSel === 'TODOS' ? bySpv()
       : mixSel ? carteras.filter(c => isMixto(c) && numOf(c.vc) === vendedorSel.slice(4))
       : carteras.filter(c => c.vc === vendedorSel);
-    const MIXCOL = ['#0066CC', '#E58A00'];
-    const colorDe = c => mixSel ? MIXCOL[base.indexOf(c) % 2] : (supColor[c.sup] || '#0066CC');
+    const MIXCOL = ['#2E5BFF', '#E08700'];
+    const colorDe = c => mixSel ? MIXCOL[base.indexOf(c) % 2] : (supColor[c.sup] || '#2E5BFF');
     let conUbic = 0, total = 0; lastBounds = [];
     const supsEnMapa = new Set();
     base.forEach(c => {
@@ -445,7 +428,7 @@
   }, {passive:true});
   $('toTop').onclick = () => window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'});
 
-  $('footerNote').textContent = `Datos generados: ${GEN_DATE} · Las visitas marcadas quedan guardadas solo en este teléfono, por día.`;
+  $('footerNote').textContent = `Datos actualizados el ${GEN_DATE.split(' ')[0]}`;
 
   buildPills();
   buildDays();
