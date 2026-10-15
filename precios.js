@@ -22,7 +22,7 @@ const LISTAS_PRECIOS = [
 (function () {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const norm = s => String(s == null ? '' : s).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9]+/g, ' ').trim();
+  const norm = s => String(s == null ? '' : s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]+/g, ' ').trim();
   const gs = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('es-PY');
   const num = v => {
     const t = String(v).trim(); if (!t) return null;
@@ -164,7 +164,7 @@ const LISTAS_PRECIOS = [
     const t = String(texto);
     if (!filtro.q) return esc(t);
     // resalta cada palabra buscada (sin distinguir tildes ni mayúsculas)
-    const base = t.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const base = t.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const marcas = new Array(t.length).fill(false);
     filtro.q.split(' ').forEach(w => { if (!w) return; let i = base.indexOf(w); while (i >= 0) { for (let k = i; k < i + w.length; k++) marcas[k] = true; i = base.indexOf(w, i + w.length); } });
     let out = '', dentro = false;

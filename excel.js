@@ -13,7 +13,7 @@
     if (libPromise) return libPromise;
     libPromise = new Promise((ok, mal) => {
       const s = document.createElement('script');
-      s.src = 'xlsx.mini.min.js';
+      s.src = 'xlsx.mini.min.js?v=0.18.5';
       s.onload = () => (window.XLSX && window.XLSX.read) ? ok(window.XLSX) : mal(new Error('Librería de Excel no disponible'));
       s.onerror = () => { libPromise = null; mal(new Error('No se pudo cargar la librería de Excel')); };
       document.head.appendChild(s);
@@ -21,7 +21,7 @@
     return libPromise;
   }
 
-  const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
   /**
    * Lee un .xlsx y devuelve { filas, fecha }.

@@ -15,6 +15,20 @@
   // Un cliente de una cartera mixta (AR) es el mismo que en su par TR: se cuenta una sola vez
   const claveCli = (c, cl) => numOf(c.vc) + '|' + (cl[6] || cl[2]);
 
+  // ---- Modo vendedor: el link ?c=TR1338 muestra solo esa cartera (y su par mixto) ----
+  // También se puede elegir la cartera una vez: el celular la recuerda.
+  const CLAVE_CARTERA = 'ruteoTR1_miCartera';
+  const leerGuardada = () => { try { return localStorage.getItem(CLAVE_CARTERA) || ''; } catch(e){ return ''; } };
+  const guardar = v => { try { if (v) localStorage.setItem(CLAVE_CARTERA, v); else localStorage.removeItem(CLAVE_CARTERA); } catch(e){} };
+  const PARAM_C = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
+  const GUARDADA = leerGuardada();
+  const ELEGIDA = PARAM_C || (GUARDADA !== 'TODAS' ? GUARDADA : '');
+  const MI_CARTERA = carteras.find(c => c.vc.toUpperCase() === ELEGIDA) || null;
+  const MODO_VENDEDOR = !!MI_CARTERA;
+  const DESDE_LINK = !!PARAM_C && MODO_VENDEDOR;
+  // Primera vez en este celular (sin link de vendedor): preguntar la cartera
+  const PREGUNTAR = !PARAM_C && GUARDADA !== 'TODAS' && !MI_CARTERA;
+
   const PALETA = ['#2E5BFF','#E08700','#0EA371','#D6336C','#7048E8','#E8590C'];
   const supColor = {}, supLabel = {};
   sups.forEach((s,i) => { supColor[s.k] = PALETA[i % PALETA.length]; supLabel[s.k] = s.p; });
@@ -55,7 +69,8 @@
   }
   const filtering = () => !!(state.query || state.days.size || state.soloTop);
   const searching = () => state.query.length >= 2;
-  const bySpv = () => state.spv === 'MIXTOS' ? carteras.filter(isMixto) : carteras.filter(c => state.spv === 'TODOS' || c.sup === state.spv);
+  const bySpv = () => MODO_VENDEDOR ? carteras.filter(c => numOf(c.vc) === numOf(MI_CARTERA.vc))
+    : state.spv === 'MIXTOS' ? carteras.filter(isMixto) : carteras.filter(c => state.spv === 'TODOS' || c.sup === state.spv);
   function visibleCarteras(){
     return bySpv().map(c => {
       const idx = []; c.cl.forEach((cl,i) => { if (matches(cl)) idx.push(i); });
@@ -152,6 +167,7 @@
     })(t0);
   }
   function renderKPIs(vis){
+    if (!$('kCli')) return;
     let top = 0; const ciud = new Set(), unicos = new Set();
     vis.forEach(v => v.idx.forEach(i => { const cl = v.c.cl[i]; unicos.add(claveCli(v.c, cl)); ciud.add(cl[0]); if (cl._top) top++; }));
     const cli = unicos.size;
@@ -173,21 +189,16 @@
   function cardHtml(v, k){
     const c = v.c, n = v.idx.length;
     const nTop = v.idx.reduce((a,i) => a + (c.cl[i]._top ? 1 : 0), 0);
-    const wc = {}; WEEK.forEach(d => wc[d] = 0);
-    c.cl.forEach(cl => daysOf(cl).forEach(d => { if (d in wc) wc[d]++; }));
-    const max = Math.max(1, ...Object.values(wc));
-    const bars = WEEK.map(d => `<span class="wb ${state.days.has(d) ? 'on' : ''}" title="${d}: ${wc[d]} clientes"><span class="bt"><i style="height:${wc[d] ? Math.max(12, Math.round(wc[d] / max * 100)) : 0}%"></i></span><em>${WEEK_LETTER[d]}</em></span>`).join('');
     return `<article class="cartera ${isVacante(c) ? 'vacante' : ''}" id="c-${esc(c.vc)}" data-id="${esc(c.vc)}" style="--c:${supColor[c.sup] || '#2E5BFF'}; animation-delay:${Math.min(k, 12) * 25}ms">
       <div class="head" role="button" tabindex="0" aria-expanded="false">
         <div class="avatar">${esc(initials(c))}</div>
         <div class="info">
-          <div class="toprow"><span class="code">${esc(c.vc)}</span><span class="spvtag">${esc(supLabel[c.sup] || c.sup)}</span>${isVacante(c) ? '<span class="vac">Vacante</span>' : ''}${isMixto(c) ? `<span class="mixtag">⇄ Mixto · ${esc((pairOf(c) || {}).vc || '')}</span>` : ''}${nTop ? `<span class="toptag">${ICON.star}${nTop} top</span>` : ''}</div>
+          <div class="toprow"><span class="code">${esc(c.vc)}</span>${(state.spv === 'TODOS' || state.spv === 'MIXTOS') && !MODO_VENDEDOR ? `<span class="spvtag">${esc(supLabel[c.sup] || c.sup)}</span>` : ''}${isVacante(c) ? '<span class="vac">Vacante</span>' : ''}${isMixto(c) ? `<span class="mixtag">⇄ Mixto · ${esc((pairOf(c) || {}).vc || '')}</span>` : ''}${nTop ? `<span class="toptag">${ICON.star}${nTop} top</span>` : ''}</div>
           <div class="name">${esc(c.vn)}</div>
           <div class="zone">${esc(c.vz)}</div>
         </div>
         <div class="right">
-          <div class="count"><b>${n}</b><span>${filtering() ? 'de ' + c.cl.length : 'clientes'}</span></div>
-          <div class="week">${bars}</div>
+          <div class="count"><b>${n}</b><span>${n === 1 ? 'cliente' : 'clientes'}</span></div>
         </div>
         ${ICON.chev}
       </div>
@@ -205,30 +216,25 @@
   function rowHtml(c, i){
     const cl = c.cl[i];
     const [ciudad, pm, nombre, dias, lat, lon, codigo] = cl;
-    const dd = daysOf(cl).map(d => `<span class="dd ${state.days.has(d) ? 'on' : ''} ${d === TODAY_LBL ? 'hoy' : ''}">${esc(d)}</span>`).join('');
+    const dd = daysOf(cl).map(d => d === TODAY_LBL ? `<b class="hoy">${esc(d)}</b>` : esc(d)).join(', ');
     const go = hasGps(cl)
       ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${esc(nombre)}">${ICON.nav}<span>Ir</span></a>`
       : `<span class="nogps">Sin GPS</span>`;
     return `<div class="client ${cl._top ? 'is-top' : ''}">
       <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
-        <div class="meta"><span class="tag city">${hl(ciudad)}</span>${pm ? `<span class="tag cat">${esc(pm)}</span>` : ''}${dd}</div>
+        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}</div>
       </div>${go}</div>`;
   }
   function bodyHtml(v){
-    const c = v.c, pos = current.indexOf(v), prev = current[pos - 1], next = current[pos + 1];
-    const gps = v.idx.filter(i => hasGps(c.cl[i])).length;
+    const c = v.c;
     return `<div class="inner">
-      <div class="btools"><span>${ICON.gps} ${gps} de ${v.idx.length} con ubicación</span><span class="bt-btns">${isMixto(c) && pairOf(c) ? `<button class="mini mixbtn" type="button" data-pair="${esc(pairOf(c).vc)}">⇄ ${esc(pairOf(c).vc)}</button>` : ''}<button class="mini" type="button" data-act="map">${ICON.map} Ver zona</button></span></div>
+      <div class="btools">${isMixto(c) && pairOf(c) ? `<button class="mini mixbtn" type="button" data-pair="${esc(pairOf(c).vc)}">⇄ Ver ${esc(pairOf(c).vc)}</button>` : '<span></span>'}<button class="mini" type="button" data-act="map">${ICON.map} Ver en el mapa</button></div>
       ${v.idx.map(i => rowHtml(c, i)).join('')}
-      <div class="bnav">
-        <button class="navb" type="button" data-go="${prev ? esc(prev.c.vc) : ''}" ${prev ? '' : 'disabled'}>‹ <span>${prev ? esc(prev.c.vc) : 'Inicio'}</span></button>
-        <button class="navb close" type="button" data-act="close">Cerrar</button>
-        <button class="navb" type="button" data-go="${next ? esc(next.c.vc) : ''}" ${next ? '' : 'disabled'}><span>${next ? esc(next.c.vc) : 'Fin'}</span> ›</button>
-      </div></div>`;
+      ${MODO_VENDEDOR ? '' : `<button class="card-close" type="button" data-act="close">Cerrar cartera</button>`}</div>`;
   }
   function wireBody(el, v){
-    el.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { if (b.dataset.go) openCartera(b.dataset.go); });
-    el.querySelector('[data-act="close"]').onclick = () => { collapse(v.c.vc); state.openId = null; scrollToCard(v.c.vc); };
+    const cerrar = el.querySelector('[data-act="close"]');
+    if (cerrar) cerrar.onclick = () => { collapse(v.c.vc); state.openId = null; scrollToCard(v.c.vc); };
     el.querySelector('[data-act="map"]').onclick = () => verZonaDe(v.c.vc);
     const pb = el.querySelector('[data-pair]');
     if (pb) pb.onclick = () => {
@@ -253,7 +259,7 @@
     if (state.vista !== 'lista') setVista('lista');
     // Una sola cartera abierta a la vez (salvo en búsqueda): la lista queda corta y fácil de recorrer
     if (!searching()) document.querySelectorAll('.cartera.open').forEach(o => { if (o.dataset.id !== id) collapse(o.dataset.id); });
-    state.openId = id; expand(id, true); syncRail(id);
+    state.openId = id; expand(id, true);
   }
   function toggle(id){
     const el = $('c-' + id);
@@ -274,49 +280,30 @@
     renderKPIs(current);
     const main = $('main');
     if (!current.length){
-      main.innerHTML = `<div class="empty"><div class="big">${ICON.search}</div><b>No hay clientes con estos filtros</b><span>Probá con otro nombre, otra ciudad u otro día.</span><button class="clear-btn" id="clearBtn" type="button">Limpiar filtros</button></div>`;
-      $('clearBtn').onclick = () => { state.query = ''; state.days.clear(); $('searchInput').value = ''; refresh(true); };
-      $('rail').innerHTML = '';
+      const soloDias = !state.query && !state.soloTop && state.days.size > 0;
+      const DL = {Lun:'el lunes', Mar:'el martes', 'Mié':'el miércoles', Jue:'el jueves', Vie:'el viernes', 'Sáb':'el sábado', 'S/Cal':'sin día fijo'};
+      const diaTxt = state.days.size === 1 ? (state.days.has(TODAY_LBL) ? 'hoy' : DL[[...state.days][0]]) : 'esos días';
+      main.innerHTML = soloDias
+        ? `<div class="empty"><div class="big">${ICON.search}</div><b>No hay clientes para ${diaTxt}</b><span>${MODO_VENDEDOR ? 'Tu cartera no tiene visitas programadas ese día.' : 'Ninguna cartera tiene visitas ese día.'}</span><button class="clear-btn" id="clearBtn" type="button">Ver todos los días</button></div>`
+        : `<div class="empty"><div class="big">${ICON.search}</div><b>No hay clientes con estos filtros</b><span>Probá con otro nombre, otra ciudad u otro día.</span><button class="clear-btn" id="clearBtn" type="button">Limpiar filtros</button></div>`;
+      $('clearBtn').onclick = () => { state.query = ''; state.days.clear(); state.soloTop = false; $('searchInput').value = ''; refresh(true); };
       return;
     }
-    const hint = filtering()
-      ? `<div class="hint"><b>${(() => { const k = new Set(); current.forEach(v => v.idx.forEach(i => k.add(claveCli(v.c, v.c.cl[i])))); return k.size; })().toLocaleString('es-PY')}</b> clientes en <b>${current.length}</b> carteras. Tocá una para ver sus clientes.</div>`
-      : `<div class="hint">Tocá una cartera para ver sus clientes.</div>`;
+    const unicos = new Set(); let nTop = 0;
+    current.forEach(v => v.idx.forEach(i => { const cl = v.c.cl[i]; unicos.add(claveCli(v.c, cl)); if (cl._top) nTop++; }));
+    const DIA_LARGO = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado', 'S/Cal':'sin día fijo'};
+    const cuando = state.days.size === 1 ? (state.days.has(TODAY_LBL) ? 'Hoy' : 'El ' + DIA_LARGO[[...state.days][0]]) : state.days.size ? 'Esos días' : 'En total';
+    const hint = `<div class="hint"><span>${cuando}: <b>${unicos.size.toLocaleString('es-PY')}</b> ${unicos.size === 1 ? 'cliente' : 'clientes'}${MODO_VENDEDOR ? '' : ` en <b>${current.length}</b> ${current.length === 1 ? 'cartera' : 'carteras'}`}${topEstado === 'ok' && nTop ? `, <b class="hint-top">${nTop} top</b>` : ''}</span></div>`;
     main.innerHTML = hint + current.map(cardHtml).join('');
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
       h.onclick = () => toggle(el.dataset.id);
       h.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(el.dataset.id); } };
     });
-    renderRail();
-    if (searching()) current.forEach(v => expand(v.c.vc, false));
+    if (searching() || MODO_VENDEDOR) current.forEach(v => expand(v.c.vc, false));
     else if (state.openId && findV(state.openId)) expand(state.openId, false);
     else state.openId = null;
   }
-
-  // ---- Barra para saltar entre carteras ----
-  let railActive = null;
-  function renderRail(){
-    const rail = $('rail');
-    rail.innerHTML = current.map(v => `<button type="button" class="rchip" id="r-${esc(v.c.vc)}" data-id="${esc(v.c.vc)}" style="--c:${supColor[v.c.sup] || '#2E5BFF'}"><i></i><b>${esc(v.c.vc)}</b>${isMixto(v.c) ? '⇄ ' : ''}${esc(shortName(v.c))}<small>${v.idx.length}</small></button>`).join('');
-    rail.querySelectorAll('.rchip').forEach(b => b.onclick = () => openCartera(b.dataset.id));
-    railActive = null; syncRail(state.openId || spyId());
-  }
-  function syncRail(id){
-    if (!id || id === railActive) return; railActive = id;
-    document.querySelectorAll('.rchip').forEach(b => b.classList.toggle('active', b.dataset.id === id));
-    const chip = $('r-' + id), rail = $('rail');
-    if (chip) rail.scrollTo({left: chip.offsetLeft - rail.clientWidth / 2 + chip.offsetWidth / 2, behavior: reduceMotion ? 'auto' : 'smooth'});
-  }
-  function spyId(){
-    const off = stickyH() + 24; let best = null;
-    for (const el of document.querySelectorAll('.cartera')){
-      if (el.getBoundingClientRect().top <= off) best = el.dataset.id;
-      else { if (!best) best = el.dataset.id; break; }
-    }
-    return best;
-  }
-  $('collapseAll').onclick = () => { document.querySelectorAll('.cartera.open').forEach(o => collapse(o.dataset.id)); state.openId = null; toast('Carteras cerradas'); };
 
   // Al cambiar un filtro, la lista vuelve a empezar justo debajo de la barra (sin saltos raros)
   function keepTop(){
@@ -453,7 +440,7 @@
     const maxDia = Math.max(1, ...WEEK.map(d => semana[d]));
     const maxCelda = Math.max(1, ...conTop.flatMap(r => WEEK.map(d => r.porDia[d])));
     const DIA_LARGO = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'};
-    const quien = state.spv === 'TODOS' ? 'Todos los supervisores' : state.spv === 'MIXTOS' ? 'Carteras mixtas' : (supLabel[state.spv] || state.spv);
+    const quien = MODO_VENDEDOR ? MI_CARTERA.vc : state.spv === 'TODOS' ? 'Todos los supervisores' : state.spv === 'MIXTOS' ? 'Carteras mixtas' : (supLabel[state.spv] || state.spv);
 
     const barras = WEEK.map(d => `<button type="button" class="tv-day ${d === day ? 'on' : ''} ${d === TODAY_LBL ? 'hoy' : ''}" data-day="${d}" aria-pressed="${d === day}">
         <b>${semana[d]}</b><span class="tv-bar"><i style="height:${Math.round(semana[d] / maxDia * 100)}%"></i></span><em>${d}</em></button>`).join('');
@@ -463,7 +450,7 @@
         <th scope="row"><span class="tv-dot" style="--c:${supColor[r.c.sup] || '#2E5BFF'}"></span><span class="tv-vc">${esc(r.c.vc)}</span><span class="tv-vn">${esc(isVacante(r.c) ? 'Vacante' : shortName(r.c))}</span></th>
         ${WEEK.map(d => celda(r.porDia[d], d)).join('')}<td class="tv-tot">${r.tot}</td></tr>`;
     let cuerpo = '';
-    if (state.spv === 'TODOS'){
+    if (state.spv === 'TODOS' && !MODO_VENDEDOR){
       sups.forEach(sp => {
         const rs = conTop.filter(r => r.c.sup === sp.k); if (!rs.length) return;
         const sd = {}; WEEK.forEach(d => sd[d] = rs.reduce((a,r) => a + r.porDia[d], 0));
@@ -475,7 +462,7 @@
     const sinTop = filasV.length - conTop.length;
     box.innerHTML = `<div class="tv-wrap">
       <div class="tv-head">
-        <h2>Clientes top</h2>
+        <h2>${MODO_VENDEDOR ? 'Tus clientes top' : 'Clientes top'}</h2>
         <p>${esc(quien)}: <b>${totCli}</b> clientes top y <b>${totVis}</b> visitas por semana.</p>
       </div>
       ${conTop.length ? `
@@ -484,14 +471,14 @@
         <div><b>${semana[day]}</b> visitas a clientes top el ${DIA_LARGO[day]}${day === TODAY_LBL ? ' (hoy)' : ''}</div>
         <button type="button" class="tv-cta" id="tvVerRuta">Ver en la ruta</button>
       </div>
-      <div class="tv-table-wrap">
+      ${MODO_VENDEDOR ? '' : `<div class="tv-table-wrap">
         <table class="tv-table">
           <colgroup><col class="c-name">${WEEK.map(() => '<col>').join('')}<col class="c-tot"></colgroup>
           <thead><tr><th scope="col">Cartera</th>${WEEK.map(d => `<th scope="col" class="${d === day ? 'sel' : ''}"><span>${WEEK_LETTER[d]}</span></th>`).join('')}<th scope="col">Clientes</th></tr></thead>
           <tbody>${cuerpo}</tbody>
         </table>
       </div>
-      <p class="tv-note">Tocá una cartera para ver sus clientes top del ${DIA_LARGO[day]} en la ruta.${sinTop ? ` ${sinTop} ${sinTop === 1 ? 'cartera no tiene' : 'carteras no tienen'} clientes top.` : ''}</p>`
+      <p class="tv-note">Tocá una cartera para ver sus clientes top del ${DIA_LARGO[day]} en la ruta.${sinTop ? ` ${sinTop} ${sinTop === 1 ? 'cartera no tiene' : 'carteras no tienen'} clientes top.` : ''}</p>`}`
       : `<div class="tv-state"><b>No hay clientes top en esta selección</b><span>Elegí otro supervisor arriba.</span></div>`}
     </div>`;
 
@@ -508,11 +495,54 @@
     });
   }
 
+  // ---- "¿Cuál es tu cartera?" ----
+  function mostrarElegir(){
+    const box = document.createElement('div');
+    box.id = 'elegir'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'elTit');
+    const lista = APP_DATA.carteras.slice();   // solo carteras TR/TM: la mixta AR se ve junto a su par
+    const grupos = sups.map(sp => ({sp, cs: lista.filter(c => c.sup === sp.k)})).filter(g => g.cs.length);
+    const item = c => `<button type="button" class="el-item" data-vc="${esc(c.vc)}" data-busca="${esc((c.vc + ' ' + c.vn + ' ' + c.vz).toLowerCase())}" style="--c:${supColor[c.sup] || '#2E5BFF'}">
+        <span class="el-av">${esc(initials(c))}</span>
+        <span class="el-txt"><b>${esc(isVacante(c) ? 'Cartera vacante' : c.vn)}</b><small>${esc(c.vc)} · ${esc(c.vz)}${isMixto(c) ? ' · con cartera mixta' : ''}</small></span>
+      </button>`;
+    box.innerHTML = `
+      <div class="el-head">
+        <img src="logo-trentino.png" alt="Trentino S.A." class="el-logo" />
+        <h2 id="elTit">¿Cuál es tu cartera?</h2>
+        <p>Elegila una sola vez. La app la va a recordar en este celular.</p>
+        <div class="search-wrap el-search">
+          <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="elBuscar" type="text" placeholder="Tu nombre o código (ej. TR1338)" autocomplete="off" aria-label="Buscar tu cartera" enterkeyhint="search" />
+        </div>
+      </div>
+      <div class="el-body" id="elBody">
+        ${grupos.map(g => `<section class="el-grupo"><h3><span class="tv-dot" style="--c:${supColor[g.sp.k]}"></span>${esc(g.sp.p)}</h3>${g.cs.map(item).join('')}</section>`).join('')}
+        <p class="el-vacio" id="elVacio" hidden>No encontramos esa cartera. Probá con tu apellido o el código.</p>
+      </div>
+      <div class="el-foot">
+        <button type="button" class="el-todas" id="elTodas">Soy supervisor: ver todas las carteras</button>
+      </div>`;
+    document.body.appendChild(box);
+    document.documentElement.classList.add('cat-abierto');
+    const buscar = $('elBuscar');
+    buscar.addEventListener('input', () => {
+      const q = buscar.value.trim().toLowerCase(); let alguno = false;
+      box.querySelectorAll('.el-grupo').forEach(g => {
+        let n = 0; g.querySelectorAll('.el-item').forEach(b => { const ok = !q || b.dataset.busca.includes(q); b.hidden = !ok; if (ok) n++; });
+        g.hidden = !n; if (n) alguno = true;
+      });
+      $('elVacio').hidden = alguno;
+    });
+    box.querySelectorAll('.el-item').forEach(b => b.onclick = () => { guardar(b.dataset.vc); location.reload(); });
+    $('elTodas').onclick = () => { guardar('TODAS'); location.reload(); };
+  }
+  function cambiarCartera(){ guardar(''); location.href = location.pathname; }
+
   // ---- Secciones: Ruta, Top y Precios (barra inferior) ----
   function setSeccion(s){
     state.seccion = s;
     document.body.dataset.seccion = s;
-    document.querySelectorAll('.bnav-btn[data-sec]').forEach(b => {
+    document.querySelectorAll('.tabbar-btn[data-sec]').forEach(b => {
       const on = b.dataset.sec === s; b.classList.toggle('active', on);
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
@@ -523,7 +553,7 @@
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
     window.scrollTo({top:0});
   }
-  document.querySelectorAll('.bnav-btn[data-sec]').forEach(b => b.onclick = () => { if (state.seccion !== b.dataset.sec) setSeccion(b.dataset.sec); else window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'}); });
+  document.querySelectorAll('.tabbar-btn[data-sec]').forEach(b => b.onclick = () => { if (state.seccion !== b.dataset.sec) setSeccion(b.dataset.sec); else window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'}); });
   const navCat = $('navCatalogo');
   if (navCat) navCat.onclick = () => { if (window.abrirCatalogo) window.abrirCatalogo(); };
   window.RUTEO = { setSeccion };
@@ -569,15 +599,31 @@
       ticking = false;
       $('toTop').classList.toggle('show', window.scrollY > 600);
       const sb = $('stickyBar'); sb.classList.toggle('stuck', sb.getBoundingClientRect().top <= 0 && window.scrollY > 50);
-      if (state.seccion === 'ruta' && state.vista === 'lista') syncRail(spyId());
     });
   }, {passive:true});
   $('toTop').onclick = () => window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'});
 
-  $('footerNote').textContent = `Ruteo actualizado al ${GEN_DATE}`;
+  $('footerNote').innerHTML = `Ruteo actualizado al ${GEN_DATE}<br>Elaborado por Mariza Cañiza, Analista Trentino`;
 
   buildPills();
   buildDays();
+  if (TODAY_LBL) state.days.add(TODAY_LBL);   // la app abre mostrando los clientes de hoy
+  const btnCambiar = $('btnCambiar');
+  if (btnCambiar){
+    if (DESDE_LINK) btnCambiar.hidden = true;
+    else {
+      btnCambiar.textContent = MODO_VENDEDOR ? 'Cambiar cartera' : 'Elegir mi cartera';
+      btnCambiar.onclick = cambiarCartera;
+    }
+  }
+  if (PREGUNTAR) mostrarElegir();
+  if (MODO_VENDEDOR){
+    document.body.classList.add('modo-vendedor');
+    const nom = isVacante(MI_CARTERA) ? 'Cartera ' + MI_CARTERA.vc : MI_CARTERA.vn.split(/\s+/)[0];
+    $('tituloApp').textContent = isVacante(MI_CARTERA) ? nom : 'Hola, ' + nom.charAt(0) + nom.slice(1).toLowerCase();
+    $('subtituloApp').textContent = MI_CARTERA.vc + ' · ' + MI_CARTERA.vz;
+    document.title = MI_CARTERA.vc + ' | Ruteo TR1';
+  }
   setSeccion('ruta');
   refresh(false);
   cargarTop();

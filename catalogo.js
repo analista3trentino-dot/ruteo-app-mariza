@@ -48,7 +48,7 @@ const CATALOGO = {
   const C = CATALOGO, N = C.TOTAL_PAGINAS;
   const pad = n => String(n).padStart(2, '0');
   const src = n => C.CARPETA + 'pag-' + pad(n) + '.webp';
-  const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const catDe = p => C.CATEGORIAS.find(c => p >= c.desde && p <= c.hasta);
 
