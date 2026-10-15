@@ -52,8 +52,8 @@ const CATALOGO = {
   const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const catDe = p => C.CATEGORIAS.find(c => p >= c.desde && p <= c.hasta);
 
-  const boton = document.getElementById('btnCatalogo');
-  if (!boton) return;
+  // Botón que abre el catálogo (en la barra inferior)
+  const boton = document.getElementById('navCatalogo') || document.getElementById('btnCatalogo');
 
   // --- Estructura del visor (se crea al abrirlo por primera vez) ---
   let ov = null, pagesEl, pageLbl, idx, idxSearch, idxList, catChips, obs;
@@ -170,10 +170,11 @@ const CATALOGO = {
     verIndice(false);
     document.documentElement.classList.remove('cat-abierto');
     if (!desdeHistorial && location.hash === '#catalogo') history.back();
-    boton.focus({ preventScroll: true });
+    if (boton) boton.focus({ preventScroll: true });
   }
 
-  boton.addEventListener('click', () => abrir());
+  // La app (barra inferior y lista de precios) abre el catálogo con esta función
+  window.abrirCatalogo = abrir;
   // El botón "atrás" del celular cierra el catálogo en vez de salir de la app
   window.addEventListener('popstate', () => { if (abierto && location.hash !== '#catalogo') cerrar(true); });
   if (location.hash === '#catalogo') { history.replaceState(null, '', location.pathname + location.search); abrir(); }

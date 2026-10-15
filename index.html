@@ -19,10 +19,6 @@
       <div class="logo-chip"><img src="logo-trentino.png" alt="Trentino S.A." /></div>
       <div class="top-actions">
         <div class="today-badge" id="todayBadge"></div>
-        <button type="button" class="cat-btn" id="btnCatalogo" aria-label="Ver catálogo de productos">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg>
-          <span>Catálogo</span>
-        </button>
       </div>
     </div>
     <div class="title-row">
@@ -36,7 +32,7 @@
     <div class="kpi"><b id="kCli">0</b><span>Clientes</span></div>
     <div class="kpi"><b id="kCar">0</b><span>Carteras</span></div>
     <div class="kpi"><b id="kCiu">0</b><span>Ciudades</span></div>
-    <div class="kpi kpi-gps"><b id="kGps">0</b><span>Con GPS <em id="kGpsPct">0%</em></span></div>
+    <div class="kpi kpi-top"><b id="kTop">…</b><span>Top</span></div>
   </section>
 
   <div class="sticky" id="stickyBar">
@@ -71,10 +67,36 @@
     <div id="leafletMap"></div>
   </div>
 
+  <!-- Clientes top: visitas por día -->
+  <section id="topView" hidden></section>
+
+  <!-- Lista de precios -->
+  <section id="preciosView" hidden></section>
+
   <footer id="footerNote"></footer>
 </div>
 <button class="fab" id="toTop" type="button" aria-label="Volver arriba"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg></button>
 <div id="toast" role="status" aria-live="polite"></div>
+
+<!-- Barra de navegación inferior -->
+<nav class="bnav" aria-label="Secciones">
+  <button type="button" class="bnav-btn active" data-sec="ruta">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>
+    <span>Ruta</span>
+  </button>
+  <button type="button" class="bnav-btn" data-sec="top">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>
+    <span>Top</span>
+  </button>
+  <button type="button" class="bnav-btn" id="navCatalogo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg>
+    <span>Catálogo</span>
+  </button>
+  <button type="button" class="bnav-btn" data-sec="precios">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.6"/></svg>
+    <span>Precios</span>
+  </button>
+</nav>
 
 
 <!-- Datos -->
@@ -82,9 +104,13 @@
 <script src="data-mix.js"></script>
 <!-- Nombres de vendedores (editar aquí) -->
 <script src="vendedores.js"></script>
-<!-- Lógica de la aplicación -->
-<script src="app.js"></script>
+<!-- Lector de Excel (clientes top y precios) -->
+<script src="excel.js"></script>
 <!-- Catálogo de productos -->
 <script src="catalogo.js"></script>
+<!-- Lista de precios -->
+<script src="precios.js"></script>
+<!-- Lógica de la aplicación -->
+<script src="app.js"></script>
 </body>
 </html>

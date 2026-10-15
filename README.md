@@ -1,28 +1,32 @@
 # Ruteo por Carteras · TR1 · Trentino
 
-App web de ruteo de vendedores TR1 (lista + mapa), publicada con GitHub Pages.
+App web de ruteo de vendedores TR1, publicada con GitHub Pages.
 
-## Estructura
+## Secciones (barra de abajo)
 
-```
-index.html            Estructura de la página (encabezado, KPIs, filtros, lista, mapa)
-css/styles.css        Todos los estilos (colores, tipografía, tarjetas, mapa)
-js/data.js            APP_DATA: supervisores, carteras y clientes
-js/data-mix.js        APP_DATA_MIX: carteras de vendedores mixtos
-js/app.js             Lógica: filtros, búsqueda, días, visitas, mapa Leaflet
-assets/logo-trentino.png
-```
+- **Ruta**: carteras y clientes (con su código), lista o mapa, filtros por día y "Top".
+- **Top**: cuántos clientes top hay que visitar cada día, por supervisor y por cartera.
+- **Catálogo**: catálogo de productos 2025 (páginas `pag-01.webp` … `pag-77.webp`).
+- **Precios**: lista 25 y lista 35, con buscador.
 
-## Orden de carga (no cambiar)
+## Qué archivo actualizar para cada cosa
 
-1. Leaflet (CDN) en el `<head>`
-2. `js/data.js` → `js/data-mix.js` → `js/app.js` al final del `<body>`
+| Quiero cambiar…                 | Archivo                                   | Cómo                                   |
+|---------------------------------|-------------------------------------------|----------------------------------------|
+| Nombre del vendedor de una cartera | `vendedores.js`                        | Editar en GitHub con el lápiz          |
+| Clientes top                    | `clientes_top.xlsx`                       | Subir el Excel nuevo con ese nombre    |
+| Precios                         | `lista_precios_25.xlsx`, `lista_precios_35.xlsx` | Subir el Excel nuevo con ese nombre |
+| Colores y diseño                | `styles.css`                              | Editar en GitHub                       |
+| Clientes, días y GPS            | `data.js`, `data-mix.js`                  | Pedir que se regeneren                 |
 
-`app.js` usa las variables globales `APP_DATA` y `APP_DATA_MIX`, por eso los
-archivos de datos deben cargarse antes.
+Los Excel se leen tal como salen del sistema: la app busca sola la fila de títulos
+(no importa si arriba están los "Filtros aplicados").
 
-## Actualizar datos
+- `clientes_top.xlsx` necesita las columnas **Vendedor** y **Subcliente**.
+- Las listas de precios necesitan **cod_articulo, desc_articulo, referencia,
+  precio_unitario, precio_caja** (y opcional **cod_barra**).
 
-Para refrescar clientes o carteras, reemplazá solo `js/data.js` y/o
-`js/data-mix.js` (y la fecha `GEN_DATE` al inicio de `js/app.js`).
-El diseño y la lógica no se tocan.
+## Archivos de la app (no hace falta tocarlos)
+
+`index.html`, `app.js`, `excel.js`, `precios.js`, `catalogo.js`, `xlsx.mini.min.js`
+(librería para leer Excel, SheetJS, licencia Apache 2.0), `logo-trentino.png`.
