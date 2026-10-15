@@ -45,7 +45,7 @@ const VENDEDORES = {
 
   // ---------- ST. CAACUPE ----------
   "TR1621": "LORENA MENDEZ",                   // PV. SUPER CAACUPE
-  "TR1632": "TONMY GIMENEZ",                   // VD. ZONAL CAACUPE
+  "TR1632": "TOMMY GIMENEZ",                   // VD. ZONAL CAACUPE
   "TR1633": "RUTH VERA",                       // RV. SANBER
   "TR1634": "MARIBEL REYES",                   // RV. ALTOS/ATYRA
   "TR1635": "MARIA GONZALEZ",                  // RV. TOBATI
