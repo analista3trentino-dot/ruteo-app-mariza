@@ -57,7 +57,7 @@ const VENDEDORES = {
   "TR1732": "KEVIN MONGES",                    // RV.  LIMPIO
   "TR1733": "CARTERA VACANTE",                 // RV. EMBOSCADA
   "TR1734": "JOSEFINA ACOSTA",                 // RV. ARROYOS ESTEROS
-  "TR1735": "NILDA BARRIENTOS",                // RV. VILLA HAYES/REMAN.
+  "TR1735": "CARTERA VACANTE",                // RV. VILLA HAYES/REMAN.
   "TR1737": "INGRID CASTRO",                   // RV. BENJAMIN ACEVAL
 
   // ---------- ST. PARAGUARI ----------
