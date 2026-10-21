@@ -10,7 +10,7 @@
 <title>Ruteo por Carteras TR1 | Trentino</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<link rel="stylesheet" href="styles.css?v=20261015c" />
+<link rel="stylesheet" href="styles.css?v=20261021c" />
 </head>
 <body>
 <div id="app">
@@ -60,6 +60,9 @@
   <!-- Clientes top: visitas por día -->
   <section id="topView" hidden></section>
 
+  <!-- Visitas (supervisores) -->
+  <section id="visitasView" hidden></section>
+
   <!-- Lista de precios -->
   <section id="preciosView" hidden></section>
 
@@ -78,6 +81,10 @@
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>
     <span>Top</span>
   </button>
+  <button type="button" class="tabbar-btn tab-visitas" data-sec="visitas">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+    <span>Visitas</span>
+  </button>
   <button type="button" class="tabbar-btn" id="navCatalogo">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg>
     <span>Catálogo</span>
@@ -90,17 +97,21 @@
 
 
 <!-- Datos -->
-<script src="data.js?v=20261015c"></script>
-<script src="data-mix.js?v=20261015c"></script>
+<script src="data.js?v=20261021c"></script>
+<script src="data-mix.js?v=20261021c"></script>
+<!-- Clave de supervisores -->
+<script src="config.js?v=20261021c"></script>
 <!-- Nombres de vendedores (editar aquí) -->
-<script src="vendedores.js?v=20261015c"></script>
+<script src="vendedores.js?v=20261021c"></script>
 <!-- Lector de Excel (clientes top y precios) -->
-<script src="excel.js?v=20261015c"></script>
+<script src="excel.js?v=20261021c"></script>
 <!-- Catálogo de productos -->
-<script src="catalogo.js?v=20261015c"></script>
+<script src="catalogo.js?v=20261021c"></script>
+<!-- Visitas (supervisores) -->
+<script src="visitas.js?v=20261021c"></script>
 <!-- Lista de precios -->
-<script src="precios.js?v=20261015c"></script>
+<script src="precios.js?v=20261021c"></script>
 <!-- Lógica de la aplicación -->
-<script src="app.js?v=20261015c"></script>
+<script src="app.js?v=20261021c"></script>
 </body>
 </html>

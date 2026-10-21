@@ -2,8 +2,14 @@
 //  LISTA DE PRECIOS
 // ---------------------------------------------------------------------
 //  La app lee los precios directamente de estos Excel subidos a GitHub.
-//  Para actualizar precios: subí el Excel nuevo con el MISMO nombre de
-//  archivo y confirmá los cambios. No hace falta tocar nada más.
+//
+//  CÓMO ACTUALIZAR (solo quien tiene acceso a GitHub puede hacerlo):
+//   1. Exportá del sistema el listado de precios (lista 25 y lista 35).
+//   2. Renombrá cada archivo: lista_precios_25.xlsx y lista_precios_35.xlsx
+//   3. En GitHub: Agregar archivo > Subir archivos > arrastrá los dos >
+//      Confirmar cambios. Reemplazan a los anteriores.
+//   Productos nuevos aparecen solos; los que no vengan en el Excel, desaparecen.
+//   La app muestra la fecha de la última actualización de cada lista.
 //
 //  El Excel tiene que tener estas columnas (como el listado del sistema):
 //  cod_articulo, cod_barra, desc_articulo, referencia,
@@ -84,8 +90,23 @@ const LISTAS_PRECIOS = [
   let productos = null, cargando = null, error = '';
   let filtro = { q: '', cat: '' }, mostrados = POR_PAGINA;
 
+  // Fecha en que se subió cada archivo a GitHub (para mostrar "actualizada el…")
+  const fechas = {};
+  function buscarFechas() {
+    const host = location.hostname, partes = location.pathname.split('/').filter(Boolean);
+    if (!/\.github\.io$/.test(host) || !partes.length) return;
+    const owner = host.split('.')[0], repo = partes[0];
+    LISTAS_PRECIOS.forEach(l => {
+      fetch(`https://api.github.com/repos/${owner}/${repo}/commits?path=${encodeURIComponent(l.archivo)}&per_page=1`)
+        .then(r => r.ok ? r.json() : null)
+        .then(j => { const d = j && j[0] && j[0].commit && j[0].commit.committer && j[0].commit.committer.date; if (d) { fechas[l.archivo] = new Date(d); pintar(); } })
+        .catch(() => {});
+    });
+  }
+
   function cargar() {
     if (productos || cargando) return cargando;
+    buscarFechas();
     cargando = Promise.all(LISTAS_PRECIOS.map(l =>
       window.leerExcel(l.archivo, ['cod_articulo', 'desc_articulo', 'precio_unitario', 'precio_caja'])
         .then(r => ({ l, filas: r.filas }))
@@ -202,7 +223,8 @@ const LISTAS_PRECIOS = [
     }
     pintarCats();
     const res = filtrar();
-    $('pvResumen').innerHTML = `${productos.length.toLocaleString('es-PY')} productos. Precios en guaraníes, por unidad y por caja.${error ? ` <span class="pv-warn">${esc(error)}</span>` : ''}`;
+    const fTxt = LISTAS_PRECIOS.filter(l => fechas[l.archivo]).map(l => `${esc(l.nombre)}: ${fechas[l.archivo].toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+    $('pvResumen').innerHTML = `${productos.length.toLocaleString('es-PY')} productos, en guaraníes por unidad y por caja.${fTxt.length ? `<br><span class="pv-fecha">Actualizado: ${fTxt.join(' · ')}</span>` : ''}${error ? ` <span class="pv-warn">${esc(error)}</span>` : ''}`;
     if (!res.length) {
       lista.innerHTML = `<div class="pv-state"><b>No hay productos con "${esc($('pvBuscar').value.trim())}"</b><span>Probá con otra palabra, el código o el código de barras.</span><button type="button" class="clear-btn" id="pvReset">Ver todos los productos</button></div>`;
       $('pvReset').onclick = () => { $('pvBuscar').value = ''; filtro = { q: '', cat: '' }; mostrados = POR_PAGINA; pintar(); };

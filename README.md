@@ -15,6 +15,14 @@ La primera vez que se abre el link general en un celular, la app pregunta "¿Cu�
 El vendedor la elige y queda guardada en ese celular. Arriba hay un botón "Cambiar cartera".
 Los supervisores eligen "Soy supervisor: ver todas las carteras".
 
+## Visitas (supervisores)
+
+La sección **Visitas** aparece solo en modo supervisor. Lee `visitas.xlsx`
+(el Excel de marcaciones del sistema, del día 1 del mes hasta ayer).
+Cruza cada visita con el ruteo **por código de cliente** y muestra, por día y por mes:
+cumplimiento del ruteo (la visita vale aunque haya sido otro día) y clientes visitados.
+Para entrar como supervisor se pide la clave que está en `config.js`.
+
 ## Link por vendedor
 
 Agregando `?c=CÓDIGO` al link, la app abre solo esa cartera (y su cartera mixta AR si tiene),
@@ -30,7 +38,9 @@ El link sin `?c=` es el general (supervisores y jefatura).
 |---------------------------------|-------------------------------------------|----------------------------------------|
 | Nombre del vendedor de una cartera | `vendedores.js`                        | Editar en GitHub con el lápiz          |
 | Clientes top                    | `clientes_top.xlsx`                       | Subir el Excel nuevo con ese nombre    |
-| Precios                         | `lista_precios_25.xlsx`, `lista_precios_35.xlsx` | Subir el Excel nuevo con ese nombre |
+| Visitas (control de ruteo)      | `visitas.xlsx`                            | Cada mañana: exportar las marcaciones del mes, renombrar y subir |
+| Clave de supervisores           | `config.js`                               | Editar en GitHub con el lápiz          |
+| Precios                         | `lista_precios_25.xlsx`, `lista_precios_35.xlsx` | Exportar del sistema, renombrar y subir (la app muestra la fecha de actualización) |
 | Colores y diseño                | `styles.css`                              | Editar en GitHub                       |
 | Clientes, días y GPS            | `data.js`, `data-mix.js`                  | Pedir que se regeneren                 |
 

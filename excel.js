@@ -60,5 +60,6 @@
   }
 
   window.leerExcel = leerExcel;
+  window.cargarExcelLib = cargarLibreria;
   window.normCol = norm;
 })();

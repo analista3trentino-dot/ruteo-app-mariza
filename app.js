@@ -21,7 +21,13 @@
   const leerGuardada = () => { try { return localStorage.getItem(CLAVE_CARTERA) || ''; } catch(e){ return ''; } };
   const guardar = v => { try { if (v) localStorage.setItem(CLAVE_CARTERA, v); else localStorage.removeItem(CLAVE_CARTERA); } catch(e){} };
   const PARAM_C = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
-  const GUARDADA = leerGuardada();
+  // Modo supervisor protegido con clave (config.js)
+  const CLAVE = (typeof CLAVE_SUPERVISORES !== 'undefined' ? String(CLAVE_SUPERVISORES) : '').trim();
+  const huella = t => { let h = 5381; for (const ch of String(t)) h = ((h << 5) + h + ch.charCodeAt(0)) | 0; return 'k' + (h >>> 0).toString(36); };
+  const CLAVE_OK = 'ruteoTR1_supOK';
+  const supValido = () => { if (!CLAVE) return true; try { return localStorage.getItem(CLAVE_OK) === huella(CLAVE); } catch(e){ return false; } };
+  let GUARDADA = leerGuardada();
+  if (GUARDADA === 'TODAS' && !supValido()) GUARDADA = '';   // sin clave válida vuelve a preguntar
   const ELEGIDA = PARAM_C || (GUARDADA !== 'TODAS' ? GUARDADA : '');
   const MI_CARTERA = carteras.find(c => c.vc.toUpperCase() === ELEGIDA) || null;
   const MODO_VENDEDOR = !!MI_CARTERA;
@@ -99,6 +105,7 @@
       state.spv = b.dataset.k; state.openId = null;
       $('vendedorSelect').value = 'TODOS';
       syncPills(); refresh(true); renderTop();
+      if (window.Visitas) window.Visitas.refrescar();
     });
     syncPills();
   }
@@ -520,7 +527,12 @@
         <p class="el-vacio" id="elVacio" hidden>No encontramos esa cartera. Probá con tu apellido o el código.</p>
       </div>
       <div class="el-foot">
-        <button type="button" class="el-todas" id="elTodas">Soy supervisor: ver todas las carteras</button>
+        <button type="button" class="el-todas" id="elTodas">Soy supervisor</button>
+        <form class="el-clave" id="elClave" hidden autocomplete="off">
+          <label for="elClaveIn">Clave de supervisor</label>
+          <div class="el-clave-row"><input id="elClaveIn" type="password" inputmode="text" autocomplete="off" enterkeyhint="go" /><button type="submit">Entrar</button></div>
+          <p class="el-err" id="elErr" hidden>La clave no es correcta. Pedísela a tu jefatura.</p>
+        </form>
       </div>`;
     document.body.appendChild(box);
     document.documentElement.classList.add('cat-abierto');
@@ -534,7 +546,17 @@
       $('elVacio').hidden = alguno;
     });
     box.querySelectorAll('.el-item').forEach(b => b.onclick = () => { guardar(b.dataset.vc); location.reload(); });
-    $('elTodas').onclick = () => { guardar('TODAS'); location.reload(); };
+    $('elTodas').onclick = () => {
+      if (!CLAVE){ guardar('TODAS'); location.reload(); return; }
+      $('elTodas').hidden = true; $('elClave').hidden = false; $('elClaveIn').focus();
+    };
+    $('elClave').onsubmit = e => {
+      e.preventDefault();
+      if ($('elClaveIn').value.trim() === CLAVE){
+        try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(err){}
+        guardar('TODAS'); location.reload();
+      } else { $('elErr').hidden = false; $('elClaveIn').select(); }
+    };
   }
   function cambiarCartera(){ guardar(''); location.href = location.pathname; }
 
@@ -548,6 +570,8 @@
     });
     $('topView').hidden = s !== 'top';
     $('preciosView').hidden = s !== 'precios';
+    $('visitasView').hidden = s !== 'visitas';
+    if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
     if (s === 'top') renderTop();
     if (s === 'precios' && window.Precios) window.Precios.mostrar();
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
@@ -556,7 +580,11 @@
   document.querySelectorAll('.tabbar-btn[data-sec]').forEach(b => b.onclick = () => { if (state.seccion !== b.dataset.sec) setSeccion(b.dataset.sec); else window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'}); });
   const navCat = $('navCatalogo');
   if (navCat) navCat.onclick = () => { if (window.abrirCatalogo) window.abrirCatalogo(); };
-  window.RUTEO = { setSeccion };
+  window.RUTEO = {
+    setSeccion, carteras, sups, supLabel, supColor, isMixto, isVacante,
+    getSpv: () => state.spv,
+    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
+  };
 
   // ---- Lista / Mapa ----
   function setVista(v){
@@ -617,6 +645,7 @@
     }
   }
   if (PREGUNTAR) mostrarElegir();
+  if (!MODO_VENDEDOR) document.body.classList.add('modo-supervisor');
   if (MODO_VENDEDOR){
     document.body.classList.add('modo-vendedor');
     const nom = isVacante(MI_CARTERA) ? 'Cartera ' + MI_CARTERA.vc : MI_CARTERA.vn.split(/\s+/)[0];
