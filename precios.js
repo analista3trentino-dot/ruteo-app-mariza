@@ -1,21 +1,23 @@
 // =====================================================================
 //  LISTA DE PRECIOS
 // ---------------------------------------------------------------------
-//  La app lee los precios directamente de estos Excel subidos a GitHub.
-//
 //  CÓMO ACTUALIZAR (solo quien tiene acceso a GitHub puede hacerlo):
-//   1. Exportá del sistema el listado de precios (lista 25 y lista 35).
-//   2. Renombrá cada archivo: lista_precios_25.xlsx y lista_precios_35.xlsx
-//   3. En GitHub: Agregar archivo > Subir archivos > arrastrá los dos >
-//      Confirmar cambios. Reemplazan a los anteriores.
-//   Productos nuevos aparecen solos; los que no vengan en el Excel, desaparecen.
-//   La app muestra la fecha de la última actualización de cada lista.
+//   Exportá del sistema el listado de precios y subilo a la carpeta
+//   "precios" de GitHub, con el nombre que traiga. No hace falta renombrar.
+//   La app reconoce sola de qué lista es (columna cod_lista_precio) y usa
+//   el archivo más nuevo de cada lista. Si cambió una sola lista, subí solo esa.
 //
 //  El Excel tiene que tener estas columnas (como el listado del sistema):
-//  cod_articulo, cod_barra, desc_articulo, referencia,
-//  precio_unitario, precio_caja
+//  cod_articulo, desc_articulo, referencia, cod_lista_precio,
+//  precio_unitario, precio_caja (y opcional cod_barra)
 // =====================================================================
 
+const CARPETA_PRECIOS = 'precios';
+
+// Nombre que se muestra para cada lista (opcional)
+const NOMBRES_LISTAS = { '25': 'Lista 25', '35': 'Lista 35' };
+
+// Respaldo: si no hay carpeta "precios", se usan estos archivos de la raíz
 const LISTAS_PRECIOS = [
   { archivo: 'lista_precios_25.xlsx', nombre: 'Lista 25' },
   { archivo: 'lista_precios_35.xlsx', nombre: 'Lista 35' }
@@ -90,47 +92,55 @@ const LISTAS_PRECIOS = [
   let productos = null, cargando = null, error = '';
   let filtro = { q: '', cat: '' }, mostrados = POR_PAGINA;
 
-  // Fecha en que se subió cada archivo a GitHub (para mostrar "actualizada el…")
-  const fechas = {};
-  function buscarFechas() {
-    const host = location.hostname, partes = location.pathname.split('/').filter(Boolean);
-    if (!/\.github\.io$/.test(host) || !partes.length) return;
-    const owner = host.split('.')[0], repo = partes[0];
-    LISTAS_PRECIOS.forEach(l => {
-      fetch(`https://api.github.com/repos/${owner}/${repo}/commits?path=${encodeURIComponent(l.archivo)}&per_page=1`)
-        .then(r => r.ok ? r.json() : null)
-        .then(j => { const d = j && j[0] && j[0].commit && j[0].commit.committer && j[0].commit.committer.date; if (d) { fechas[l.archivo] = new Date(d); pintar(); } })
-        .catch(() => {});
-    });
+  // Listas encontradas: [{id, nombre, fecha, archivo}]
+  let LISTAS = [];
+  const COLS = ['cod_articulo', 'desc_articulo', 'precio_unitario', 'precio_caja'];
+
+  async function fuentes() {
+    try {
+      const c = window.Archivos ? await window.Archivos.ultimos(CARPETA_PRECIOS) : [];
+      if (c.length) return c.slice(0, 6).map(f => ({ url: f.url, archivo: f.nombre, fecha: f.fecha }));
+    } catch (e) {}
+    return LISTAS_PRECIOS.map(l => ({ url: l.archivo, archivo: l.archivo, fecha: null, id: (l.archivo.match(/(\d{2,3})/) || [])[1] || l.nombre }));
   }
 
   function cargar() {
     if (productos || cargando) return cargando;
-    buscarFechas();
-    cargando = Promise.all(LISTAS_PRECIOS.map(l =>
-      window.leerExcel(l.archivo, ['cod_articulo', 'desc_articulo', 'precio_unitario', 'precio_caja'])
-        .then(r => ({ l, filas: r.filas }))
-        .catch(e => ({ l, filas: [], err: e.message || String(e) }))
-    )).then(res => {
+    cargando = (async () => {
+      const fs = await fuentes();
+      const tomadas = new Map();   // id de lista -> filas (del archivo más nuevo)
+      const fallas = [];
+      for (const f of fs) {
+        let filas;
+        try { filas = (await window.leerExcel(f.url, COLS)).filas; } catch (e) { fallas.push(f.archivo); continue; }
+        const porLista = new Map();
+        filas.forEach(r => {
+          const id = String(r['cod lista precio'] || f.id || (f.archivo.match(/(\d{2,3})(?!.*\d)/) || [])[1] || 'Lista').trim();
+          if (!porLista.has(id)) porLista.set(id, []);
+          porLista.get(id).push(r);
+        });
+        porLista.forEach((rs, id) => { if (!tomadas.has(id)) tomadas.set(id, { filas: rs, fecha: f.fecha, archivo: f.archivo }); });
+      }
+      LISTAS = [...tomadas.keys()].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || a.localeCompare(b))
+        .map(id => ({ id, nombre: NOMBRES_LISTAS[id] || (/^\d+$/.test(id) ? 'Lista ' + id : id), fecha: tomadas.get(id).fecha, archivo: tomadas.get(id).archivo }));
       const map = new Map();
-      res.forEach((r, li) => r.filas.forEach(f => {
+      LISTAS.forEach(L => tomadas.get(L.id).filas.forEach(f => {
         const cod = String(f['cod articulo']).trim(); if (!cod) return;
         let p = map.get(cod);
         if (!p) {
           const desc = f['desc articulo'] || '';
-          p = { cod, desc, ref: f['referencia'] || '', barra: String(f['cod barra'] || '').replace(/[^\d]/g, ''), precios: [], ...clasificar(desc) };
+          p = { cod, desc, ref: f['referencia'] || '', barra: String(f['cod barra'] || '').replace(/[^\d]/g, ''), precios: {}, ...clasificar(desc) };
           p.busca = norm(p.desc + ' ' + p.ref + ' ' + p.cod + ' ' + p.barra + ' ' + (p.marca || ''));
           map.set(cod, p);
         }
-        p.precios[li] = { u: num(f['precio unitario']), c: num(f['precio caja']) };
+        p.precios[L.id] = { u: num(f['precio unitario']), c: num(f['precio caja']) };
       }));
       productos = [...map.values()];
-      const fallas = res.filter(r => r.err);
-      if (!productos.length) error = fallas.map(f => f.err).join(' · ') || 'Los archivos no tienen productos.';
-      else if (fallas.length) error = 'No se pudo leer: ' + fallas.map(f => f.l.archivo).join(', ');
+      if (!productos.length) error = fallas.length ? 'No se pudo leer: ' + fallas.join(', ') : 'Todavía no se subió ninguna lista de precios.';
+      else if (fallas.length) error = 'No se pudo leer: ' + fallas.join(', ');
       cargando = null;
       pintar();
-    });
+    })();
     return cargando;
   }
 
@@ -152,7 +162,7 @@ const LISTAS_PRECIOS = [
             <button class="x-btn" id="pvLimpiar" type="button" aria-label="Borrar búsqueda">✕</button>
           </div>
           <div class="pv-cats" id="pvCats"></div>
-          <div class="pv-cols" aria-hidden="true"><span>Producto</span>${LISTAS_PRECIOS.map(l => `<span>${esc(l.nombre)}</span>`).join('')}</div>
+          <div class="pv-cols" id="pvCols" aria-hidden="true"></div>
         </div>
         <div id="pvLista" class="pv-list"></div>
       </div>`;
@@ -198,8 +208,8 @@ const LISTAS_PRECIOS = [
   }
 
   function filaHtml(p) {
-    const precios = LISTAS_PRECIOS.map((l, i) => {
-      const pr = p.precios[i];
+    const precios = LISTAS.map(L => {
+      const pr = p.precios[L.id];
       return pr ? `<div class="pv-price"><b>${gs(pr.u)}</b><span>caja ${gs(pr.c)}</span></div>` : `<div class="pv-price none"><b>—</b><span>sin precio</span></div>`;
     }).join('');
     return `<article class="pv-item">
@@ -218,12 +228,14 @@ const LISTAS_PRECIOS = [
     if (!productos) { lista.innerHTML = `<div class="pv-state"><b>Cargando precios…</b></div>`; return; }
     if (!productos.length) {
       $('pvResumen').textContent = 'No se pudieron cargar los precios.';
-      lista.innerHTML = `<div class="pv-state"><b>No se pudo leer la lista de precios</b><span>Revisá que los archivos ${LISTAS_PRECIOS.map(l => `<code>${esc(l.archivo)}</code>`).join(' y ')} estén subidos en GitHub. (${esc(error)})</span></div>`;
+      lista.innerHTML = `<div class="pv-state"><b>No hay lista de precios para mostrar</b><span>Subí el Excel del sistema a la carpeta <code>${esc(CARPETA_PRECIOS)}</code> de GitHub. (${esc(error)})</span></div>`;
       return;
     }
     pintarCats();
+    $('pvCols').innerHTML = `<span>Producto</span>` + LISTAS.map(L => `<span>${esc(L.nombre)}</span>`).join('');
+    document.documentElement.style.setProperty('--pv-n', LISTAS.length || 1);
     const res = filtrar();
-    const fTxt = LISTAS_PRECIOS.filter(l => fechas[l.archivo]).map(l => `${esc(l.nombre)}: ${fechas[l.archivo].toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+    const fTxt = LISTAS.filter(L => L.fecha).map(L => `${esc(L.nombre)}: ${L.fecha.toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}`);
     $('pvResumen').innerHTML = `${productos.length.toLocaleString('es-PY')} productos, en guaraníes por unidad y por caja.${fTxt.length ? `<br><span class="pv-fecha">Actualizado: ${fTxt.join(' · ')}</span>` : ''}${error ? ` <span class="pv-warn">${esc(error)}</span>` : ''}`;
     if (!res.length) {
       lista.innerHTML = `<div class="pv-state"><b>No hay productos con "${esc($('pvBuscar').value.trim())}"</b><span>Probá con otra palabra, el código o el código de barras.</span><button type="button" class="clear-btn" id="pvReset">Ver todos los productos</button></div>`;

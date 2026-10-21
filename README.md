@@ -38,9 +38,9 @@ El link sin `?c=` es el general (supervisores y jefatura).
 |---------------------------------|-------------------------------------------|----------------------------------------|
 | Nombre del vendedor de una cartera | `vendedores.js`                        | Editar en GitHub con el lápiz          |
 | Clientes top                    | `clientes_top.xlsx`                       | Subir el Excel nuevo con ese nombre    |
-| Visitas (control de ruteo)      | `visitas.xlsx`                            | Cada mañana: exportar las marcaciones del mes, renombrar y subir |
+| Visitas (control de ruteo)      | carpeta `visitas/`                        | Cada mañana: subir el Excel de marcaciones con el nombre que traiga |
 | Clave de supervisores           | `config.js`                               | Editar en GitHub con el lápiz          |
-| Precios                         | `lista_precios_25.xlsx`, `lista_precios_35.xlsx` | Exportar del sistema, renombrar y subir (la app muestra la fecha de actualización) |
+| Precios                         | carpeta `precios/`                        | Subir el listado del sistema con el nombre que traiga |
 | Colores y diseño                | `styles.css`                              | Editar en GitHub                       |
 | Clientes, días y GPS            | `data.js`, `data-mix.js`                  | Pedir que se regeneren                 |
 
@@ -60,3 +60,14 @@ Los Excel se leen tal como salen del sistema: la app busca sola la fila de títu
 
 En `index.html` cada archivo lleva una marca de versión (`?v=…`) para que los celulares
 descarguen siempre la versión nueva y no mezclen archivos viejos con nuevos.
+
+## Carpetas `visitas` y `precios`
+
+Los Excel se suben dentro de estas carpetas **con el nombre que traen del sistema**.
+La app (`archivos.js`) consulta a GitHub qué archivos hay y usa el más nuevo:
+- **visitas/**: el Excel de marcaciones más reciente.
+- **precios/**: el listado más reciente de cada lista (la detecta por la columna `cod_lista_precio`).
+
+Los archivos viejos pueden quedar; cada tanto se pueden borrar para ordenar.
+Si una carpeta no existe, la app usa los archivos de respaldo de la raíz
+(`visitas.xlsx`, `lista_precios_25.xlsx`, `lista_precios_35.xlsx`).

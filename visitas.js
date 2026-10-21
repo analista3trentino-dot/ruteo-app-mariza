@@ -2,15 +2,15 @@
 //  VISITAS (solo supervisores)
 // ---------------------------------------------------------------------
 //  Cada mañana: exportá del sistema el Excel de marcaciones de visitas
-//  (desde el día 1 del mes hasta ayer), renombralo "visitas.xlsx" y
-//  subilo a GitHub reemplazando el anterior. Los supervisores ven el
-//  resumen actualizado al abrir la sección "Visitas".
+//  (desde el día 1 del mes hasta ayer) y subilo a la carpeta "visitas"
+//  de GitHub, con el nombre que traiga. La app toma sola el más nuevo.
 //
 //  El Excel necesita las columnas: Cartera, Subcliente (o Cliente) y
 //  Date (o Fecha). Opcionales: Nombre, Primera marcación, Última marcación.
 // =====================================================================
 
-const ARCHIVO_VISITAS = 'visitas.xlsx';
+const CARPETA_VISITAS = 'visitas';
+const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca este archivo
 
 
 // ---------------------------------------------------------------------
@@ -53,11 +53,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';
     if (typeof v === 'number'){ const s = Math.round((v - Math.floor(v)) * 86400); return pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s % 3600 / 60)); }
     const m = String(v).match(/(\d{1,2}):(\d{2})/); return m ? pad(m[1]) + ':' + m[2] : '';
   }
-  async function leer(){
-    if (!window.cargarExcelLib) throw new Error('Falta excel.js');
-    const [XLSX, resp] = await Promise.all([window.cargarExcelLib(), fetch(ARCHIVO_VISITAS, {cache: 'no-cache'})]);
-    if (!resp.ok) throw new Error(`Todavía no se subió el archivo "${ARCHIVO_VISITAS}"`);
-    const wb = XLSX.read(await resp.arrayBuffer(), {type: 'array'});
+  function procesar(XLSX, buf){
+    const wb = XLSX.read(buf, {type: 'array'});
     for (const sn of wb.SheetNames){
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false});
       for (let i = 0; i < Math.min(rows.length, 40); i++){
@@ -65,20 +62,37 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';
         const cS = h.findIndex(x => x === 'subcliente' || x === 'cliente'), cC = h.indexOf('cartera'), cD = h.findIndex(x => x === 'date' || x === 'fecha');
         if (cS < 0 || cC < 0 || cD < 0) continue;
         const c1 = h.findIndex(x => x.startsWith('primera')), c2 = h.findIndex(x => x.startsWith('ultima'));
-        const cV = h.findIndex(x => x.startsWith('cant_clientes_con_venta')), cM = h.findIndex(x => x.startsWith('monto_venta'));
-        const num = v => { const n = typeof v === 'number' ? v : parseFloat(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
         const out = [];
         for (let k = i + 1; k < rows.length; k++){
           const r = rows[k]; if (!r) continue;
           const vc = String(r[cC] == null ? '' : r[cC]).trim().toUpperCase(), sub = String(r[cS] == null ? '' : r[cS]).trim(), d = aISO(r[cD]);
           if (!vc || !sub || !d) continue;
           const m = sub.match(CODE_RX);
-          out.push({vc, code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : '', venta: cV >= 0 && num(r[cV]) > 0 ? 1 : 0, monto: cM >= 0 ? num(r[cM]) : 0});
+          out.push({vc, code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
         }
         if (out.length) return out;
       }
     }
-    throw new Error(`"${ARCHIVO_VISITAS}" no tiene las columnas Cartera, Subcliente y Date`);
+    return null;
+  }
+  async function leer(){
+    if (!window.cargarExcelLib) throw new Error('Falta excel.js');
+    const XLSX = await window.cargarExcelLib();
+    // 1) El Excel más nuevo de la carpeta "visitas" (con cualquier nombre)
+    let candidatos = [];
+    try { candidatos = window.Archivos ? await window.Archivos.ultimos(CARPETA_VISITAS) : []; } catch(e){ candidatos = []; }
+    for (const f of candidatos.slice(0, 4)){
+      try {
+        const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
+        const regs = procesar(XLSX, await r.arrayBuffer()); if (regs) return regs;
+      } catch(e){}
+    }
+    // 2) Respaldo: visitas.xlsx en la raíz
+    const r = await fetch(ARCHIVO_VISITAS, {cache: 'no-cache'});
+    if (!r.ok) throw new Error('Todavía no se subió ningún Excel de visitas');
+    const regs = procesar(XLSX, await r.arrayBuffer());
+    if (!regs) throw new Error('El Excel de visitas no tiene las columnas Cartera, Subcliente y Date');
+    return regs;
   }
 
   // --- Índice: visitas cruzadas con el ruteo por código (si no hay código, por nombre) ---
@@ -215,7 +229,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';
     const RU = window.RUTEO;
     if (estado !== 'ok'){
       box.innerHTML = `<div class="vs-wrap"><div class="tv-state">${estado === 'cargando' ? '<b>Cargando visitas…</b>'
-        : `<b>Todavía no hay visitas para mostrar</b><span>Falta subir el archivo <code>${esc(ARCHIVO_VISITAS)}</code>.</span>`}</div></div>`;
+        : `<b>Todavía no hay visitas para mostrar</b><span>Falta subir el Excel de marcaciones a la carpeta <code>${esc(CARPETA_VISITAS)}</code>.</span>`}</div></div>`;
       return;
     }
     if (!DATES.length){ box.innerHTML = `<div class="vs-wrap"><div class="tv-state"><b>El archivo de visitas está vacío</b></div></div>`; return; }

@@ -878,3 +878,7 @@ b.good{color:var(--ok-c);} b.mid{color:var(--mid-c);} b.bad{color:var(--bad-c);}
 .el-clave-row button{height:46px; padding:0 18px; border:none; border-radius:var(--r-md); background:var(--noche); color:#fff; font-weight:600; font-size:.9rem;}
 .el-err{margin:8px 0 0; font-size:.82rem; color:var(--bad-c);}
 .pv-fecha{font-size:.8rem; font-weight:600; color:var(--ok-c);}
+/* Columnas de precios según la cantidad de listas */
+.pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 92px);}
+@media (max-width:380px){ .pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 80px);} }
+@media (min-width:760px){ .pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 130px);} }
