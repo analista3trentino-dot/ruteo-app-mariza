@@ -7,7 +7,10 @@
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
-  const MIN_CACHE = 10;   // minutos que se recuerda la lista de archivos de una carpeta
+  const MIN_CACHE = 10;   // minutos que se recuerda la lista de archivos
+  // Archivos con nombre fijo de versiones anteriores: se usan solo si no hay otros más nuevos
+  const VIEJOS = ['visitas.xlsx', 'lista_precios_25.xlsx', 'lista_precios_35.xlsx'];
+  const IGNORAR = ['clientes_top.xlsx'];
 
   // Repositorio de GitHub donde está publicada la app
   function repo(){
@@ -52,8 +55,8 @@
     let lista = leerCache(kLista);
     if (!lista || Date.now() - lista.t > MIN_CACHE * 60000){
       try {
-        const j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/contents/${encodeURIComponent(carpeta)}`);
-        lista = {t: Date.now(), items: (Array.isArray(j) ? j : []).filter(f => f.type === 'file' && /\.xlsx?$/i.test(f.name)).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
+        const j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/contents${carpeta ? '/' + encodeURIComponent(carpeta) : ''}`);
+        lista = {t: Date.now(), items: (Array.isArray(j) ? j : []).filter(f => f.type === 'file' && /\.xlsx$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
         guardarCache(kLista, lista);
       } catch(e){
         if (!lista) throw e;   // sin conexión a GitHub: se usa la última lista conocida
@@ -61,11 +64,16 @@
     }
     const items = await Promise.all(lista.items.map(async f => {
       let fecha = fechaDelNombre(f.nombre);
-      if (!fecha) { try { fecha = await fechaSubida(R, f.ruta, f.sha); } catch(e){ fecha = null; } }
+      if (!fecha && !VIEJOS.includes(f.nombre.toLowerCase())) { try { fecha = await fechaSubida(R, f.ruta, f.sha); } catch(e){ fecha = null; } }
       return {nombre: f.nombre, url: f.ruta.split('/').map(encodeURIComponent).join('/'), fecha, sha: f.sha};
     }));
     return items.sort((a, b) => (b.fecha ? b.fecha.getTime() : 0) - (a.fecha ? a.fecha.getTime() : 0) || b.nombre.localeCompare(a.nombre));
   }
 
-  window.Archivos = { ultimos };
+  // Recuerda qué tipo de Excel es cada archivo (para no descargarlo de nuevo)
+  const tipo = {
+    leer: (sha, t) => { try { return localStorage.getItem('ruteoTR1_es_' + t + '_' + sha); } catch(e){ return null; } },
+    guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, si ? '1' : '0'); } catch(e){} }
+  };
+  window.Archivos = { ultimos, tipo };
 })();

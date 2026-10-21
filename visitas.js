@@ -2,14 +2,15 @@
 //  VISITAS (solo supervisores)
 // ---------------------------------------------------------------------
 //  Cada mañana: exportá del sistema el Excel de marcaciones de visitas
-//  (desde el día 1 del mes hasta ayer) y subilo a la carpeta "visitas"
-//  de GitHub, con el nombre que traiga. La app toma sola el más nuevo.
+//  (desde el día 1 del mes hasta ayer) y subilo a GitHub (página principal,
+//  Agregar archivo > Subir archivos) con el nombre que traiga.
+//  La app reconoce sola cuál es el Excel de visitas más nuevo.
 //
 //  El Excel necesita las columnas: Cartera, Subcliente (o Cliente) y
 //  Date (o Fecha). Opcionales: Nombre, Primera marcación, Última marcación.
 // =====================================================================
 
-const CARPETA_VISITAS = 'visitas';
+const CARPETA_VISITAS = '';   // '' = página principal del repositorio
 const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca este archivo
 
 
@@ -81,10 +82,17 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     // 1) El Excel más nuevo de la carpeta "visitas" (con cualquier nombre)
     let candidatos = [];
     try { candidatos = window.Archivos ? await window.Archivos.ultimos(CARPETA_VISITAS) : []; } catch(e){ candidatos = []; }
-    for (const f of candidatos.slice(0, 4)){
+    // primero los que por el nombre parecen de visitas; se saltean los que ya se sabe que no son
+    const T = window.Archivos && window.Archivos.tipo;
+    const pareceVisitas = f => /^data_|visita|marcac/i.test(f.nombre) ? 0 : 1;
+    candidatos = candidatos.filter(f => !T || T.leer(f.sha, 'visitas') !== '0')
+      .map((f, i) => ({f, i})).sort((a, b) => pareceVisitas(a.f) - pareceVisitas(b.f) || a.i - b.i).map(x => x.f);
+    for (const f of candidatos.slice(0, 5)){
       try {
         const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
-        const regs = procesar(XLSX, await r.arrayBuffer()); if (regs) return regs;
+        const regs = procesar(XLSX, await r.arrayBuffer());
+        if (T) T.guardar(f.sha, 'visitas', !!regs);
+        if (regs) return regs;
       } catch(e){}
     }
     // 2) Respaldo: visitas.xlsx en la raíz
@@ -229,14 +237,17 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const RU = window.RUTEO;
     if (estado !== 'ok'){
       box.innerHTML = `<div class="vs-wrap"><div class="tv-state">${estado === 'cargando' ? '<b>Cargando visitas…</b>'
-        : `<b>Todavía no hay visitas para mostrar</b><span>Falta subir el Excel de marcaciones a la carpeta <code>${esc(CARPETA_VISITAS)}</code>.</span>`}</div></div>`;
+        : `<b>Todavía no hay visitas para mostrar</b><span>Falta subir a GitHub el Excel de marcaciones.</span>`}</div></div>`;
       return;
     }
     if (!DATES.length){ box.innerHTML = `<div class="vs-wrap"><div class="tv-state"><b>El archivo de visitas está vacío</b></div></div>`; return; }
     if (!ui.dia) ui.dia = diaPorDefecto();
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
     const spv = RU.getSpv();
-    const carts = RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
+    const delSup = RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
+    // Solo carteras con vendedor activo: las vacantes (según vendedores.js) no se muestran ni suman
+    const vacantes = delSup.filter(c => RU.isVacante(c));
+    const carts = delSup.filter(c => !RU.isVacante(c));
     const esDia = ui.modo === 'dia';
 
     // Carteras sin ninguna marcación en el mes (vacantes) no se cuentan
@@ -302,6 +313,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       ${supHtml}
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
       ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : 'este mes'}</b></div>`}
+      ${vacantes.length ? `<p class="tv-note">Solo se cuentan carteras con vendedor. No se incluyen ${vacantes.length} ${vacantes.length === 1 ? 'cartera vacante' : 'carteras vacantes'}: ${esc(vacantes.map(c => c.vc).join(', '))}.</p>` : ''}
     </div>`;
 
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abiertos.clear(); pintar(); });

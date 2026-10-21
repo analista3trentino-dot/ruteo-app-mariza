@@ -2,8 +2,8 @@
 //  LISTA DE PRECIOS
 // ---------------------------------------------------------------------
 //  CÓMO ACTUALIZAR (solo quien tiene acceso a GitHub puede hacerlo):
-//   Exportá del sistema el listado de precios y subilo a la carpeta
-//   "precios" de GitHub, con el nombre que traiga. No hace falta renombrar.
+//   Exportá del sistema el listado de precios y subilo a GitHub (página
+//   principal, Agregar archivo > Subir archivos) con el nombre que traiga.
 //   La app reconoce sola de qué lista es (columna cod_lista_precio) y usa
 //   el archivo más nuevo de cada lista. Si cambió una sola lista, subí solo esa.
 //
@@ -12,7 +12,7 @@
 //  precio_unitario, precio_caja (y opcional cod_barra)
 // =====================================================================
 
-const CARPETA_PRECIOS = 'precios';
+const CARPETA_PRECIOS = '';   // '' = página principal del repositorio
 
 // Nombre que se muestra para cada lista (opcional)
 const NOMBRES_LISTAS = { '25': 'Lista 25', '35': 'Lista 35' };
@@ -98,8 +98,12 @@ const LISTAS_PRECIOS = [
 
   async function fuentes() {
     try {
-      const c = window.Archivos ? await window.Archivos.ultimos(CARPETA_PRECIOS) : [];
-      if (c.length) return c.slice(0, 6).map(f => ({ url: f.url, archivo: f.nombre, fecha: f.fecha }));
+      const T = window.Archivos && window.Archivos.tipo;
+      const parecePrecios = f => /precio|listado|lista/i.test(f.nombre) ? 0 : 1;
+      let c = window.Archivos ? await window.Archivos.ultimos(CARPETA_PRECIOS) : [];
+      c = c.filter(f => !T || T.leer(f.sha, 'precios') !== '0')
+        .map((f, i) => ({f, i})).sort((a, b) => parecePrecios(a.f) - parecePrecios(b.f) || a.i - b.i).map(x => x.f);
+      if (c.length) return c.slice(0, 6).map(f => ({ url: f.url, archivo: f.nombre, fecha: f.fecha, sha: f.sha, parece: !parecePrecios(f) }));
     } catch (e) {}
     return LISTAS_PRECIOS.map(l => ({ url: l.archivo, archivo: l.archivo, fecha: null, id: (l.archivo.match(/(\d{2,3})/) || [])[1] || l.nombre }));
   }
@@ -111,8 +115,12 @@ const LISTAS_PRECIOS = [
       const tomadas = new Map();   // id de lista -> filas (del archivo más nuevo)
       const fallas = [];
       for (const f of fs) {
+        // los archivos que no se llaman "lista/listado/precio" se revisan solo si todavía no apareció ninguna lista
+        if (f.parece === false && tomadas.size) break;
         let filas;
-        try { filas = (await window.leerExcel(f.url, COLS)).filas; } catch (e) { fallas.push(f.archivo); continue; }
+        const T = window.Archivos && window.Archivos.tipo;
+        try { filas = (await window.leerExcel(f.url, COLS)).filas; if (T && f.sha) T.guardar(f.sha, 'precios', true); }
+        catch (e) { if (T && f.sha) T.guardar(f.sha, 'precios', false); else fallas.push(f.archivo); continue; }
         const porLista = new Map();
         filas.forEach(r => {
           const id = String(r['cod lista precio'] || f.id || (f.archivo.match(/(\d{2,3})(?!.*\d)/) || [])[1] || 'Lista').trim();
@@ -228,7 +236,7 @@ const LISTAS_PRECIOS = [
     if (!productos) { lista.innerHTML = `<div class="pv-state"><b>Cargando precios…</b></div>`; return; }
     if (!productos.length) {
       $('pvResumen').textContent = 'No se pudieron cargar los precios.';
-      lista.innerHTML = `<div class="pv-state"><b>No hay lista de precios para mostrar</b><span>Subí el Excel del sistema a la carpeta <code>${esc(CARPETA_PRECIOS)}</code> de GitHub. (${esc(error)})</span></div>`;
+      lista.innerHTML = `<div class="pv-state"><b>No hay lista de precios para mostrar</b><span>Subí a GitHub el listado de precios del sistema. (${esc(error)})</span></div>`;
       return;
     }
     pintarCats();

@@ -41,7 +41,7 @@ const VENDEDORES = {
   "TR1535": "CARTERA VACANTE",                 // VD. YPACARAI
   "TR1536": "MARIA ROMERO",                    // VD. ITAUGUA
   "TR1537": "RUBEN MEDINA",                    // RV. CAPIATA
-  "TR1538": "JUAN BENITEZ",                    // VD. AREGUA-LUQUE
+  "TR1538": "CARTERA VACANTE",                 // VD. AREGUA-LUQUE
 
   // ---------- ST. CAACUPE ----------
   "TR1621": "LORENA MENDEZ",                   // PV. SUPER CAACUPE
