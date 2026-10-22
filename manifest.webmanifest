@@ -1,0 +1,15 @@
+{
+  "name": "Ruteo por Carteras TR1 - Trentino",
+  "short_name": "Ruteo TR1",
+  "description": "Ruteo, visitas y precios por cartera - Trentino S.A.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0C1A2E",
+  "theme_color": "#0C1A2E",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
