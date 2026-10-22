@@ -84,7 +84,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     try { candidatos = window.Archivos ? await window.Archivos.ultimos(CARPETA_VISITAS) : []; } catch(e){ candidatos = []; }
     // primero los que por el nombre parecen de visitas; se saltean los que ya se sabe que no son
     const T = window.Archivos && window.Archivos.tipo;
-    const pareceVisitas = f => /^data_|visita|marcac/i.test(f.nombre) ? 0 : 1;
+    const pareceVisitas = f => /^data[ _]|visita|marcac/i.test(f.nombre) ? 0 : 1;
     candidatos = candidatos.filter(f => !T || T.leer(f.sha, 'visitas') !== '0')
       .map((f, i) => ({f, i})).sort((a, b) => pareceVisitas(a.f) - pareceVisitas(b.f) || a.i - b.i).map(x => x.f);
     for (const f of candidatos.slice(0, 5)){
