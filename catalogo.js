@@ -1,7 +1,7 @@
 // =====================================================================
 //  CATÁLOGO DE PRODUCTOS 2025
 // ---------------------------------------------------------------------
-//  Las páginas están en la carpeta "catalogo" (pag-01.webp ... pag-77.webp).
+//  Las páginas (pag-01.webp ... pag-77.webp) están en la página principal del repositorio.
 //  Cada página se descarga recién cuando el vendedor llega a ella.
 //
 //  Para cambiar el catálogo: reemplazá las imágenes de la carpeta y,
@@ -12,7 +12,7 @@
 const CATALOGO = {
   TITULO: 'Catálogo 2025',
   TOTAL_PAGINAS: 77,
-  CARPETA: 'catalogo/',
+  CARPETA: '',   // las páginas están sueltas en la página principal
 
   CATEGORIAS: [
     { nombre: 'Almacén',            desde: 2,  hasta: 12 },

@@ -106,6 +106,7 @@
       $('vendedorSelect').value = 'TODOS';
       syncPills(); refresh(true); renderTop();
       if (window.Visitas) window.Visitas.refrescar();
+      if (window.Ventas) window.Ventas.refrescar();
     });
     syncPills();
   }
@@ -571,7 +572,9 @@
     $('topView').hidden = s !== 'top';
     $('preciosView').hidden = s !== 'precios';
     $('visitasView').hidden = s !== 'visitas';
+    $('ventasView').hidden = s !== 'ventas';
     if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
+    if (s === 'ventas' && window.Ventas) window.Ventas.mostrar();
     if (s === 'top') renderTop();
     if (s === 'precios' && window.Precios) window.Precios.mostrar();
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
@@ -582,8 +585,9 @@
   if (navCat) navCat.onclick = () => { if (window.abrirCatalogo) window.abrirCatalogo(); };
   window.RUTEO = {
     setSeccion, carteras, sups, supLabel, supColor, isMixto, isVacante,
+    vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     getSpv: () => state.spv,
-    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
+    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Ventas) window.Ventas.refrescar(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----

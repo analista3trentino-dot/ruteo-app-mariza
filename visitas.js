@@ -1,5 +1,5 @@
 // =====================================================================
-//  VISITAS (solo supervisores)
+//  VISITAS (supervisores ven a su equipo; cada vendedor ve solo las suyas)
 // ---------------------------------------------------------------------
 //  Cada mañana: exportá del sistema el Excel de marcaciones de visitas
 //  (desde el día 1 del mes hasta ayer) y subilo a GitHub (página principal,
@@ -55,7 +55,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const m = String(v).match(/(\d{1,2}):(\d{2})/); return m ? pad(m[1]) + ':' + m[2] : '';
   }
   function procesar(XLSX, buf){
-    const wb = XLSX.read(buf, {type: 'array'});
+    const wb = window.abrirLibro ? window.abrirLibro(XLSX, buf) : XLSX.read(buf, {type: 'array'});
     for (const sn of wb.SheetNames){
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false});
       for (let i = 0; i < Math.min(rows.length, 40); i++){
@@ -84,10 +84,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     try { candidatos = window.Archivos ? await window.Archivos.ultimos(CARPETA_VISITAS) : []; } catch(e){ candidatos = []; }
     // primero los que por el nombre parecen de visitas; se saltean los que ya se sabe que no son
     const T = window.Archivos && window.Archivos.tipo;
-    const pareceVisitas = f => /^data[ _]|visita|marcac/i.test(f.nombre) ? 0 : 1;
-    candidatos = candidatos.filter(f => !T || T.leer(f.sha, 'visitas') !== '0')
-      .map((f, i) => ({f, i})).sort((a, b) => pareceVisitas(a.f) - pareceVisitas(b.f) || a.i - b.i).map(x => x.f);
-    for (const f of candidatos.slice(0, 5)){
+    // del más nuevo al más viejo (los que ya se sabe que son de precios u otra cosa se saltean)
+    candidatos = candidatos.filter(f => !T || T.leer(f.sha, 'visitas') !== '0');
+    for (const f of candidatos.slice(0, 8)){
       try {
         const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
         const regs = procesar(XLSX, await r.arrayBuffer());
@@ -243,11 +242,12 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     if (!DATES.length){ box.innerHTML = `<div class="vs-wrap"><div class="tv-state"><b>El archivo de visitas está vacío</b></div></div>`; return; }
     if (!ui.dia) ui.dia = diaPorDefecto();
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
-    const spv = RU.getSpv();
-    const delSup = RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
+    const spv = RU.getSpv(), yo = RU.vendedor;
+    const delSup = yo ? RU.carteras.filter(c => c.vc === yo.vc)
+      : RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
     // Solo carteras con vendedor activo: las vacantes (según vendedores.js) no se muestran ni suman
-    const vacantes = delSup.filter(c => RU.isVacante(c));
-    const carts = delSup.filter(c => !RU.isVacante(c));
+    const vacantes = yo ? [] : delSup.filter(c => RU.isVacante(c));
+    const carts = yo ? delSup : delSup.filter(c => !RU.isVacante(c));
     const esDia = ui.modo === 'dia';
 
     // Carteras sin ninguna marcación en el mes (vacantes) no se cuentan
@@ -272,7 +272,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     // Supervisores (solo en "Todos")
     let supHtml = '';
-    if (spv === 'TODOS'){
+    if (spv === 'TODOS' && !yo){
       supHtml = `<div class="vs-sups">` + RU.sups.map(s => {
         const fs = filas.filter(f => f.c.sup === s.k); if (!fs.length) return '';
         const q = pctDe(fs);
@@ -299,7 +299,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>Visitas</h2><p>Actualizado al ${largo(ultimoCompleto)}</p></div>
+        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Actualizado al ${largo(ultimoCompleto)}</p></div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="mes" class="${esDia ? '' : 'on'}">Mes</button></div>
       </div>
       ${ms.length > 1 ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
@@ -311,8 +311,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <p class="vs-linea">${linea}</p>
       </div>
       ${supHtml}
+      ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : 'Todavía no hay visitas tuyas este mes'}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
-      ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : 'este mes'}</b></div>`}
+      ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : 'este mes'}</b></div>`}`}
       ${vacantes.length ? `<p class="tv-note">Solo se cuentan carteras con vendedor. No se incluyen ${vacantes.length} ${vacantes.length === 1 ? 'cartera vacante' : 'carteras vacantes'}: ${esc(vacantes.map(c => c.vc).join(', '))}.</p>` : ''}
     </div>`;
 

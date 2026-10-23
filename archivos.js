@@ -46,7 +46,7 @@
   }
 
   /**
-   * Devuelve los .xlsx de una carpeta, del más nuevo al más viejo:
+   * Devuelve los Excel (.xlsx o .xls) de una carpeta, del más nuevo al más viejo:
    * [{nombre, url, fecha, sha}]. "url" se usa con fetch() para descargarlo.
    */
   async function ultimos(carpeta){
@@ -56,7 +56,7 @@
     if (!lista || Date.now() - lista.t > MIN_CACHE * 60000){
       try {
         const j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/contents${carpeta ? '/' + encodeURIComponent(carpeta) : ''}`);
-        lista = {t: Date.now(), items: (Array.isArray(j) ? j : []).filter(f => f.type === 'file' && /\.xlsx$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
+        lista = {t: Date.now(), items: (Array.isArray(j) ? j : []).filter(f => f.type === 'file' && /\.xlsx?$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
         guardarCache(kLista, lista);
       } catch(e){
         if (!lista) throw e;   // sin conexión a GitHub: se usa la última lista conocida
@@ -73,7 +73,7 @@
   // Recuerda qué tipo de Excel es cada archivo (para no descargarlo de nuevo)
   const tipo = {
     leer: (sha, t) => { try { return localStorage.getItem('ruteoTR1_es_' + t + '_' + sha); } catch(e){ return null; } },
-    guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, si ? '1' : '0'); } catch(e){} }
+    guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, typeof si === 'string' ? si : (si ? '1' : '0')); } catch(e){} }
   };
   window.Archivos = { ultimos, tipo };
 })();

@@ -21,10 +21,27 @@
     return libPromise;
   }
 
+  // Abre el archivo: .xlsx normal, o .xls exportado del sistema (que por dentro es una tabla web)
+  function abrirLibro(XLSX, buf) {
+    const ini = new Uint8Array(buf.slice(0, 512));
+    let txt = ''; for (const b of ini) txt += String.fromCharCode(b);
+    if (/^\s*(\ufeff|\xef\xbb\xbf)?\s*</.test(txt) || /<(html|table)/i.test(txt)) {
+      const doc = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(buf), 'text/html');
+      const hojas = { SheetNames: [], Sheets: {} };
+      doc.querySelectorAll('table').forEach((tb, n) => {
+        const aoa = [...tb.rows].map(tr => [...tr.cells].map(td => td.textContent.trim()));
+        const nom = 'Hoja' + (n + 1);
+        hojas.SheetNames.push(nom); hojas.Sheets[nom] = XLSX.utils.aoa_to_sheet(aoa);
+      });
+      return hojas;
+    }
+    return XLSX.read(buf, { type: 'array' });
+  }
+
   const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
   /**
-   * Lee un .xlsx y devuelve { filas, fecha }.
+   * Lee un .xlsx o .xls y devuelve { filas, fecha }.
    * - columnas: nombres de columnas que deben estar en la fila de títulos
    *   (se busca esa fila automáticamente, aunque haya filtros arriba).
    * - filas: lista de objetos { columna: valor }.
@@ -37,7 +54,7 @@
     ]);
     if (!resp.ok) throw new Error(`No se encontró el archivo "${url}"`);
     const buf = await resp.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
+    const wb = abrirLibro(XLSX, buf);
     const req = columnas.map(norm);
     for (const nombreHoja of wb.SheetNames) {
       const m = XLSX.utils.sheet_to_json(wb.Sheets[nombreHoja], { header: 1, raw: true, defval: '' });
@@ -61,5 +78,6 @@
 
   window.leerExcel = leerExcel;
   window.cargarExcelLib = cargarLibreria;
+  window.abrirLibro = abrirLibro;
   window.normCol = norm;
 })();

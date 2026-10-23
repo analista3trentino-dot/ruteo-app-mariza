@@ -99,11 +99,13 @@ const LISTAS_PRECIOS = [
   async function fuentes() {
     try {
       const T = window.Archivos && window.Archivos.tipo;
-      const parecePrecios = f => /precio|listado|lista/i.test(f.nombre) ? 0 : 1;
+      // del más nuevo al más viejo; se saltean los que ya se sabe que no son de precios
       let c = window.Archivos ? await window.Archivos.ultimos(CARPETA_PRECIOS) : [];
-      c = c.filter(f => !T || T.leer(f.sha, 'precios') !== '0')
-        .map((f, i) => ({f, i})).sort((a, b) => parecePrecios(a.f) - parecePrecios(b.f) || a.i - b.i).map(x => x.f);
-      if (c.length) return c.slice(0, 6).map(f => ({ url: f.url, archivo: f.nombre, fecha: f.fecha, sha: f.sha, parece: !parecePrecios(f) }));
+      c = c.filter(f => !T || T.leer(f.sha, 'precios') !== '0');
+      if (c.length) return c.slice(0, 10).map(f => {
+        const m = T && T.leer(f.sha, 'precios');
+        return { url: f.url, archivo: f.nombre, fecha: f.fecha, sha: f.sha, ids: (m && m !== '1') ? m.split(',') : null };
+      });
     } catch (e) {}
     return LISTAS_PRECIOS.map(l => ({ url: l.archivo, archivo: l.archivo, fecha: null, id: (l.archivo.match(/(\d{2,3})/) || [])[1] || l.nombre }));
   }
@@ -115,11 +117,11 @@ const LISTAS_PRECIOS = [
       const tomadas = new Map();   // id de lista -> filas (del archivo más nuevo)
       const fallas = [];
       for (const f of fs) {
-        // los archivos que no se llaman "lista/listado/precio" se revisan solo si todavía no apareció ninguna lista
-        if (f.parece === false && tomadas.size) break;
+        // si ya se sabe qué listas trae este archivo y todas vienen en uno más nuevo, no se descarga
+        if (f.ids && f.ids.every(id => tomadas.has(id))) continue;
         let filas;
         const T = window.Archivos && window.Archivos.tipo;
-        try { filas = (await window.leerExcel(f.url, COLS)).filas; if (T && f.sha) T.guardar(f.sha, 'precios', true); }
+        try { filas = (await window.leerExcel(f.url, COLS)).filas; }
         catch (e) { if (T && f.sha) T.guardar(f.sha, 'precios', false); else fallas.push(f.archivo); continue; }
         const porLista = new Map();
         filas.forEach(r => {
@@ -128,6 +130,7 @@ const LISTAS_PRECIOS = [
           porLista.get(id).push(r);
         });
         porLista.forEach((rs, id) => { if (!tomadas.has(id)) tomadas.set(id, { filas: rs, fecha: f.fecha, archivo: f.archivo }); });
+        if (T && f.sha && porLista.size) T.guardar(f.sha, 'precios', [...porLista.keys()].join(','));
       }
       LISTAS = [...tomadas.keys()].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || a.localeCompare(b))
         .map(id => ({ id, nombre: NOMBRES_LISTAS[id] || (/^\d+$/.test(id) ? 'Lista ' + id : id), fecha: tomadas.get(id).fecha, archivo: tomadas.get(id).archivo }));

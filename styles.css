@@ -768,11 +768,14 @@ header.top h1{font-size:1.6rem;}
 /* ---------------------------------------------------------------------
    Visitas (solo supervisores)
    --------------------------------------------------------------------- */
-body:not(.modo-supervisor) .tab-visitas{display:none;}
-body.modo-supervisor .tabbar{grid-template-columns:repeat(5,1fr);}
+.tabbar{grid-template-columns:repeat(6,1fr); padding-left:4px; padding-right:4px;}
+.tabbar-btn{font-size:.68rem; min-width:0;}
 body[data-seccion="visitas"] #stickyBar,
 body[data-seccion="visitas"] #listView,
-body[data-seccion="visitas"] #mapView{display:none !important;}
+body[data-seccion="visitas"] #mapView,
+body[data-seccion="ventas"] #stickyBar,
+body[data-seccion="ventas"] #listView,
+body[data-seccion="ventas"] #mapView{display:none !important;}
 .tabbar-btn.tab-visitas.active svg{color:var(--esmeralda);}
 
 :root{ --ok-c:#0E8A5F; --ok-bg:#E3F6EE; --mid-c:#A86400; --mid-bg:#FFF2D6; --bad-c:#C2341F; --bad-bg:#FDE7E3; }
@@ -882,3 +885,31 @@ b.good{color:var(--ok-c);} b.mid{color:var(--mid-c);} b.bad{color:var(--bad-c);}
 .pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 92px);}
 @media (max-width:380px){ .pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 80px);} }
 @media (min-width:760px){ .pv-cols, .pv-item{grid-template-columns:1fr repeat(var(--pv-n, 2), 130px);} }
+
+/* ---------------------------------------------------------------------
+   Ventas del mes
+   --------------------------------------------------------------------- */
+#ventasView{padding:16px 16px 0;}
+@media (min-width:760px){ #ventasView{padding:20px 24px 0;} }
+.tabbar-btn.tab-ventas.active svg{color:var(--acento);}
+.vt-monto{margin:10px 0 0; font-family:var(--f-tit); font-size:2.1rem; font-weight:800; letter-spacing:-.03em; line-height:1.05; font-variant-numeric:tabular-nums; color:var(--noche);}
+.vt-cuota{margin-top:4px; font-size:.86rem; color:var(--txt-2);}
+.vt-barra{position:relative; margin-top:6px;}
+.vt-marca{position:absolute; top:2px; width:3px; height:18px; margin-left:-1.5px; border-radius:2px; background:var(--noche);}
+.vt-av{display:flex; align-items:baseline; gap:10px; margin-top:12px;}
+.vt-av b{font-family:var(--f-tit); font-size:1.8rem; font-weight:800; line-height:1; font-variant-numeric:tabular-nums;}
+.vt-av span{font-size:.8rem; color:var(--txt-2);}
+.vt-res .vs-linea b{color:var(--noche);}
+.vt-sup .vs-sup-n small{display:block; margin-top:2px; font-size:.72rem; font-weight:500; color:var(--txt-2);}
+.vt-tabs{display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:3px; margin-bottom:10px; background:var(--sup); border:1px solid var(--linea); border-radius:var(--r-md);}
+.vt-tabs button{height:38px; border:none; border-radius:9px; background:transparent; color:var(--txt-2); font-size:.88rem; font-weight:600;}
+.vt-tabs button b{margin-left:4px; padding:1px 7px; border-radius:99px; background:var(--linea-2); font-size:.74rem;}
+.vt-tabs button.on{background:var(--noche); color:#fff;}
+.vt-tabs button.on b{background:rgba(255,255,255,.18); color:#fff;}
+.vt-buscar{margin-bottom:10px;}
+.vt-buscar input{height:44px;}
+.vs-mis{margin-top:14px; padding:2px 8px 8px; background:#FAFBFD; border:1px solid var(--linea); border-radius:var(--r-lg);}
+.vt-v-gs{font-size:.92rem; font-weight:700; color:var(--noche); font-variant-numeric:tabular-nums;}
+.vt-v-gs small{font-size:.76rem; font-weight:500; color:var(--txt-2);}
+.vt-sup .vs-sup-n small b{color:var(--noche); font-weight:700;}
+.vt-sup{grid-template-columns:1fr 70px 46px;}
