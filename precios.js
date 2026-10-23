@@ -110,6 +110,15 @@ const LISTAS_PRECIOS = [
     return LISTAS_PRECIOS.map(l => ({ url: l.archivo, archivo: l.archivo, fecha: null, id: (l.archivo.match(/(\d{2,3})/) || [])[1] || l.nombre }));
   }
 
+  // Busca el número de lista en un nombre: primero las listas conocidas (25, 35...), si no, el último número
+  function deNombre(n) {
+    const s = String(n || '').replace(/\.xlsx?$/i, '');
+    const conocida = Object.keys(NOMBRES_LISTAS).find(k => new RegExp('(^|\\D)' + k + '(\\D|$)').test(s))
+      || Object.keys(NOMBRES_LISTAS).find(k => s.includes(k));
+    if (conocida) return conocida;
+    const m = s.match(/(\d{2,3})(?!.*\d)/); return m ? m[1] : '';
+  }
+
   function cargar() {
     if (productos || cargando) return cargando;
     cargando = (async () => {
@@ -121,11 +130,13 @@ const LISTAS_PRECIOS = [
         if (f.ids && f.ids.every(id => tomadas.has(id))) continue;
         let filas;
         const T = window.Archivos && window.Archivos.tipo;
-        try { filas = (await window.leerExcel(f.url, COLS)).filas; }
+        let hoja = '';
+        try { const x = await window.leerExcel(f.url, COLS); filas = x.filas; hoja = x.hoja || ''; }
         catch (e) { if (T && f.sha) T.guardar(f.sha, 'precios', false); else fallas.push(f.archivo); continue; }
         const porLista = new Map();
         filas.forEach(r => {
-          const id = String(r['cod lista precio'] || f.id || (f.archivo.match(/(\d{2,3})(?!.*\d)/) || [])[1] || 'Lista').trim();
+          // de qué lista es: columna cod_lista_precio, o el nombre de la hoja (ej. "LP 35"), o el nombre del archivo
+          const id = String(r['cod lista precio'] || f.id || deNombre(hoja) || deNombre(f.archivo) || 'Lista').trim();
           if (!porLista.has(id)) porLista.set(id, []);
           porLista.get(id).push(r);
         });

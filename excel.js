@@ -69,7 +69,7 @@
             filas.push(o);
           }
           const lm = resp.headers.get('last-modified');
-          return { filas, fecha: lm ? new Date(lm) : null };
+          return { filas, fecha: lm ? new Date(lm) : null, hoja: nombreHoja };
         }
       }
     }

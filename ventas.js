@@ -52,21 +52,24 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
   }
 
   // Excel de ventas: columnas de vendedor, subcliente y ventas (y sin fecha por día, para no confundirlo con el de visitas)
-  function leerVentas(H){
+  function leerVentas(H, validas){
     for (const rows of H){
       for (let i = 0; i < Math.min(rows.length, 30); i++){
         const h = (rows[i] || []).map(norm);
         if (h.some(x => x === 'date' || x.startsWith('fec asistencia') || x.startsWith('primera fecha'))) break;
         const cV = h.findIndex(x => /nivel 4/.test(x)) >= 0 ? h.findIndex(x => /nivel 4/.test(x)) : h.findIndex(x => x === 'cartera' || x === 'vendedor' || x === 'cod vendedor');
         const cS = h.findIndex(x => x.includes('subcliente')) >= 0 ? h.findIndex(x => x.includes('subcliente')) : h.findIndex(x => /(^| )cliente( |$)/.test(x));
-        const cM = h.findIndex(x => /^ventas?( |$)/.test(x) || /monto|importe/.test(x));
+        const cM = h.findIndex(x => !/cant/.test(x) && (/(^| )ventas?( |$)/.test(x) || /monto|importe/.test(x)));
         if (cV < 0 || cS < 0 || cM < 0) continue;
-        const cMes = h.findIndex(x => x === 'mes' || x === 'desc mes'), cAnio = h.findIndex(x => x === 'ano' || x === 'anio');
+        const cMes = h.findIndex(x => / ?desc mes$/.test(x) || x === 'mes' || / mes$/.test(x)), cAnio = h.findIndex(x => / ?(ano|anio)$/.test(x));
         const filas = [];
         let mes = null, anio = null;
         for (let k = i + 1; k < rows.length; k++){
           const r = rows[k]; if (!r) continue;
-          const mv = String(r[cV] == null ? '' : r[cV]).match(VC_RX), sub = String(r[cS] == null ? '' : r[cS]).trim();
+          const tv = String(r[cV] == null ? '' : r[cV]), sub = String(r[cS] == null ? '' : r[cS]).trim();
+          let mv = tv.match(VC_RX);
+          // si el vendedor viene sin "TR" (ej. "1338 - VD. SAN LORENZO"), se busca la cartera por el número
+          if (!mv && validas){ const d = (tv.match(/\b(\d{4})\b/) || [])[1]; const vc = d && ['TR', 'TM', 'AR'].map(p => p + d).find(x => validas.has(x)); if (vc) mv = [vc, vc]; }
           if (!mv || !sub) continue;
           const mc = sub.match(CODE_RX);
           filas.push({vc: mv[1].toUpperCase(), code: mc ? mc[1] + '-' + mc[2] : '', base: (sub.match(/^\s*(\d+)/) || [])[1] || '', name: sub.replace(/^[\d\s-]+/, '').trim() || sub, v: num(r[cM])});
@@ -113,19 +116,21 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
     let cand = [];
     try { cand = window.Archivos ? await window.Archivos.ultimos(CARPETA_VENTAS) : []; } catch(e){ cand = []; }
     cand = cand.filter(f => !T || T.leer(f.sha, 'ventas') !== '0');
-    let ventas = null, cuotas = null;
+    let ventas = null, cuotas = null, vacio = '';
     for (const f of cand.slice(0, 10)){
       if (ventas && cuotas) break;
       try {
         const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
         const H = hojas(XLSX, await r.arrayBuffer());
         let es = false;
-        if (!ventas){ const x = leerVentas(H); if (x){ ventas = {...x, fecha: f.fecha, archivo: f.nombre}; es = true; } }
+        if (!ventas){ const x = leerVentas(H, validas); if (x){ ventas = {...x, fecha: f.fecha, archivo: f.nombre}; es = true; } }
+        // Excel de Power BI bajado con "conexión dinámica" y sin abrir: no trae datos
+        if (!es && !vacio && H.some(rows => rows.slice(0, 5).some(r => r && r.some(x => /connected to power bi|conectad[oa]s? a power bi/i.test(String(x || '')))))) vacio = f.nombre;
         if (!es && !cuotas){ const x = leerCuotas(H, validas); if (x){ cuotas = x; es = true; } }
-        if (T) T.guardar(f.sha, 'ventas', es);
+        if (T && vacio !== f.nombre) T.guardar(f.sha, 'ventas', es);
       } catch(e){}
     }
-    if (!ventas) throw new Error('sin-ventas');
+    if (!ventas) throw new Error(vacio ? 'vacio:' + vacio : 'sin-ventas');
     C = cuotas || {cuotas: new Map(), habiles: null};
     indexar(ventas);
   }
@@ -235,6 +240,7 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
     const RU = window.RUTEO;
     if (estado !== 'ok'){
       box.innerHTML = `<div class="vs-wrap"><div class="vs-head"><div><h2>Ventas</h2></div></div><div class="tv-state">${estado === 'cargando' ? '<b>Cargando ventas…</b>'
+        : error.startsWith('vacio:') ? `<b>El Excel de ventas está vacío</b><span>"${esc(error.slice(6))}" se bajó de Power BI sin datos. Abrilo en Excel en la computadora, esperá que carguen las ventas, guardalo y subilo de nuevo a GitHub.</span>`
         : `<b>Todavía no hay ventas para mostrar</b><span>Falta subir a GitHub el Excel de ventas del mes.</span>`}</div></div>`;
       return;
     }
@@ -263,6 +269,11 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
         return {c, x: sumar([deCartera(c), ...pares.map(deCartera)])};
       }).filter(f => f.x.total || f.x.cuota || f.x.compraron.length);
       const T = sumar(filas.map(f => f.x));
+      // En "Todos": también suman las ventas de carteras que no están en el ruteo (para que dé la venta total)
+      const enRuteo = new Set(RU.carteras.map(c => c.vc.toUpperCase()));
+      const otras = spv === 'TODOS' ? [...V.porCartera.entries()].filter(([vc, p]) => !enRuteo.has(vc) && p.total) : [];
+      const otrasT = otras.reduce((s, [, p]) => s + p.total, 0);
+      T.total += otrasT;
       const quien = spv === 'TODOS' ? 'Venta total cartera' : spv === 'MIXTOS' ? 'Venta total carteras mixtas' : 'Venta total ' + (RU.supLabel[spv] || spv);
       let supHtml = '';
       if (spv === 'TODOS'){
@@ -295,6 +306,7 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
         ${supHtml}
         <div class="vs-lista-h">Tocá un vendedor para ver qué clientes no compraron</div>
         ${vend || `<div class="tv-state"><b>No hay ventas para esta selección</b></div>`}
+        ${otras.length ? `<p class="tv-note">El total incluye ${gs(otrasT)} de ${otras.length === 1 ? 'la cartera' : 'las carteras'} ${esc(otras.map(([vc]) => vc).join(', '))}, que no ${otras.length === 1 ? 'está' : 'están'} en el ruteo.</p>` : ''}
         ${C.cuotas.size ? '' : `<p class="tv-note">Para ver el % de avance, subí también el Excel de cuotas del mes.</p>`}
       </div>`;
     }
