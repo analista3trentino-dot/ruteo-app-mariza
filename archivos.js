@@ -4,7 +4,8 @@
 //  Permite subir los Excel con el nombre que traen del sistema.
 //  La app mira qué archivos hay en la página principal del repositorio
 //  de GitHub, reconoce de qué es cada uno (ruteo, GPS, padrón, visitas,
-//  ventas, precios, potencial) y usa el más nuevo de cada tipo.
+//  ventas, precios, potencial, marcaciones de supervisores) y usa el
+//  más nuevo de cada tipo.
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
@@ -117,7 +118,8 @@
       wb.SheetNames.slice(0, 3).forEach(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, defval: null}).forEach(r => (r || []).forEach(x => { const v = norm(x); if (v && v.length < 60) H.add(v); })));
       const tiene = (...xs) => xs.some(x => H.has(x));
       const con = re => [...H].some(x => re.test(x));
-      if (tiene('cartera') && con(/subcliente/) && tiene('date', 'fecha')) t = 'visitas';
+      if (con(/^tiempo asist/) || con(/horas trabajadas/) || tiene('cod persona spv')) t = 'supervisores';
+      else if (tiene('cartera') && con(/subcliente/) && tiene('date', 'fecha')) t = 'visitas';
       else if (tiene('desc visita') && con(/subcliente/) && con(/vendedor/)) t = 'ruteo';
       else if (tiene('latitud') && tiene('longitud')) t = 'gps';
       else if (tiene('pm') && tiene('lp') && con(/subcliente/)) t = 'padron';

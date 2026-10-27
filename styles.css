@@ -979,3 +979,157 @@ body.lp-abierta{overflow:hidden;}
 .pt-cli .vs-v-p{font-size:1.05rem; min-width:44px;}
 .pt-sin{flex:0 0 auto; padding:3px 9px; border-radius:999px; background:var(--bad-bg); color:var(--bad-c); font-size:.72rem; font-weight:700; white-space:nowrap;}
 .pt-2mm{display:inline-block; padding:1px 6px; border-radius:6px; background:var(--oro); color:#5A3E00; font-size:.66rem; font-weight:800; vertical-align:1px;}
+
+/* =====================================================================
+   Octubre 27 (b): portada, potencial en Ruta, jefatura y movimiento
+   ===================================================================== */
+.tabbar{grid-template-columns:repeat(4,1fr);}
+body.modo-jefatura .tabbar{grid-template-columns:repeat(5,1fr);}
+body:not(.modo-jefatura) .tab-jefatura{display:none;}
+.tabbar-btn.tab-jefatura.active svg{color:var(--oro-osc);}
+body[data-seccion="jefatura"] #stickyBar,
+body[data-seccion="jefatura"] #listView,
+body[data-seccion="jefatura"] #mapView{display:none !important;}
+#jefaturaView{padding:16px 16px 0;}
+@media (min-width:760px){ #jefaturaView{padding:20px 24px 0;} }
+
+/* Transición suave al cambiar de pestaña */
+#topView:not([hidden]), #visitasView:not([hidden]), #jefaturaView:not([hidden]), #listView{animation:fadeUp .35s cubic-bezier(.2,.8,.2,1) both;}
+.tabbar-btn.active svg{animation:tabPop .35s cubic-bezier(.3,1.6,.5,1);}
+@keyframes tabPop{0%{transform:scale(.8)}100%{transform:scale(1)}}
+
+/* Esqueletos de carga (brillo que se mueve) */
+.esqueleto{height:16px; margin:10px 0; border-radius:8px; background:linear-gradient(90deg,var(--linea-2) 0%,#F8FAFD 50%,var(--linea-2) 100%); background-size:200% 100%; animation:brillo 1.2s linear infinite;}
+.esqueleto.corto{width:55%;}
+@keyframes brillo{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* ---------- Portada ---------- */
+.portada{
+  position:fixed; inset:0; z-index:4000; overflow-y:auto; -webkit-overflow-scrolling:touch; color:#fff;
+  background:radial-gradient(120% 70% at 50% 0%, #1D4180 0%, #0C1A2E 62%);
+  opacity:0; transition:opacity .35s ease, transform .4s ease;
+}
+.portada.in{opacity:1;}
+.portada.fuera{opacity:0; transform:scale(1.03); pointer-events:none;}
+.po-fondo{position:fixed; inset:0; pointer-events:none; overflow:hidden;}
+.po-ruta{position:absolute; inset:0; width:100%; height:100%;}
+.po-camino{fill:none; stroke:rgba(255,255,255,.12); stroke-width:3; stroke-dasharray:10 12; animation:camino 30s linear infinite;}
+.po-camino.dos{stroke:rgba(46,91,255,.35); stroke-dasharray:4 10; animation-duration:22s;}
+@keyframes camino{to{stroke-dashoffset:-440}}
+.po-punto{fill:#0EA371; filter:drop-shadow(0 0 8px #0EA371);}
+.po-pin{fill:#FFC53D; opacity:.85; animation:pin 2.4s ease-in-out infinite;}
+.po-pin:nth-of-type(2){animation-delay:.8s} .po-pin:nth-of-type(3){animation-delay:1.6s}
+@keyframes pin{0%,100%{opacity:.35}50%{opacity:1}}
+.po-brillo{position:absolute; width:420px; height:420px; right:-160px; top:-120px; border-radius:50%; background:radial-gradient(circle, rgba(46,91,255,.45), transparent 65%); animation:flota 9s ease-in-out infinite;}
+@keyframes flota{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,40px)}}
+.po-cont{position:relative; max-width:460px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; padding:calc(36px + env(safe-area-inset-top,0px)) 22px calc(28px + env(safe-area-inset-bottom,0px));}
+.po-cont > *{animation:poIn .6s cubic-bezier(.2,.8,.2,1) both;}
+.po-cont > :nth-child(2){animation-delay:.06s} .po-cont > :nth-child(3){animation-delay:.12s} .po-cont > :nth-child(4){animation-delay:.2s}
+.po-cont > :nth-child(5){animation-delay:.26s} .po-cont > :nth-child(6){animation-delay:.32s} .po-cont > :nth-child(7){animation-delay:.38s}
+@keyframes poIn{from{opacity:0; transform:translateY(18px)}to{opacity:1; transform:none}}
+.po-logo{align-self:flex-start; background:#fff; border-radius:14px; padding:8px 12px; box-shadow:0 14px 30px -12px rgba(0,0,0,.5);}
+.po-logo img{display:block; height:26px;}
+.po-tit{margin:34px 0 0; font-family:var(--f-tit); font-size:2.6rem; font-weight:800; letter-spacing:-.04em; line-height:1;}
+.po-tit span{display:inline-block; margin-left:6px; padding:2px 10px; border-radius:10px; background:var(--acento); font-size:.5em; vertical-align:middle; letter-spacing:0;}
+.po-fecha{margin:10px 0 0; color:#A9B7CE; font-size:.95rem;}
+.po-seguir{
+  display:flex; align-items:center; gap:14px; width:100%; margin-top:30px; padding:16px; text-align:left; color:var(--noche);
+  border:none; border-radius:20px; background:#fff; box-shadow:0 20px 40px -14px rgba(0,0,0,.55); transition:transform .15s;
+}
+.po-seguir:active{transform:scale(.98);}
+.po-av{flex:0 0 auto; width:50px; height:50px; border-radius:15px; display:flex; align-items:center; justify-content:center; font-family:var(--f-tit); font-weight:800; font-size:1.1rem; color:#fff; background:linear-gradient(135deg,#2E5BFF,#1E44D6);}
+.po-av.s{background:linear-gradient(135deg,#0EA371,#0B8A5F);} .po-av.j{background:linear-gradient(135deg,#FFC53D,#E08700);}
+.po-txt{flex:1; min-width:0; display:flex; flex-direction:column;}
+.po-txt small{font-size:.76rem; color:var(--txt-2);}
+.po-txt b{font-family:var(--f-tit); font-size:1.2rem; font-weight:800; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.po-txt em{font-style:normal; font-size:.8rem; color:var(--acento-osc); font-weight:600;}
+.po-ir{flex:0 0 auto; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--noche); color:#fff; animation:empuja 1.8s ease-in-out infinite;}
+@keyframes empuja{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+.po-o{margin:26px 2px 10px; font-size:.82rem; color:#A9B7CE;}
+.po-opc{display:grid; gap:10px;}
+.po-btn{
+  display:flex; align-items:center; gap:14px; width:100%; padding:14px; text-align:left; color:#fff;
+  border:1px solid rgba(255,255,255,.14); border-radius:16px; background:rgba(255,255,255,.07);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); transition:background .2s, border-color .2s, transform .12s;
+}
+.po-btn:hover, .po-btn.on{background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.35);}
+.po-btn:active{transform:scale(.98);}
+.po-btn b{display:block; font-family:var(--f-tit); font-size:1rem; font-weight:700;}
+.po-btn small{font-size:.78rem; color:#A9B7CE;}
+.po-ic{flex:0 0 auto; width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.1);}
+.po-clave{margin-top:14px; padding:14px; border-radius:16px; background:rgba(255,255,255,.08); animation:poIn .3s ease both;}
+.po-clave[hidden]{display:none;}
+.po-clave label{display:block; font-size:.82rem; font-weight:600; color:#DCE4F5; margin-bottom:8px;}
+.po-clave-row{display:flex; gap:8px;}
+.po-clave-row input{flex:1; min-width:0; height:48px; padding:0 14px; border-radius:12px; border:none; font-size:1rem; outline:none;}
+.po-clave-row button{height:48px; padding:0 20px; border:none; border-radius:12px; background:var(--acento); color:#fff; font-weight:700;}
+.po-err{margin:8px 0 0; color:#FF9B8A; font-size:.84rem;}
+.po-clave.tiembla{animation:tiembla .4s;}
+@keyframes tiembla{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.po-pie{margin:auto 0 0; padding-top:28px; text-align:center; font-size:.76rem; color:#7F90AE;}
+.el-volver{margin-bottom:10px;}
+#elegir{z-index:4100;}
+
+/* ---------- Potencial dentro de Ruta ---------- */
+.pot-dia{margin:0 0 14px; padding:16px; border-radius:var(--r-lg); color:#fff; background:linear-gradient(140deg,#14294A 0%,#0C1A2E 100%); box-shadow:var(--sh-3); position:relative; overflow:hidden; animation:fadeUp .4s ease both;}
+.pot-dia::after{content:""; position:absolute; right:-60px; top:-60px; width:180px; height:180px; border-radius:50%; background:radial-gradient(circle, rgba(46,91,255,.4), transparent 70%);}
+.pot-t{display:flex; align-items:baseline; justify-content:space-between; gap:8px; position:relative; z-index:1;}
+.pot-t span{font-family:var(--f-tit); font-weight:800; font-size:1.05rem;}
+.pot-t small{font-size:.72rem; color:#A9B7CE;}
+.pot-nums{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; position:relative; z-index:1;}
+.pot-nums small{display:block; font-size:.74rem; color:#A9B7CE;}
+.pot-nums b{font-family:var(--f-tit); font-size:1.12rem; font-weight:800; font-variant-numeric:tabular-nums;}
+.pot-bar{height:10px; margin-top:12px; border-radius:99px; background:rgba(255,255,255,.12); overflow:hidden; position:relative; z-index:1;}
+.pot-bar i{display:block; height:100%; border-radius:99px; background:#22B07D; animation:llena 1s cubic-bezier(.2,.8,.2,1) both;}
+.pot-bar i.mid{background:#F0A531;} .pot-bar i.bad{background:#E5533D;}
+@keyframes llena{from{width:0 !important}}
+.pot-linea{margin:10px 0 0; font-size:.86rem; color:#DCE4F5; position:relative; z-index:1;}
+.pot-linea b{color:#fff;} .pot-linea b.good{color:#5BE0A8;} .pot-linea b.mid{color:#FFC86B;} .pot-linea b.bad{color:#FF9B8A;}
+.pot-linea span{color:#A9B7CE;}
+.pot-sin{margin:6px 0 0; font-size:.8rem; color:#FFC86B; position:relative; z-index:1;}
+.pot-dia.cargando{background:var(--sup); color:var(--txt); border:1px solid var(--linea); box-shadow:none;}
+.pot-dia.cargando::after{display:none;}
+.cpot{display:flex; align-items:center; gap:8px; margin-top:7px;}
+.cpot-bar{flex:0 0 54px; height:6px; border-radius:99px; background:var(--linea-2); overflow:hidden;}
+.cpot-bar i{display:block; height:100%; border-radius:99px; background:#22B07D;}
+.cpot-bar i.mid{background:#F0A531;} .cpot-bar i.bad{background:#E5533D;}
+.cpot-txt{font-size:.74rem; color:var(--txt-2);}
+.cpot-txt b{color:var(--txt); font-weight:700;} .cpot-txt b.bad{color:var(--bad-c);}
+.cpot-2mm{padding:0 6px; border-radius:6px; background:var(--oro); color:#5A3E00; font-size:.62rem; font-weight:800;}
+.cpot-head{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:.74rem; color:var(--txt-2); font-weight:600;}
+.cpot-head .cpot-bar{flex-basis:70px;}
+
+/* ---------- Jefatura ---------- */
+.jf-kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px;}
+.jf-kpis b{display:block; font-family:var(--f-tit); font-size:1.2rem; font-weight:800; font-variant-numeric:tabular-nums; color:var(--noche);}
+.jf-kpis span{font-size:.74rem; color:var(--txt-2);}
+.jf-uso{margin-top:6px;}
+.jf-v.vacio{opacity:.6;}
+.jf-der{flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:1px; text-align:right;}
+.jf-der b{font-family:var(--f-tit); font-size:1.02rem; font-weight:800; color:var(--noche); white-space:nowrap;}
+.jf-der small{font-size:.7rem; color:var(--txt-3);}
+.jf-der em{font-style:normal; margin-top:3px; padding:1px 7px; border-radius:99px; background:var(--mid-bg); color:var(--mid-c); font-size:.68rem; font-weight:700;}
+.jf-linea{position:relative; padding:8px 4px 4px;}
+.jf-vis{display:grid; grid-template-columns:48px 14px 1fr auto; align-items:center; gap:8px; padding:8px 6px; border-radius:10px;}
+.jf-vis:nth-child(odd){background:#fff;}
+.jf-hora b{display:block; font-size:.86rem; font-variant-numeric:tabular-nums;}
+.jf-hora small{font-size:.7rem; color:var(--txt-3);}
+.jf-punto{width:10px; height:10px; border-radius:50%; background:var(--esmeralda); box-shadow:0 0 0 3px var(--ok-bg);}
+.jf-vis.corta .jf-punto{background:#F0A531; box-shadow:0 0 0 3px var(--mid-bg);}
+.jf-info{min-width:0;}
+.jf-info b{display:block; font-size:.86rem; line-height:1.25;}
+.jf-info small{font-size:.72rem; color:var(--txt-2);}
+.jf-dur{font-size:.8rem; font-weight:700; color:var(--ok-c); white-space:nowrap;}
+.jf-dur.corta{color:var(--mid-c);}
+.jf-viaje{margin:2px 0 2px 70px; font-size:.7rem; color:var(--txt-3);}
+.jf-dia{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center; width:100%; padding:10px 12px; margin-bottom:4px; text-align:left; border-radius:var(--r-sm); border:1px solid var(--linea-2); background:#fff; color:var(--txt); font-size:.82rem;}
+.jf-dia small{display:block; font-size:.72rem; color:var(--txt-3);}
+
+/* Cartera: entrada escalonada más marcada */
+.cartera{animation:fadeUp .45s cubic-bezier(.2,.8,.2,1) both;}
+.client{animation:fadeUp .3s ease both;}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+
+.client{flex-wrap:wrap; row-gap:0;}
+.client > .cpot{flex:1 0 100%; margin-top:8px; padding-top:8px; border-top:1px dashed var(--linea-2);}
+.client > .cpot .cpot-bar{flex-basis:80px;}

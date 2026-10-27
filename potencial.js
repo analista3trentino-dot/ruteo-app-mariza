@@ -1,16 +1,14 @@
 // =====================================================================
-//  POTENCIAL DE RUTA
+//  POTENCIAL DE RUTA (se ve en la pestaña Ruta)
 // ---------------------------------------------------------------------
-//  Elegís un vendedor y un día, y la app muestra cuánto pueden comprar
-//  los clientes de ese día (potencial) contra lo que ya compraron en el mes.
+//  En cada cliente aparece cuánto puede comprar en el mes (potencial)
+//  y cuánto ya compró. Arriba de la lista, el resumen del día elegido.
 //
 //  CÓMO ACTUALIZAR:
 //   - Potencial: subí a GitHub el Excel "Potencial de Ruta de Venta"
 //     (con la hoja "Datos": Subcliente, Potencial y los meses).
-//   - Lo vendido en el mes sale del Excel de ventas que ya subís cada día.
+//   - Lo que ya compró sale del Excel de ventas que subís cada día.
 //     Si no hay, se usa el mes que trae el Excel de potencial.
-//  Un cliente que se visita más de un día a la semana reparte su
-//  potencial entre esos días.
 // =====================================================================
 
 const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
@@ -124,121 +122,20 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
     for (let d = new Date(hoy.getFullYear(), m, hoy.getDate()); d.getMonth() === m; d.setDate(d.getDate() + 1)) if (d.getDay() === WD[dia]) n++;
     return n;
   }
-  const diasDe = cl => String(cl[3] || '').split(',').map(s => s.trim()).filter(d => WD[d]);
 
-  // Clientes de una cartera en un día, con su parte del potencial
-  function delDia(c, dia){
-    const out = [];
-    c.cl.forEach(cl => {
-      const ds = diasDe(cl); if (!ds.includes(dia)) return;
-      const parte = 1 / ds.length, cod = cl[6];
-      const pot = potDe(cod), ven = Math.max(0, ventaDe(cod));
-      out.push({cl, pot, ven, parte, potD: pot * parte, venD: ven * parte, veces: ds.length});
-    });
-    return out;
-  }
-  const suma = (xs, k) => xs.reduce((t, x) => t + x[k], 0);
-
-  // --- Pantalla ---
-  const hoyDia = (() => { const d = new Date().getDay(); return d >= 1 && d <= 6 ? DIAS[d - 1] : 'Lun'; })();
-  const ui = {dia: hoyDia, vc: '', filtro: 'todos'};
-
-  function tarjeta(titulo, xs, dia){
-    const P = suma(xs, 'potD'), V = suma(xs, 'venD'), a = pct(V, P), falta = Math.max(0, P - V), q = quedan(dia);
-    return `<div class="vs-res pt-res">
-      <div class="vs-res-t">${esc(titulo)}</div>
-      <div class="pt-grid">
-        <div><span>Potencial del mes</span><b>${gs(P)}</b></div>
-        <div><span>Ya compraron (${MESES[mesVenta()]})</span><b>${gs(V)}</b></div>
-      </div>
-      <div class="vs-bar big"><i class="${tono(a)}" style="width:${Math.min(100, a || 0)}%"></i></div>
-      <div class="vt-av"><b class="${tono(a)}">${a === null ? '—' : a + '%'}</b><span>del potencial</span></div>
-      ${falta > 0 ? `<p class="vs-linea">Faltan <b>${gs(falta)}</b>${q ? ` · quedan <b>${q}</b> ${q === 1 ? DIA_LARGO[dia] : DIA_LARGO[dia] + (dia === 'Sáb' ? 's' : '')} este mes: <b>${gs(falta / q)}</b> por ${DIA_LARGO[dia]}` : ` · ya no quedan ${DIA_LARGO[dia]}${dia === 'Sáb' ? 's' : ''} este mes`}</p>` : `<p class="vs-linea"><b class="good">¡Ya compraron todo su potencial!</b></p>`}
-    </div>`;
-  }
-
-  function filaCli(o){
-    const cl = o.cl, a = pct(o.ven, o.pot), destacado = o.pot >= POTENCIAL_MINIMO_DESTACADO;
-    const der = o.ven <= 0 ? `<span class="pt-sin">Sin compra</span>` : `<b class="vs-v-p ${tono(a)}">${a === null ? '✓' : a + '%'}</b>`;
-    return `<div class="pt-cli">
-      <div class="vs-cli-n">${destacado ? '<span class="pt-2mm">+2MM</span> ' : ''}${esc(cl[2])}${cl[6] ? ` <span class="ccode">${esc(cl[6])}</span>` : ''}${cl._top ? ' <span class="vs-top">★ top</span>' : ''}
-        <small>Potencial ${gs(o.pot)} · compró ${gs(o.ven)}${o.veces > 1 ? ` · se visita ${o.veces} días` : ''}</small></div>
-      ${der}
-    </div>`;
-  }
-
-  function listaClientes(xs){
-    const sin = xs.filter(o => o.ven <= 0), top = xs.filter(o => o.pot >= POTENCIAL_MINIMO_DESTACADO);
-    const vis = ui.filtro === 'sin' ? sin : ui.filtro === '2mm' ? top : xs;
-    const ord = vis.slice().sort((a, b) => (b.pot - b.ven) - (a.pot - a.ven) || b.pot - a.pot);
-    return `<div class="pt-filtros">
-        <button type="button" data-f="todos" class="${ui.filtro === 'todos' ? 'on' : ''}">Todos <b>${xs.length}</b></button>
-        <button type="button" data-f="sin" class="${ui.filtro === 'sin' ? 'on' : ''}">Sin compra <b>${sin.length}</b></button>
-        <button type="button" data-f="2mm" class="${ui.filtro === '2mm' ? 'on' : ''}">+2MM <b>${top.length}</b></button>
-      </div>
-      <p class="pt-ayuda">Ordenados por lo que les falta comprar (los de arriba son la mayor oportunidad).</p>
-      ${ord.length ? ord.map(filaCli).join('') : `<p class="vs-nada">No hay clientes en este grupo.</p>`}`;
-  }
-
-  function pintar(){
-    const box = $('potencialView'); if (!box) return;
-    const RU = window.RUTEO;
-    if (estado !== 'ok'){
-      box.innerHTML = `<div class="vs-wrap"><div class="vs-head"><div><h2>Potencial de ruta</h2></div></div><div class="tv-state">${estado === 'cargando' ? '<b>Cargando potencial…</b><span>La primera vez puede tardar unos segundos.</span>'
-        : error === 'sin-potencial' ? `<b>Todavía no hay potencial para mostrar</b><span>Falta subir a GitHub el Excel "Potencial de Ruta de Venta".</span>`
-        : `<b>No se pudo leer el potencial</b><span>${esc(error)}</span>`}</div></div>`;
-      return;
-    }
-    const yo = RU.vendedor, spv = RU.getSpv();
-    const carts = yo ? [yo] : RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
-    const elegido = yo || (ui.vc && carts.find(c => c.vc === ui.vc)) || null;
-    if (!elegido) ui.vc = '';
-    const base = elegido ? [elegido] : carts;
-    const cuenta = d => base.reduce((t, c) => t + delDia(c, d).length, 0);
-    const chips = DIAS.map(d => { const n = cuenta(d); return n || d !== 'Sáb' ? `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''} ${n ? '' : 'cero'}" data-dia="${d}"><small>${d}</small><b>${n}</b></button>` : ''; }).join('');
-    const fuente = usaVentas() ? `Ventas al ${fVen ? fVen.toLocaleDateString('es-PY', {day: 'numeric', month: 'short'}) : '—'}` : `Ventas de ${MESES[POT.mes] || '—'} (Excel de potencial)`;
-    const cab = `<div class="vs-head"><div><h2>Potencial de ruta</h2><p>${esc(fuente)}${fPot ? ` · potencial cargado el ${fPot.toLocaleDateString('es-PY', {day: 'numeric', month: 'short'})}` : ''}</p></div></div>
-      <div class="pt-dias-h">Elegí el día</div>
-      <div class="vs-dias pt-dias">${chips}</div>`;
-    let html;
-    if (elegido){
-      const xs = delDia(elegido, ui.dia);
-      const vac = RU.isVacante(elegido);
-      html = `${cab}
-        ${yo ? '' : `<button type="button" class="pt-volver" id="ptVolver">‹ Todos los vendedores</button>`}
-        ${tarjeta(`${vac ? 'Cartera vacante' : elegido.vn} · ${elegido.vc} · ${DIA_LARGO[ui.dia]} (${xs.length} clientes)`, xs, ui.dia)}
-        ${xs.length ? `<div class="vs-lista-h">Clientes del ${DIA_LARGO[ui.dia]}</div>${listaClientes(xs)}` : `<div class="tv-state"><b>No tiene clientes el ${DIA_LARGO[ui.dia]}</b></div>`}`;
-    } else {
-      const filas = carts.map(c => { const xs = delDia(c, ui.dia); return {c, xs, P: suma(xs, 'potD'), V: suma(xs, 'venD')}; }).filter(f => f.xs.length);
-      const todos = [].concat(...filas.map(f => f.xs));
-      const quien = spv === 'TODOS' ? 'Todos los supervisores' : (RU.supLabel[spv] || spv);
-      const vacN = f => RU.isVacante(f.c) ? 1 : 0;
-      const ord = filas.sort((a, b) => vacN(a) - vacN(b) || (pct(a.V, a.P) ?? 999) - (pct(b.V, b.P) ?? 999));
-      html = `${cab}
-        ${tarjeta(`${quien} · ${DIA_LARGO[ui.dia]} (${todos.length} clientes)`, todos, ui.dia)}
-        <div class="vs-lista-h">Tocá un vendedor para ver sus clientes del ${DIA_LARGO[ui.dia]}</div>
-        ${ord.map(f => { const a = pct(f.V, f.P), vac = RU.isVacante(f.c); return `<button type="button" class="vs-v pt-v" data-vc="${esc(f.c.vc)}">
-          <span class="vs-v-info"><span class="vs-v-n ${vac ? 'vac' : ''}">${esc(vac ? 'Cartera vacante' : f.c.vn)}</span>
-            <span class="vt-v-gs">${mill(f.V)} <small>de ${mill(f.P)} de potencial</small></span>
-            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${f.xs.length} clientes · ${f.xs.filter(o => o.ven <= 0).length} sin compra</span></span>
-          <b class="vs-v-p ${tono(a)}">${a === null ? '—' : a + '%'}</b></button>`; }).join('') || `<div class="tv-state"><b>Nadie tiene clientes el ${DIA_LARGO[ui.dia]}</b></div>`}`;
-    }
-    box.innerHTML = `<div class="vs-wrap">${html}</div>`;
-    box.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => { ui.dia = b.dataset.dia; ui.filtro = 'todos'; pintar(); });
-    box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { ui.filtro = b.dataset.f; pintar(); });
-    box.querySelectorAll('.pt-v').forEach(b => b.onclick = () => { ui.vc = b.dataset.vc; ui.filtro = 'todos'; pintar(); window.scrollTo({top: 0}); });
-    const v = $('ptVolver'); if (v) v.onclick = () => { ui.vc = ''; pintar(); window.scrollTo({top: 0}); };
-    const on = box.querySelector('.vs-dchip.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
-  }
-
-  function cargar(){
-    if (estado === 'ok' || estado === 'cargando') return;
-    estado = 'cargando'; pintar();
-    cargarDatos().then(() => { estado = 'ok'; pintar(); })
-      .catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
-  }
-  window.Potencial = {
-    mostrar(){ cargar(); pintar(); },
-    refrescar(){ if (estado === 'ok'){ ui.vc = ''; pintar(); } }
+  let promesa = null;
+  const P = window.Potencial = {
+    listo: false, error: '',
+    cargar(){
+      if (!promesa) promesa = cargarDatos().then(() => { P.listo = true; }).catch(e => { P.error = e.message || String(e); });
+      return promesa;
+    },
+    potDe: c => P.listo ? Math.max(0, potDe(c)) : 0,
+    ventaDe: c => P.listo ? Math.max(0, ventaDe(c)) : 0,
+    tiene: c => P.listo && !!POT.por[c],
+    mes: () => MESES[mesVenta()] || '',
+    fuente: () => usaVentas() ? 'Compras al ' + (fVen ? fVen.toLocaleDateString('es-PY', {day: 'numeric', month: 'short'}) : '—') : 'Compras de ' + (MESES[POT.mes] || '—'),
+    quedan,
+    destacado: POTENCIAL_MINIMO_DESTACADO
   };
 })();

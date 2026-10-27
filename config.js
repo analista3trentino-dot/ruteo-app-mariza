@@ -1,12 +1,15 @@
 // =====================================================================
-//  CLAVE DE SUPERVISORES
+//  CLAVES DE ACCESO
 // ---------------------------------------------------------------------
-//  Los supervisores la escriben una sola vez en su celular, al tocar
-//  "Soy supervisor". Con eso ven todas las carteras y la sección Visitas.
-//  Los vendedores no la tienen, así que solo ven su cartera.
+//  SUPERVISORES: ven todas las carteras y la sección Visitas.
+//  JEFATURA: ve todo lo de supervisores y además el control de los
+//            supervisores (sus visitas y horas en clientes).
+//  Los vendedores no tienen clave: solo ven su cartera.
 //
-//  Para cambiarla: editá el texto entre comillas y confirmá los cambios.
-//  Todos los supervisores tendrán que escribir la clave nueva.
+//  Para cambiar una clave: editá el texto entre comillas y confirmá los
+//  cambios. Quien la usaba tendrá que escribir la clave nueva.
 // =====================================================================
 
 const CLAVE_SUPERVISORES = 'aygas2026';
+
+const CLAVE_JEFATURA = 'jefatura2026';

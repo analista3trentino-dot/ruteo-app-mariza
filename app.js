@@ -26,14 +26,20 @@
   const huella = t => { let h = 5381; for (const ch of String(t)) h = ((h << 5) + h + ch.charCodeAt(0)) | 0; return 'k' + (h >>> 0).toString(36); };
   const CLAVE_OK = 'ruteoTR1_supOK';
   const supValido = () => { if (!CLAVE) return true; try { return localStorage.getItem(CLAVE_OK) === huella(CLAVE); } catch(e){ return false; } };
+  // Jefatura: otra clave (config.js)
+  const CLAVE_J = (typeof CLAVE_JEFATURA !== 'undefined' ? String(CLAVE_JEFATURA) : '').trim();
+  const CLAVE_JOK = 'ruteoTR1_jefOK';
+  const jefValido = () => { if (!CLAVE_J) return true; try { return localStorage.getItem(CLAVE_JOK) === huella(CLAVE_J); } catch(e){ return false; } };
   let GUARDADA = leerGuardada();
-  if (GUARDADA === 'TODAS' && !supValido()) GUARDADA = '';   // sin clave válida vuelve a preguntar
-  const ELEGIDA = PARAM_C || (GUARDADA !== 'TODAS' ? GUARDADA : '');
+  if (GUARDADA === 'TODAS' && !supValido()) GUARDADA = '';      // sin clave válida vuelve a preguntar
+  if (GUARDADA === 'JEFATURA' && !jefValido()) GUARDADA = '';
+  const ESPECIAL = GUARDADA === 'TODAS' || GUARDADA === 'JEFATURA';
+  const ELEGIDA = PARAM_C || (ESPECIAL ? '' : GUARDADA);
   const MI_CARTERA = carteras.find(c => c.vc.toUpperCase() === ELEGIDA) || null;
   const MODO_VENDEDOR = !!MI_CARTERA;
-  const DESDE_LINK = !!PARAM_C && MODO_VENDEDOR;
-  // Primera vez en este celular (sin link de vendedor): preguntar la cartera
-  const PREGUNTAR = !PARAM_C && GUARDADA !== 'TODAS' && !MI_CARTERA;
+  const MODO_JEFATURA = !MODO_VENDEDOR && GUARDADA === 'JEFATURA';
+  // Primera vez en este celular: la portada pide elegir (no se puede cerrar sin elegir)
+  const PREGUNTAR = !MI_CARTERA && !ESPECIAL;
 
   const PALETA = ['#2E5BFF','#E08700','#0EA371','#D6336C','#7048E8','#E8590C'];
   const supColor = {}, supLabel = {};
@@ -107,7 +113,6 @@
       $('vendedorSelect').value = 'TODOS';
       syncPills(); refresh(true); renderTop();
       if (window.Visitas) window.Visitas.refrescar();
-      if (window.Potencial) window.Potencial.refrescar();
     });
     syncPills();
   }
@@ -184,6 +189,42 @@
     if (topEstado === 'ok') setNum('kTop', top); else $('kTop').textContent = topEstado === 'error' ? '–' : '…';
   }
 
+  // ---- Potencial (lo que el cliente puede comprar en el mes) ----
+  const POT = () => window.Potencial && window.Potencial.listo ? window.Potencial : null;
+  const mill = n => { const v = (n || 0) / 1e6; return v >= 100 ? Math.round(v).toLocaleString('es-PY') + ' M' : v >= 1 ? v.toLocaleString('es-PY', {maximumFractionDigits: 1}) + ' M' : Math.round((n || 0) / 1000).toLocaleString('es-PY') + ' mil'; };
+  const gsN = n => 'Gs. ' + Math.round(n || 0).toLocaleString('es-PY');
+  const DIA_UNO = () => state.days.size === 1 ? [...state.days][0] : null;
+  // Suma del potencial de los clientes que se ven (cada cliente una vez)
+  function sumaPot(vis){
+    const P = POT(); if (!P) return null;
+    const vistos = new Set(); let pot = 0, ven = 0, n = 0, sin = 0;
+    vis.forEach(v => v.idx.forEach(i => {
+      const cl = v.c.cl[i], k = claveCli(v.c, cl); if (vistos.has(k) || !cl[6] || !P.tiene(cl[6])) return; vistos.add(k);
+      const p = P.potDe(cl[6]), s = P.ventaDe(cl[6]); pot += p; ven += s; n++; if (s <= 0 && p > 0) sin++;
+    }));
+    return {pot, ven, n, sin};
+  }
+  function potDiaHtml(vis){
+    const d = DIA_UNO(); if (!d || d === 'S/Cal' || state.soloTop || state.query) return '';
+    if (window.Potencial && !window.Potencial.listo){
+      return window.Potencial.error ? '' : `<div class="pot-dia cargando"><div class="pot-t"><span>Potencial ${d === TODAY_LBL ? 'de hoy' : 'del ' + DIA_LARGO_[d]}</span></div><div class="esqueleto"></div><div class="esqueleto corto"></div></div>`;
+    }
+    const s = sumaPot(vis); if (!s || !s.pot) return '';
+    const P = POT(), a = Math.round(s.ven / s.pot * 100), falta = Math.max(0, s.pot - s.ven), q = P.quedan(d);
+    const ton = a >= 90 ? 'good' : a >= 60 ? 'mid' : 'bad';
+    return `<div class="pot-dia">
+      <div class="pot-t"><span>Potencial ${d === TODAY_LBL ? 'de hoy' : 'del ' + DIA_LARGO_[d]}</span><small>${esc(P.fuente())}</small></div>
+      <div class="pot-nums">
+        <div><small>Pueden comprar en ${esc(P.mes())}</small><b>${gsN(s.pot)}</b></div>
+        <div><small>Ya compraron</small><b>${gsN(s.ven)}</b></div>
+      </div>
+      <div class="pot-bar"><i class="${ton}" style="width:${Math.min(100, a)}%"></i></div>
+      <p class="pot-linea"><b class="${ton}">${a}%</b> del potencial${falta ? ` · faltan <b>${gsN(falta)}</b>` : ' · <b class="good">¡completo!</b>'}${falta && q ? ` <span>(${q === 1 ? 'queda 1 ' + DIA_LARGO_[d] : 'quedan ' + q + ' ' + DIA_LARGO_[d] + (d === 'Sáb' ? 's' : '')} en el mes)</span>` : ''}</p>
+      ${s.sin ? `<p class="pot-sin"><b>${s.sin}</b> ${s.sin === 1 ? 'cliente todavía no compró' : 'clientes todavía no compraron'} este mes</p>` : ''}
+    </div>`;
+  }
+  const DIA_LARGO_ = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'};
+
   // ---- Lista de carteras ----
   let current = [];
   const findV = id => current.find(v => v.c.vc === id);
@@ -205,6 +246,7 @@
           <div class="toprow"><span class="code">${esc(c.vc)}</span>${(state.spv === 'TODOS' || state.spv === 'MIXTOS') && !MODO_VENDEDOR ? `<span class="spvtag">${esc(supLabel[c.sup] || c.sup)}</span>` : ''}${isVacante(c) ? '<span class="vac">Vacante</span>' : ''}${isMixto(c) ? `<span class="mixtag">⇄ Mixto · ${esc((pairOf(c) || {}).vc || '')}</span>` : ''}${nTop ? `<span class="toptag">${ICON.star}${nTop} top</span>` : ''}</div>
           <div class="name">${esc(c.vn)}</div>
           <div class="zone">${esc(c.vz)}</div>
+          ${(() => { if (!DIA_UNO() || !POT()) return ''; const s = sumaPot([v]); if (!s || !s.pot) return ''; const a = Math.round(s.ven / s.pot * 100); return `<div class="cpot-head"><span class="cpot-bar"><i class="${a >= 90 ? 'good' : a >= 60 ? 'mid' : 'bad'}" style="width:${Math.min(100, a)}%"></i></span><span>${a}% de ${mill(s.pot)}</span></div>`; })()}
         </div>
         <div class="right">
           <div class="count"><b>${n}</b><span>${n === 1 ? 'cliente' : 'clientes'}</span></div>
@@ -222,6 +264,12 @@
     if (i < 0) return esc(s);
     return esc(s.slice(0,i)) + '<mark>' + esc(s.slice(i, i + q.length)) + '</mark>' + esc(s.slice(i + q.length));
   }
+  function potCliHtml(codigo){
+    const P = POT(); if (!P || !codigo || !P.tiene(codigo)) return '';
+    const p = P.potDe(codigo), s = P.ventaDe(codigo); if (!p && !s) return '';
+    const a = p ? Math.min(100, Math.round(s / p * 100)) : 100, ton = s <= 0 ? 'bad' : a >= 90 ? 'good' : a >= 60 ? 'mid' : 'bad';
+    return `<div class="cpot"><span class="cpot-bar"><i class="${ton}" style="width:${s <= 0 ? 0 : Math.max(4, a)}%"></i></span><span class="cpot-txt">Puede <b>${mill(p)}</b> · compró <b class="${s <= 0 ? 'bad' : ''}">${s <= 0 ? 'nada' : mill(s)}</b></span>${p >= P.destacado ? '<span class="cpot-2mm">+2MM</span>' : ''}</div>`;
+  }
   function rowHtml(c, i){
     const cl = c.cl[i];
     const [ciudad, , nombre, dias, lat, lon, codigo, lp, pm] = cl;
@@ -233,7 +281,7 @@
     return `<div class="client ${cl._top ? 'is-top' : ''}">
       <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
         <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}</div>
-      </div><div class="acts">${lpBtn}${go}</div></div>`;
+      </div><div class="acts">${lpBtn}${go}</div>${potCliHtml(codigo)}</div>`;
   }
   function bodyHtml(v){
     const c = v.c;
@@ -308,7 +356,7 @@
     const DIA_LARGO = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado', 'S/Cal':'sin día fijo'};
     const cuando = state.days.size === 1 ? (state.days.has(TODAY_LBL) ? 'Hoy' : 'El ' + DIA_LARGO[[...state.days][0]]) : state.days.size ? 'Esos días' : 'En total';
     const hint = `<div class="hint"><span>${cuando}: <b>${unicos.size.toLocaleString('es-PY')}</b> ${unicos.size === 1 ? 'cliente' : 'clientes'}${MODO_VENDEDOR ? '' : ` en <b>${current.length}</b> ${current.length === 1 ? 'cartera' : 'carteras'}`}${topEstado === 'ok' && nTop ? `, <b class="hint-top">${nTop} top</b>` : ''}</span></div>`;
-    main.innerHTML = hint + current.map(cardHtml).join('');
+    main.innerHTML = hint + potDiaHtml(current) + current.map(cardHtml).join('');
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
       h.onclick = () => toggle(el.dataset.id);
@@ -510,20 +558,98 @@
   }
 
   // ---- "¿Cuál es tu cartera?" ----
-  function mostrarElegir(){
+  // ---- Portada: se muestra cada vez que se abre la app ----
+  const SALTAR = 'ruteoTR1_saltarPortada';
+  // Recarga sin volver a mostrar la portada (al cambiar de cartera o de rol)
+  function entrarComo(v){
+    guardar(v);
+    try { sessionStorage.setItem(SALTAR, '1'); } catch(e){}
+    if (PARAM_C) location.href = location.pathname; else location.reload();
+  }
+  const ICO_P = {
+    vend: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>',
+    sup: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    jef: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.6 6.5 19.5l1-6.3L3 8.9 9 8z"/></svg>',
+    flecha: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+  };
+  function mostrarPortada(){
+    if ($('portada')) return;
+    const titulo = s => String(s).toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase());
+    let seguir = '';
+    if (MODO_VENDEDOR) seguir = `<span class="po-av">${esc(initials(MI_CARTERA))}</span><span class="po-txt"><small>Continuar como</small><b>${esc(isVacante(MI_CARTERA) ? 'Cartera ' + MI_CARTERA.vc : titulo(MI_CARTERA.vn))}</b><em>Vendedor · ${esc(MI_CARTERA.vc)}</em></span>`;
+    else if (MODO_JEFATURA) seguir = `<span class="po-av j">${ICO_P.jef}</span><span class="po-txt"><small>Continuar como</small><b>Jefatura</b><em>Control de supervisores</em></span>`;
+    else if (!PREGUNTAR) seguir = `<span class="po-av s">${ICO_P.sup}</span><span class="po-txt"><small>Continuar como</small><b>Supervisor</b><em>Todas las carteras</em></span>`;
+    const box = document.createElement('div');
+    box.id = 'portada'; box.className = 'portada'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Inicio');
+    box.innerHTML = `
+      <div class="po-fondo" aria-hidden="true">
+        <svg class="po-ruta" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+          <path class="po-camino" d="M-20 690 C 80 640, 120 560, 210 560 S 360 470, 300 380 S 90 300, 150 200 S 330 120, 430 60"/>
+          <path class="po-camino dos" d="M-30 300 C 60 330, 120 250, 190 240 S 300 180, 420 210"/>
+          <circle class="po-punto" r="6"><animateMotion dur="9s" repeatCount="indefinite" path="M-20 690 C 80 640, 120 560, 210 560 S 360 470, 300 380 S 90 300, 150 200 S 330 120, 430 60"/></circle>
+          <circle class="po-pin" cx="210" cy="560" r="5"/><circle class="po-pin" cx="300" cy="380" r="5"/><circle class="po-pin" cx="150" cy="200" r="5"/>
+        </svg>
+        <div class="po-brillo"></div>
+      </div>
+      <div class="po-cont">
+        <div class="po-logo"><img src="logo-trentino.png" alt="Trentino S.A." /></div>
+        <h1 class="po-tit">Ruteo <span>TR1</span></h1>
+        <p class="po-fecha">${esc(FECHA_TXT.charAt(0).toUpperCase() + FECHA_TXT.slice(1))}</p>
+        ${seguir ? `<button type="button" class="po-seguir" id="poSeguir">${seguir}<span class="po-ir">${ICO_P.flecha}</span></button>
+        <p class="po-o">o entrá de otra forma</p>` : `<p class="po-o">¿Cómo querés entrar?</p>`}
+        <div class="po-opc">
+          <button type="button" class="po-btn" data-rol="vend"><span class="po-ic">${ICO_P.vend}</span><span><b>Soy vendedor</b><small>Elegí tu cartera</small></span></button>
+          <button type="button" class="po-btn" data-rol="sup"><span class="po-ic">${ICO_P.sup}</span><span><b>Soy supervisor</b><small>Todas las carteras</small></span></button>
+          <button type="button" class="po-btn" data-rol="jef"><span class="po-ic">${ICO_P.jef}</span><span><b>Jefatura</b><small>Control de supervisores</small></span></button>
+        </div>
+        <form class="po-clave" id="poClave" hidden autocomplete="off">
+          <label for="poClaveIn" id="poClaveLbl">Clave</label>
+          <div class="po-clave-row"><input id="poClaveIn" type="password" autocomplete="off" enterkeyhint="go" /><button type="submit">Entrar</button></div>
+          <p class="po-err" id="poErr" hidden>La clave no es correcta.</p>
+        </form>
+        <p class="po-pie">Ruteo actualizado al ${esc(GEN_DATE)} · Trentino S.A.</p>
+      </div>`;
+    document.body.appendChild(box);
+    document.documentElement.classList.add('cat-abierto');
+    requestAnimationFrame(() => box.classList.add('in'));
+    const cerrar = () => {
+      box.classList.add('fuera'); document.documentElement.classList.remove('cat-abierto');
+      setTimeout(() => box.remove(), 420);
+    };
+    const s = $('poSeguir'); if (s) s.onclick = cerrar;
+    let rol = '';
+    box.querySelectorAll('.po-btn').forEach(b => b.onclick = () => {
+      rol = b.dataset.rol;
+      box.querySelectorAll('.po-btn').forEach(x => x.classList.toggle('on', x === b));
+      if (rol === 'vend'){ $('poClave').hidden = true; elegirCartera(); return; }
+      const clave = rol === 'sup' ? CLAVE : CLAVE_J, ok = rol === 'sup' ? supValido() : jefValido();
+      if (ok || !clave){ if (rol === 'sup' && CLAVE) try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(e){} entrarComo(rol === 'sup' ? 'TODAS' : 'JEFATURA'); return; }
+      $('poClaveLbl').textContent = rol === 'sup' ? 'Clave de supervisor' : 'Clave de jefatura';
+      $('poErr').hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
+    });
+    $('poClave').onsubmit = e => {
+      e.preventDefault();
+      const clave = rol === 'sup' ? CLAVE : CLAVE_J;
+      if ($('poClaveIn').value.trim() === clave){
+        try { localStorage.setItem(rol === 'sup' ? CLAVE_OK : CLAVE_JOK, huella(clave)); if (rol === 'jef' && CLAVE) localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(err){}
+        entrarComo(rol === 'sup' ? 'TODAS' : 'JEFATURA');
+      } else { $('poErr').hidden = false; $('poClaveIn').select(); box.querySelector('.po-clave').classList.remove('tiembla'); void box.offsetWidth; box.querySelector('.po-clave').classList.add('tiembla'); }
+    };
+  }
+  // Lista para que el vendedor elija su cartera
+  function elegirCartera(){
     const box = document.createElement('div');
     box.id = 'elegir'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'elTit');
-    const lista = APP_DATA.carteras.slice();   // solo carteras TR/TM: la mixta AR se ve junto a su par
-    const grupos = sups.map(sp => ({sp, cs: lista.filter(c => c.sup === sp.k)})).filter(g => g.cs.length);
+    const grupos = sups.map(sp => ({sp, cs: carteras.filter(c => c.sup === sp.k && !/^AR/.test(c.vc))})).filter(g => g.cs.length);
     const item = c => `<button type="button" class="el-item" data-vc="${esc(c.vc)}" data-busca="${esc((c.vc + ' ' + c.vn + ' ' + c.vz).toLowerCase())}" style="--c:${supColor[c.sup] || '#2E5BFF'}">
         <span class="el-av">${esc(initials(c))}</span>
-        <span class="el-txt"><b>${esc(isVacante(c) ? 'Cartera vacante' : c.vn)}</b><small>${esc(c.vc)} · ${esc(c.vz)}${isMixto(c) ? ' · con cartera mixta' : ''}</small></span>
+        <span class="el-txt"><b>${esc(isVacante(c) ? 'Cartera vacante' : c.vn)}</b><small>${esc(c.vc)} · ${esc(c.vz)}</small></span>
       </button>`;
     box.innerHTML = `
       <div class="el-head">
-        <img src="logo-trentino.png" alt="Trentino S.A." class="el-logo" />
+        <button type="button" class="lp-volver el-volver" id="elVolver" aria-label="Volver"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <h2 id="elTit">¿Cuál es tu cartera?</h2>
-        <p>Elegila una sola vez. La app la va a recordar en este celular.</p>
+        <p>La app la va a recordar en este celular.</p>
         <div class="search-wrap el-search">
           <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="elBuscar" type="text" placeholder="Tu nombre o código (ej. TR1338)" autocomplete="off" aria-label="Buscar tu cartera" enterkeyhint="search" />
@@ -532,17 +658,8 @@
       <div class="el-body" id="elBody">
         ${grupos.map(g => `<section class="el-grupo"><h3><span class="tv-dot" style="--c:${supColor[g.sp.k]}"></span>${esc(g.sp.p)}</h3>${g.cs.map(item).join('')}</section>`).join('')}
         <p class="el-vacio" id="elVacio" hidden>No encontramos esa cartera. Probá con tu apellido o el código.</p>
-      </div>
-      <div class="el-foot">
-        <button type="button" class="el-todas" id="elTodas">Soy supervisor</button>
-        <form class="el-clave" id="elClave" hidden autocomplete="off">
-          <label for="elClaveIn">Clave de supervisor</label>
-          <div class="el-clave-row"><input id="elClaveIn" type="password" inputmode="text" autocomplete="off" enterkeyhint="go" /><button type="submit">Entrar</button></div>
-          <p class="el-err" id="elErr" hidden>La clave no es correcta. Pedísela a tu jefatura.</p>
-        </form>
       </div>`;
     document.body.appendChild(box);
-    document.documentElement.classList.add('cat-abierto');
     const buscar = $('elBuscar');
     buscar.addEventListener('input', () => {
       const q = buscar.value.trim().toLowerCase(); let alguno = false;
@@ -552,20 +669,9 @@
       });
       $('elVacio').hidden = alguno;
     });
-    box.querySelectorAll('.el-item').forEach(b => b.onclick = () => { guardar(b.dataset.vc); location.reload(); });
-    $('elTodas').onclick = () => {
-      if (!CLAVE){ guardar('TODAS'); location.reload(); return; }
-      $('elTodas').hidden = true; $('elClave').hidden = false; $('elClaveIn').focus();
-    };
-    $('elClave').onsubmit = e => {
-      e.preventDefault();
-      if ($('elClaveIn').value.trim() === CLAVE){
-        try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(err){}
-        guardar('TODAS'); location.reload();
-      } else { $('elErr').hidden = false; $('elClaveIn').select(); }
-    };
+    box.querySelectorAll('.el-item').forEach(b => b.onclick = () => entrarComo(b.dataset.vc));
+    $('elVolver').onclick = () => { box.remove(); document.querySelectorAll('.po-btn').forEach(x => x.classList.remove('on')); };
   }
-  function cambiarCartera(){ guardar(''); location.href = location.pathname; }
 
   // ---- Secciones: Ruta, Top y Precios (barra inferior) ----
   function setSeccion(s){
@@ -579,10 +685,10 @@
     if ($('preciosView')) $('preciosView').hidden = s !== 'precios';
     $('visitasView').hidden = s !== 'visitas';
     if ($('ventasView')) $('ventasView').hidden = s !== 'ventas';
-    if ($('potencialView')) $('potencialView').hidden = s !== 'potencial';
+    if ($('jefaturaView')) $('jefaturaView').hidden = s !== 'jefatura';
     if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
     if (s === 'ventas' && window.Ventas) window.Ventas.mostrar();
-    if (s === 'potencial' && window.Potencial) window.Potencial.mostrar();
+    if (s === 'jefatura' && window.Jefatura) window.Jefatura.mostrar();
     if (s === 'top') renderTop();
     if (s === 'precios' && window.Precios) window.Precios.mostrar();
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
@@ -595,7 +701,7 @@
     setSeccion, carteras, sups, supLabel, supColor, isMixto, isVacante,
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     getSpv: () => state.spv,
-    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Potencial) window.Potencial.refrescar(); window.scrollTo({top:0}); }
+    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----
@@ -649,15 +755,9 @@
   buildDays();
   if (TODAY_LBL) state.days.add(TODAY_LBL);   // la app abre mostrando los clientes de hoy
   const btnCambiar = $('btnCambiar');
-  if (btnCambiar){
-    if (DESDE_LINK) btnCambiar.hidden = true;
-    else {
-      btnCambiar.textContent = MODO_VENDEDOR ? 'Cambiar cartera' : 'Elegir mi cartera';
-      btnCambiar.onclick = cambiarCartera;
-    }
-  }
-  if (PREGUNTAR) mostrarElegir();
+  if (btnCambiar){ btnCambiar.textContent = 'Inicio'; btnCambiar.onclick = mostrarPortada; }
   if (!MODO_VENDEDOR) document.body.classList.add('modo-supervisor');
+  if (MODO_JEFATURA){ document.body.classList.add('modo-jefatura'); $('tituloApp').innerHTML = 'Jefatura <span>TR1</span>'; $('subtituloApp').textContent = 'Carteras, visitas y control de supervisores'; }
   if (MODO_VENDEDOR){
     document.body.classList.add('modo-vendedor');
     const nom = isVacante(MI_CARTERA) ? 'Cartera ' + MI_CARTERA.vc : MI_CARTERA.vn.split(/\s+/)[0];
@@ -668,4 +768,10 @@
   setSeccion('ruta');
   refresh(false);
   cargarTop();
+  // Portada al abrir (salvo recargas internas de la app)
+  let saltar = false; try { saltar = sessionStorage.getItem(SALTAR) === '1'; sessionStorage.removeItem(SALTAR); } catch(e){}
+  if (PREGUNTAR || !saltar) mostrarPortada();
+  const spl = $('splash'); if (spl){ spl.classList.add('fuera'); setTimeout(() => spl.remove(), 600); }
+  // Potencial de cada cliente (se carga sin frenar la app)
+  if (window.Potencial) window.Potencial.cargar().then(() => refresh(false));
 })();

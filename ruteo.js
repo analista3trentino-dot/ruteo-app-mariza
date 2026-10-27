@@ -161,7 +161,7 @@ const NOMBRES_SUPERVISORES = {
     if (cambio){
       // se recarga una sola vez para mostrar el ruteo nuevo
       let ya = ''; try { ya = sessionStorage.getItem('ruteoTR1_recargado'); } catch(e){}
-      if (ya !== firma){ try { sessionStorage.setItem('ruteoTR1_recargado', firma); } catch(e){} location.reload(); }
+      if (ya !== firma){ try { sessionStorage.setItem('ruteoTR1_recargado', firma); if (!document.getElementById('portada')) sessionStorage.setItem('ruteoTR1_saltarPortada', '1'); } catch(e){} location.reload(); }
     }
   }
   window.addEventListener('load', () => setTimeout(() => revisar().catch(() => {}), 600));
