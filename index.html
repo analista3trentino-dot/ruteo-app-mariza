@@ -67,14 +67,11 @@
   <!-- Clientes top: visitas por día -->
   <section id="topView" hidden></section>
 
-  <!-- Visitas (supervisores) -->
+  <!-- Visitas -->
   <section id="visitasView" hidden></section>
-  <section id="ventasView" hidden></section>
 
-  <!-- Ventas del mes -->
-<script src="ventas.js?v=20261023e"></script>
-<!-- Lista de precios -->
-  <section id="preciosView" hidden></section>
+  <!-- Potencial de ruta -->
+  <section id="potencialView" hidden></section>
 
   <footer id="footerNote"></footer>
 </div>
@@ -95,40 +92,39 @@
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
     <span>Visitas</span>
   </button>
-  <button type="button" class="tabbar-btn tab-ventas" data-sec="ventas">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/><path d="M15 8h5v5"/></svg>
-    <span>Ventas</span>
+  <button type="button" class="tabbar-btn tab-potencial" data-sec="potencial">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+    <span>Potencial</span>
   </button>
   <button type="button" class="tabbar-btn" id="navCatalogo">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg>
     <span>Catálogo</span>
   </button>
-  <button type="button" class="tabbar-btn" data-sec="precios">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.6"/></svg>
-    <span>Precios</span>
-  </button>
 </nav>
 
 
-<!-- Datos -->
-<script src="data.js?v=20261023d"></script>
-<script src="data-mix.js?v=20261023d"></script>
+<!-- Ruteo de respaldo (la app usa el Excel de ruteo más nuevo de GitHub) -->
+<script src="data.js?v=20261027a"></script>
 <!-- Clave de supervisores -->
-<script src="config.js?v=20261023d"></script>
-<!-- Nombres de vendedores (editar aquí) -->
-<script src="vendedores.js?v=20261023d"></script>
-<!-- Lector de Excel (clientes top y precios) -->
-<script src="excel.js?v=20261023e"></script>
-<!-- Buscador de archivos subidos (visitas y precios con cualquier nombre) -->
-<script src="archivos.js?v=20261023d"></script>
+<script src="config.js?v=20261027a"></script>
+<!-- Nombres de vendedores (opcional) -->
+<script src="vendedores.js?v=20261027a"></script>
+<!-- Lector de Excel -->
+<script src="excel.js?v=20261027a"></script>
+<!-- Reconoce los Excel subidos (ruteo, GPS, padrón, visitas, ventas, precios, potencial) -->
+<script src="archivos.js?v=20261027a"></script>
+<!-- Ruteo desde el Excel del sistema -->
+<script src="ruteo.js?v=20261027a"></script>
 <!-- Catálogo de productos -->
-<script src="catalogo.js?v=20261023d"></script>
-<!-- Visitas (supervisores) -->
-<script src="visitas.js?v=20261023d"></script>
-<!-- Lista de precios -->
-<script src="precios.js?v=20261023e"></script>
+<script src="catalogo.js?v=20261027a"></script>
+<!-- Visitas -->
+<script src="visitas.js?v=20261027a"></script>
+<!-- Lista de precios de cada cliente (botón LP) -->
+<script src="precios.js?v=20261027a"></script>
+<!-- Potencial de ruta -->
+<script src="potencial.js?v=20261027a"></script>
 <!-- Lógica de la aplicación -->
-<script src="app.js?v=20261023d"></script>
+<script src="app.js?v=20261027a"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>

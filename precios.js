@@ -100,8 +100,7 @@ const LISTAS_PRECIOS = [
     try {
       const T = window.Archivos && window.Archivos.tipo;
       // del más nuevo al más viejo; se saltean los que ya se sabe que no son de precios
-      let c = window.Archivos ? await window.Archivos.ultimos(CARPETA_PRECIOS) : [];
-      c = c.filter(f => !T || T.leer(f.sha, 'precios') !== '0');
+      let c = window.Archivos ? await window.Archivos.buscar('precios', 10) : [];
       if (c.length) return c.slice(0, 10).map(f => {
         const m = T && T.leer(f.sha, 'precios');
         return { url: f.url, archivo: f.nombre, fecha: f.fecha, sha: f.sha, ids: (m && m !== '1') ? m.split(',') : null };
@@ -168,13 +167,20 @@ const LISTAS_PRECIOS = [
 
   // --- Pantalla ---
   let armado = false;
+  let modo = { lista: null, cliente: null };   // lista del cliente que se está mirando
   function armar() {
     if (armado) return; armado = true;
-    const v = $('preciosView');
+    const v = document.createElement('div');
+    v.id = 'lpSheet'; v.className = 'lp-sheet'; v.hidden = true;
+    v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'Lista de precios del cliente');
+    document.body.appendChild(v);
     v.innerHTML = `
       <div class="pv-wrap">
+        <div class="lp-top">
+          <button type="button" class="lp-volver" id="lpVolver" aria-label="Volver"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="lp-cli" id="lpCli"></div>
+        </div>
         <div class="pv-head">
-          <h2>Lista de precios</h2>
           <p id="pvResumen">Cargando precios…</p>
         </div>
         <div class="pv-sticky">
@@ -194,22 +200,43 @@ const LISTAS_PRECIOS = [
       t = setTimeout(() => { filtro.q = norm(val); mostrados = POR_PAGINA; pintar(); }, 140);
     });
     $('pvLimpiar').onclick = () => { $('pvBuscar').value = ''; filtro.q = ''; mostrados = POR_PAGINA; pintar(); $('pvBuscar').focus(); };
+    $('lpVolver').onclick = () => history.state && history.state.lp ? history.back() : cerrar();
+    window.addEventListener('popstate', () => { if (!$('lpSheet').hidden) cerrar(); });
+  }
+  function cerrar() {
+    const v = $('lpSheet'); if (!v || v.hidden) return;
+    v.hidden = true; document.body.classList.remove('lp-abierta');
+    window.scrollTo({ top: modo.scroll || 0 });
+  }
+  // Abre los precios de la lista que usa el cliente: {nombre, codigo, lp, pm}
+  function abrirCliente(cli) {
+    armar();
+    modo = { lista: cli.lp ? String(cli.lp).trim() : null, cliente: cli, scroll: window.scrollY };
+    filtro = { q: '', cat: '' }; mostrados = POR_PAGINA; $('pvBuscar').value = '';
+    $('lpCli').innerHTML = `<b>${esc(cli.nombre)}</b><div class="lp-tags">${cli.codigo ? `<span class="lp-cod">${esc(cli.codigo)}</span>` : ''}<span class="lp-tag lp">Usa LP ${esc(cli.lp || '—')}</span><span class="lp-tag pm">PM ${esc(cli.pm || '—')}</span></div>`;
+    const v = $('lpSheet'); v.hidden = false; v.scrollTop = 0;
+    document.body.classList.add('lp-abierta');
+    try { history.pushState({ lp: 1 }, ''); } catch (e) {}
+    pintar(); cargar();
   }
 
+  const listasVis = () => modo.lista ? LISTAS.filter(L => L.id === modo.lista) : LISTAS;
+  const conPrecio = () => { const ls = listasVis(); return productos.filter(p => ls.some(L => p.precios[L.id])); };
   function filtrar() {
     const palabras = filtro.q ? filtro.q.split(' ') : [];
-    return productos.filter(p => (!filtro.cat || p.cat === filtro.cat) && palabras.every(w => p.busca.includes(w)));
+    return conPrecio().filter(p => (!filtro.cat || p.cat === filtro.cat) && palabras.every(w => p.busca.includes(w)));
   }
 
   function pintarCats() {
     const orden = ((typeof CATALOGO !== 'undefined') ? CATALOGO.CATEGORIAS.map(c => c.nombre) : []).concat(['Otros']);
-    const cnt = {}; productos.forEach(p => cnt[p.cat] = (cnt[p.cat] || 0) + 1);
+    const base = conPrecio();
+    const cnt = {}; base.forEach(p => cnt[p.cat] = (cnt[p.cat] || 0) + 1);
     const cats = orden.filter(c => cnt[c]);
-    $('pvCats').innerHTML = `<button type="button" data-c="" class="${!filtro.cat ? 'on' : ''}">Todos<small>${productos.length}</small></button>` +
+    $('pvCats').innerHTML = `<button type="button" data-c="" class="${!filtro.cat ? 'on' : ''}">Todos<small>${base.length}</small></button>` +
       cats.map(c => `<button type="button" data-c="${esc(c)}" class="${filtro.cat === c ? 'on' : ''}">${esc(c)}<small>${cnt[c]}</small></button>`).join('');
     $('pvCats').querySelectorAll('button').forEach(b => b.onclick = () => {
       filtro.cat = b.dataset.c; mostrados = POR_PAGINA; pintar();
-      window.scrollTo({ top: Math.min(window.scrollY, $('preciosView').offsetTop) });
+      $('lpSheet').scrollTop = 0;
     });
   }
 
@@ -230,7 +257,7 @@ const LISTAS_PRECIOS = [
   }
 
   function filaHtml(p) {
-    const precios = LISTAS.map(L => {
+    const precios = listasVis().map(L => {
       const pr = p.precios[L.id];
       return pr ? `<div class="pv-price"><b>${gs(pr.u)}</b><span>caja ${gs(pr.c)}</span></div>` : `<div class="pv-price none"><b>—</b><span>sin precio</span></div>`;
     }).join('');
@@ -253,12 +280,19 @@ const LISTAS_PRECIOS = [
       lista.innerHTML = `<div class="pv-state"><b>No hay lista de precios para mostrar</b><span>Subí a GitHub el listado de precios del sistema. (${esc(error)})</span></div>`;
       return;
     }
+    const LV = listasVis();
+    if (modo.lista && !LV.length) {
+      $('pvCats').innerHTML = ''; $('pvCols').innerHTML = '';
+      $('pvResumen').textContent = '';
+      lista.innerHTML = `<div class="pv-state"><b>La lista LP ${esc(modo.lista)} no está cargada en la app</b><span>Por ahora la app tiene ${LISTAS.map(L => esc(L.nombre)).join(' y ') || 'ninguna lista'}. Para ver esta lista, subí a GitHub el listado de precios ${esc(modo.lista)}.</span></div>`;
+      return;
+    }
     pintarCats();
-    $('pvCols').innerHTML = `<span>Producto</span>` + LISTAS.map(L => `<span>${esc(L.nombre)}</span>`).join('');
-    document.documentElement.style.setProperty('--pv-n', LISTAS.length || 1);
+    $('pvCols').innerHTML = `<span>Producto</span>` + LV.map(L => `<span>${esc(L.nombre)}</span>`).join('');
+    document.documentElement.style.setProperty('--pv-n', LV.length || 1);
     const res = filtrar();
-    const fTxt = LISTAS.filter(L => L.fecha).map(L => `${esc(L.nombre)}: ${L.fecha.toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}`);
-    $('pvResumen').innerHTML = `${productos.length.toLocaleString('es-PY')} productos, en guaraníes por unidad y por caja.${fTxt.length ? `<br><span class="pv-fecha">Actualizado: ${fTxt.join(' · ')}</span>` : ''}${error ? ` <span class="pv-warn">${esc(error)}</span>` : ''}`;
+    const fTxt = LV.filter(L => L.fecha).map(L => `${esc(L.nombre)} actualizada el ${L.fecha.toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}`);
+    $('pvResumen').innerHTML = `${conPrecio().length.toLocaleString('es-PY')} productos, en guaraníes por unidad y por caja.${fTxt.length ? `<br><span class="pv-fecha">${fTxt.join(' · ')}</span>` : ''}${error ? ` <span class="pv-warn">${esc(error)}</span>` : ''}`;
     if (!res.length) {
       lista.innerHTML = `<div class="pv-state"><b>No hay productos con "${esc($('pvBuscar').value.trim())}"</b><span>Probá con otra palabra, el código o el código de barras.</span><button type="button" class="clear-btn" id="pvReset">Ver todos los productos</button></div>`;
       $('pvReset').onclick = () => { $('pvBuscar').value = ''; filtro = { q: '', cat: '' }; mostrados = POR_PAGINA; pintar(); };
@@ -272,6 +306,8 @@ const LISTAS_PRECIOS = [
   }
 
   window.Precios = {
-    mostrar() { armar(); pintar(); cargar(); }
+    mostrar() { armar(); pintar(); cargar(); },
+    abrirCliente,
+    cerrar
   };
 })();

@@ -22,7 +22,7 @@
   }
 
   // Abre el archivo: .xlsx normal, o .xls exportado del sistema (que por dentro es una tabla web)
-  function abrirLibro(XLSX, buf) {
+  function abrirLibro(XLSX, buf, opts) {
     const ini = new Uint8Array(buf.slice(0, 512));
     let txt = ''; for (const b of ini) txt += String.fromCharCode(b);
     if (/^\s*(\ufeff|\xef\xbb\xbf)?\s*</.test(txt) || /<(html|table)/i.test(txt)) {
@@ -35,7 +35,7 @@
       });
       return hojas;
     }
-    return XLSX.read(buf, { type: 'array' });
+    return XLSX.read(buf, Object.assign({ type: 'array' }, opts || {}));
   }
 
   const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();

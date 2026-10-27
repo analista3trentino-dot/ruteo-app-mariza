@@ -79,20 +79,11 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   async function leer(){
     if (!window.cargarExcelLib) throw new Error('Falta excel.js');
     const XLSX = await window.cargarExcelLib();
-    // 1) El Excel más nuevo de la carpeta "visitas" (con cualquier nombre)
-    let candidatos = [];
-    try { candidatos = window.Archivos ? await window.Archivos.ultimos(CARPETA_VISITAS) : []; } catch(e){ candidatos = []; }
-    // primero los que por el nombre parecen de visitas; se saltean los que ya se sabe que no son
-    const T = window.Archivos && window.Archivos.tipo;
-    // del más nuevo al más viejo (los que ya se sabe que son de precios u otra cosa se saltean)
-    candidatos = candidatos.filter(f => !T || T.leer(f.sha, 'visitas') !== '0');
-    for (const f of candidatos.slice(0, 8)){
-      try {
-        const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
-        const regs = procesar(XLSX, await r.arrayBuffer());
-        if (T) T.guardar(f.sha, 'visitas', !!regs);
-        if (regs) return regs;
-      } catch(e){}
+    // 1) El Excel de visitas más nuevo (con cualquier nombre)
+    let cand = [];
+    try { cand = window.Archivos ? await window.Archivos.buscar('visitas', 2) : []; } catch(e){ cand = []; }
+    for (const f of cand){
+      try { const regs = procesar(XLSX, await window.Archivos.bajar(f)); if (regs) return regs; } catch(e){}
     }
     // 2) Respaldo: visitas.xlsx en la raíz
     const r = await fetch(ARCHIVO_VISITAS, {cache: 'no-cache'});

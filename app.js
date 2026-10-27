@@ -2,7 +2,7 @@
   const DAY_LABELS = ["Lun","Mar","Mié","Jue","Vie","Sáb","S/Cal"];
   const WEEK = ["Lun","Mar","Mié","Jue","Vie","Sáb"];
   const WEEK_LETTER = {Lun:'L',Mar:'M','Mié':'X',Jue:'J',Vie:'V','Sáb':'S'};
-  const GEN_DATE = "14/10/2026";  // fecha del ruteo cargado en data.js
+  const GEN_DATE = APP_DATA.fecha || "";  // fecha del ruteo (del Excel del sistema)
   const sups = APP_DATA.sups;
   const MIX = (typeof APP_DATA_MIX !== 'undefined') ? APP_DATA_MIX : {codes:[], carteras:[]};
   const numOf = vc => String(vc).replace(/^\D+/, '');
@@ -96,7 +96,8 @@
     const wrap = $('spvScroll');
     const sum = arr => { const k = new Set(); arr.forEach(c => c.cl.forEach(cl => k.add(claveCli(c, cl)))); return k.size; };
     const items = [{k:'TODOS', p:'Todos', n:sum(carteras), color:'#FFFFFF'}, {k:'MIXTOS', p:'⇄ Mixtos', n:sum(carteras.filter(isMixto)), color:'#A78BFA'}]
-      .concat(sups.map(s => ({k:s.k, p:s.p, n:sum(carteras.filter(c => c.sup === s.k)), color:supColor[s.k]})));
+      .concat(sups.map(s => ({k:s.k, p:s.p, n:sum(carteras.filter(c => c.sup === s.k)), color:supColor[s.k]})))
+      .filter(it => it.k !== 'MIXTOS' || it.n);   // sin carteras mixtas no se muestra ese botón
     wrap.innerHTML = items.map(it =>
       `<button type="button" class="spv-pill" data-k="${esc(it.k)}" style="--dot:${it.color}"><i></i>${esc(it.p)}<small>${it.n.toLocaleString('es-PY')}</small></button>`
     ).join('');
@@ -106,7 +107,7 @@
       $('vendedorSelect').value = 'TODOS';
       syncPills(); refresh(true); renderTop();
       if (window.Visitas) window.Visitas.refrescar();
-      if (window.Ventas) window.Ventas.refrescar();
+      if (window.Potencial) window.Potencial.refrescar();
     });
     syncPills();
   }
@@ -223,15 +224,16 @@
   }
   function rowHtml(c, i){
     const cl = c.cl[i];
-    const [ciudad, pm, nombre, dias, lat, lon, codigo] = cl;
+    const [ciudad, , nombre, dias, lat, lon, codigo, lp, pm] = cl;
     const dd = daysOf(cl).map(d => d === TODAY_LBL ? `<b class="hoy">${esc(d)}</b>` : esc(d)).join(', ');
     const go = hasGps(cl)
       ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${esc(nombre)}">${ICON.nav}<span>Ir</span></a>`
       : `<span class="nogps">Sin GPS</span>`;
+    const lpBtn = `<button type="button" class="lpbtn ${lp ? '' : 'nolp'}" data-lpi="${i}" aria-label="Lista de precios de ${esc(nombre)}"><b>LP</b><span>${esc(lp || '—')}</span></button>`;
     return `<div class="client ${cl._top ? 'is-top' : ''}">
       <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
-        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}</div>
-      </div>${go}</div>`;
+        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}</div>
+      </div><div class="acts">${lpBtn}${go}</div></div>`;
   }
   function bodyHtml(v){
     const c = v.c;
@@ -244,6 +246,10 @@
     const cerrar = el.querySelector('[data-act="close"]');
     if (cerrar) cerrar.onclick = () => { collapse(v.c.vc); state.openId = null; scrollToCard(v.c.vc); };
     el.querySelector('[data-act="map"]').onclick = () => verZonaDe(v.c.vc);
+    el.querySelectorAll('[data-lpi]').forEach(b => b.onclick = () => {
+      const cl = v.c.cl[+b.dataset.lpi];
+      if (window.Precios && window.Precios.abrirCliente) window.Precios.abrirCliente({nombre: cl[2], codigo: cl[6], lp: cl[7], pm: cl[8]});
+    });
     const pb = el.querySelector('[data-pair]');
     if (pb) pb.onclick = () => {
       const id = pb.dataset.pair;
@@ -347,12 +353,12 @@
         if (!matches(cl)) return;
         total++;
         if (!hasGps(cl)) return;
-        const [ciudad, pm, nombre, dias, lat, lon, codigo] = cl;
+        const [ciudad, , nombre, dias, lat, lon, codigo, lp, pm] = cl;
         conUbic++; supsEnMapa.add(c.sup);
         const m = L.circleMarker([lat, lon], {
           radius: (vendedorSel === 'TODOS' ? 7 : 9) + (cl._top ? 2 : 0), color: cl._top ? '#0C1A2E' : '#fff', weight: cl._top ? 3 : 2, fillColor: colorDe(c), fillOpacity:.92
         });
-        m.bindPopup(`${cl._top ? '<span class="ptop">★ Cliente top</span><br>' : ''}<b>${esc(nombre)}</b>${codigo ? ` <span class="pcode">${esc(codigo)}</span>` : ''}<br>${esc(ciudad)}<br>Vendedor: ${esc(c.vc)} · ${esc(c.vn)}<br>Días: ${esc(dias)}<br>` +
+        m.bindPopup(`${cl._top ? '<span class="ptop">★ Cliente top</span><br>' : ''}<b>${esc(nombre)}</b>${codigo ? ` <span class="pcode">${esc(codigo)}</span>` : ''}<br>${esc(ciudad)}<br>Vendedor: ${esc(c.vc)} · ${esc(c.vn)}<br>Días: ${esc(dias)}${lp ? `<br>LP ${esc(lp)} · PM ${esc(pm || '—')}` : ''}<br>` +
           `<a class="pgo" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener">Cómo llegar</a>`);
         m.addTo(markersLayer); lastBounds.push([lat, lon]);
       });
@@ -570,11 +576,13 @@
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     $('topView').hidden = s !== 'top';
-    $('preciosView').hidden = s !== 'precios';
+    if ($('preciosView')) $('preciosView').hidden = s !== 'precios';
     $('visitasView').hidden = s !== 'visitas';
-    $('ventasView').hidden = s !== 'ventas';
+    if ($('ventasView')) $('ventasView').hidden = s !== 'ventas';
+    if ($('potencialView')) $('potencialView').hidden = s !== 'potencial';
     if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
     if (s === 'ventas' && window.Ventas) window.Ventas.mostrar();
+    if (s === 'potencial' && window.Potencial) window.Potencial.mostrar();
     if (s === 'top') renderTop();
     if (s === 'precios' && window.Precios) window.Precios.mostrar();
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
@@ -587,7 +595,7 @@
     setSeccion, carteras, sups, supLabel, supColor, isMixto, isVacante,
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     getSpv: () => state.spv,
-    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Ventas) window.Ventas.refrescar(); window.scrollTo({top:0}); }
+    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Potencial) window.Potencial.refrescar(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----
