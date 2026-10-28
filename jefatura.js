@@ -89,7 +89,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
   }
 
   // --- Datos ---
-  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], fArchivo = null, usado = null;
+  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], VACANTES = [], fArchivo = null, usado = null;
   async function cargarDatos(){
     const XLSX = await window.cargarExcelLib();
     const [f] = await window.Archivos.buscar('supervisores', 1);
@@ -99,7 +99,12 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     REGS = regs; fArchivo = f.fecha; usado = f;
     DATES = [...new Set(regs.map(r => r.d))].sort();
     const m = new Map(); regs.forEach(r => { if (!m.has(r.sup)) m.set(r.sup, r.nombre); });
-    SUPS = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, n]) => ({k, n}));
+    // nombre y vacantes según vendedores.js (SUPERVISORES)
+    const LISTA = typeof SUPERVISORES !== 'undefined' ? SUPERVISORES : {};
+    const todos = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, n]) => ({k, n: LISTA[k] ? titulo(LISTA[k]) : n, vac: /vacante/i.test(LISTA[k] || '')}));
+    Object.keys(LISTA).forEach(k => { if (!m.has(k)) todos.push({k, n: titulo(LISTA[k]), vac: /vacante/i.test(LISTA[k])}); });
+    SUPS = todos.filter(s => !s.vac).sort((a, b) => a.k.localeCompare(b.k));
+    VACANTES = todos.filter(s => s.vac).map(s => s.k).sort();
   }
 
   // Resumen de un supervisor en un conjunto de días
@@ -189,7 +194,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
         return `<article class="vs-v jf-v ${abierto ? 'open' : ''} ${x.visitas ? '' : 'vacio'}" data-sup="${esc(f.s.k)}">
           <button type="button" class="vs-v-head" aria-expanded="${abierto}">
             <span class="vs-v-info">
-              <span class="vs-v-n">${esc(lbl(f.s.k))} · ${esc(f.s.n.split(' ').slice(0, 1).concat(f.s.n.split(' ').slice(-2, -1)).join(' '))}</span>
+              <span class="vs-v-n">${esc(lbl(f.s.k))} · ${esc(f.s.n.split(' ').length > 3 ? f.s.n.split(' ').slice(0, 1).concat(f.s.n.split(' ').slice(-2, -1)).join(' ') : f.s.n)}</span>
               <span class="vs-v-s">${esc(sub)}</span>
               <span class="vs-bar"><i class="good" style="width:${Math.round(x.enCli / maxE * 100)}%"></i></span>
             </span>
@@ -197,6 +202,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
           </button>
           <div class="vs-v-body">${abierto && x.visitas ? (esDia ? detalleDia(x) : detalleMes(x)) : abierto ? '<p class="vs-nada">Sin marcaciones.</p>' : ''}</div>
         </article>`; }).join('')}
+      ${VACANTES.length ? `<p class="tv-note">Solo se cuentan supervisores activos. No se incluyen ${VACANTES.length === 1 ? 'el vacante' : 'los vacantes'}: ${esc(VACANTES.join(', '))} (se cambia en vendedores.js).</p>` : ''}
       <p class="tv-note">Tiempo en clientes = desde que el supervisor marca la entrada hasta la salida de cada cliente. Las visitas de menos de ${VISITA_CORTA_MINUTOS} minutos se marcan como cortas.</p>
     </div>`;
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abierto = ''; pintar(); });
