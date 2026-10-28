@@ -29,7 +29,7 @@ const VENDEDORES = {
   // ---------- TR13 Centro ----------
   "TR1331": "KEVIN PERALTA",                        // RV. ASU-LAMBARE
   "TR1332": "MIGUEL CARRERAS",                      // RV. ASUNCION
-  "TR1334": "SOFIA GONZALEZ",                       // RV. FDM
+  "TR1334": "VACANTE",                       // RV. FDM
   "TR1335": "CARTERA VACANTE",                      // RV. LAMBARE - VE
   "TR1336": "SANTIAGO FERNANDEZ",                   // RV. VILLA ELISA/SAN ANTONIO
   "TR1337": "JUAN SILVANO",                         // RV. ÑEMBY
