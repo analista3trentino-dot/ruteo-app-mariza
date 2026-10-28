@@ -65,7 +65,7 @@ const VENDEDORES = {
 
   // ---------- TR17 Norte ----------
   "TM2312": "ELVA PALACIOS",                        // PV. LIMPIO
-  "TR1731": "SANDY CARDENAS",                       // RV. MRA
+  "TR1731": "NATALIA CARDENAS",                       // RV. MRA
   "TR1732": "KEVIN MONGES",                         // RV.  LIMPIO
   "TR1733": "VACANTE",                      // RV. EMBOSCADA
   "TR1734": "JOSEFINA ACOSTA",                      // RV. ARROYOS ESTEROS
