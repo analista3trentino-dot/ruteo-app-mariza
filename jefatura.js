@@ -89,14 +89,14 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
   }
 
   // --- Datos ---
-  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], fArchivo = null;
+  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], fArchivo = null, usado = null;
   async function cargarDatos(){
     const XLSX = await window.cargarExcelLib();
     const [f] = await window.Archivos.buscar('supervisores', 1);
     if (!f) throw new Error('sin-archivo');
     const regs = procesar(XLSX, await window.Archivos.bajar(f));
     if (!regs) throw new Error('El Excel de marcaciones de supervisores no tiene las columnas SPV, Subcliente y Date');
-    REGS = regs; fArchivo = f.fecha;
+    REGS = regs; fArchivo = f.fecha; usado = f;
     DATES = [...new Set(regs.map(r => r.d))].sort();
     const m = new Map(); regs.forEach(r => { if (!m.has(r.sup)) m.set(r.sup, r.nombre); });
     SUPS = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, n]) => ({k, n}));
@@ -170,7 +170,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     const titulo_ = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (ui.dia === HOY ? ' (en curso)' : '') : `${mesNombre(ui.mes)}, hasta el ${+ultimoDia().slice(8)}`;
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p></div>
+        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p><p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="mes" class="${esDia ? '' : 'on'}">Mes</button></div>
       </div>
       ${esDia ? `<div class="vs-dias">${chips}</div>` : ''}
@@ -211,5 +211,9 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     estado = 'cargando'; pintar();
     cargarDatos().then(() => { estado = 'ok'; pintar(); }).catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
   }
+  document.addEventListener('click', e => {
+    if (!e.target.closest || !e.target.closest('#jefaturaView [data-actualizar]')) return;
+    window.Archivos.olvidar(); estado = 'sin-cargar'; cargar();
+  });
   window.Jefatura = { mostrar(){ cargar(); pintar(); } };
 })();

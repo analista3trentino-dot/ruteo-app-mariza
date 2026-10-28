@@ -9,10 +9,13 @@
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
-  const MIN_CACHE = 10;   // minutos que se recuerda la lista de archivos
+  const MIN_CACHE = 3;    // minutos que se recuerda la lista de archivos
+  let falloGitHub = false; // true si no se pudo consultar GitHub (se usa la última lista guardada)
   // Archivos con nombre fijo de versiones anteriores: se usan solo si no hay otros más nuevos
   const VIEJOS = ['visitas.xlsx', 'lista_precios_25.xlsx', 'lista_precios_35.xlsx'];
   const IGNORAR = ['clientes_top.xlsx'];
+  // Carpetas donde la app también busca los Excel (además de la página principal)
+  const CARPETAS_DATOS = /^(datos|excel|bases?|archivos)$/i;
 
   // Tipo por el nombre del archivo (así no hace falta descargarlo para saber qué es)
   function porNombre(n){
@@ -73,10 +76,26 @@
       let lista = leerCache(kLista);
       if (!lista || Date.now() - lista.t > MIN_CACHE * 60000){
         try {
-          const j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/contents${carpeta ? '/' + encodeURIComponent(carpeta) : ''}`);
-          lista = {t: Date.now(), items: (Array.isArray(j) ? j : []).filter(f => f.type === 'file' && /\.xlsx?$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
-          guardarCache(kLista, lista);
+          const base = `https://api.github.com/repos/${R.owner}/${R.repo}/contents`;
+          let j = await api(base + (carpeta ? '/' + encodeURIComponent(carpeta) : ''));
+          j = Array.isArray(j) ? j : [];
+          // Los Excel también pueden estar en carpetas de datos (ej. "datos", "datos/ventas")
+          if (!carpeta){
+            const dirs = j.filter(f => f.type === 'dir' && CARPETAS_DATOS.test(f.name));
+            for (const d of dirs){
+              try {
+                const sub = await api(base + '/' + encodeURIComponent(d.name));
+                if (!Array.isArray(sub)) continue;
+                j = j.concat(sub);
+                // un nivel más (ej. datos/ventas)
+                for (const d2 of sub.filter(f => f.type === 'dir')){ try { const s2 = await api(base + '/' + d2.path.split('/').map(encodeURIComponent).join('/')); if (Array.isArray(s2)) j = j.concat(s2); } catch(e){} }
+              } catch(e){}
+            }
+          }
+          lista = {t: Date.now(), items: j.filter(f => f.type === 'file' && /\.xlsx?$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
+          guardarCache(kLista, lista); falloGitHub = false;
         } catch(e){
+          falloGitHub = true;
           if (!lista) throw e;   // sin conexión a GitHub: se usa la última lista conocida
         }
       }
@@ -153,5 +172,13 @@
     leer: (sha, t) => { try { return localStorage.getItem('ruteoTR1_es_' + t + '_' + sha); } catch(e){ return null; } },
     guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, typeof si === 'string' ? si : (si ? '1' : '0')); } catch(e){} }
   };
-  window.Archivos = { ultimos, tipo, buscar, bajar, tipoDe, porNombre };
+  // Vuelve a consultar GitHub (botón "Actualizar")
+  function olvidar(){ memoLista = null; bajados.clear(); try { Object.keys(localStorage).filter(k => k.indexOf('ruteoTR1_carpeta_') === 0).forEach(k => localStorage.removeItem(k)); } catch(e){} }
+  // Texto corto para mostrar qué archivo se usó: "data - 27/10 18:26"
+  function etiqueta(f){
+    if (!f) return '';
+    const d = f.fecha; const fx = d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
+    return fx ? 'archivo del ' + fx : f.nombre;
+  }
+  window.Archivos = { ultimos, tipo, buscar, bajar, tipoDe, porNombre, olvidar, etiqueta, fallo: () => falloGitHub };
 })();

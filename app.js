@@ -456,7 +456,8 @@
   let topEstado = 'cargando', topFecha = null, topError = '';
   function cargarTop(){
     if (typeof window.leerExcel !== 'function'){ topEstado = 'error'; topError = 'Falta excel.js'; return; }
-    window.leerExcel('clientes_top.xlsx', ['Vendedor', 'Subcliente']).then(({filas, fecha}) => {
+    // en la página principal o en la carpeta 'datos'
+    window.leerExcel('clientes_top.xlsx', ['Vendedor', 'Subcliente']).catch(() => window.leerExcel('datos/clientes_top.xlsx', ['Vendedor', 'Subcliente'])).then(({filas, fecha}) => {
       const claves = new Set();
       filas.forEach(f => {
         const m = String(f['subcliente']).match(/^\s*(\d+)-(\d+)/);
@@ -768,6 +769,12 @@
   setSeccion('ruta');
   refresh(false);
   cargarTop();
+  // Si la app estuvo más de 20 minutos en segundo plano, al volver se recarga (trae lo último subido)
+  let oculto = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden){ oculto = Date.now(); return; }
+    if (oculto && Date.now() - oculto > 20 * 60000){ try { sessionStorage.setItem(SALTAR, '1'); } catch(e){} location.reload(); }
+  });
   // Portada al abrir (salvo recargas internas de la app)
   let saltar = false; try { saltar = sessionStorage.getItem(SALTAR) === '1'; sessionStorage.removeItem(SALTAR); } catch(e){}
   if (PREGUNTAR || !saltar) mostrarPortada();

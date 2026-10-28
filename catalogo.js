@@ -12,7 +12,7 @@
 const CATALOGO = {
   TITULO: 'Catálogo 2025',
   TOTAL_PAGINAS: 77,
-  CARPETA: '',   // las páginas están sueltas en la página principal
+  CARPETA: 'catalogo/',   // carpeta de las páginas (si no están ahí, las busca en la página principal)
 
   CATEGORIAS: [
     { nombre: 'Almacén',            desde: 2,  hasta: 12 },

@@ -76,6 +76,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     }
     return null;
   }
+  let usado = null;   // archivo de visitas que se está mostrando
   async function leer(){
     if (!window.cargarExcelLib) throw new Error('Falta excel.js');
     const XLSX = await window.cargarExcelLib();
@@ -83,7 +84,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     let cand = [];
     try { cand = window.Archivos ? await window.Archivos.buscar('visitas', 2) : []; } catch(e){ cand = []; }
     for (const f of cand){
-      try { const regs = procesar(XLSX, await window.Archivos.bajar(f)); if (regs) return regs; } catch(e){}
+      try { const regs = procesar(XLSX, await window.Archivos.bajar(f)); if (regs){ usado = f; return regs; } } catch(e){}
     }
     // 2) Respaldo: visitas.xlsx en la raíz
     const r = await fetch(ARCHIVO_VISITAS, {cache: 'no-cache'});
@@ -98,7 +99,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   let DATES = [], porCartera = new Map(), fuera = new Map(), huerfanas = new Set();
   let EN_CURSO = '';                     // último día exportado a medias (todavía en curso)
   let marcasCartera = new Map();         // cartera -> Map(mes -> cantidad de marcaciones)
-  const enCurso = d => d === TODAY || d === EN_CURSO;
+  // Día todavía en curso: el de hoy antes de las 17 h, o un último día con muy pocas marcaciones
+  const enCurso = d => (d === TODAY && new Date().getHours() < 17) || d === EN_CURSO;
   function indexar(regs){
     const RU = window.RUTEO;
     const carts = RU.carteras;
@@ -254,10 +256,11 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     const ultimoCompleto = enCurso(DATES[DATES.length - 1]) && DATES.length > 1 ? DATES[DATES.length - 2] : DATES[DATES.length - 1];
     const diasMes = DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d));
-    const chipsDias = diasMes.slice().reverse().map(d => `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''}" data-dia="${d}"><small>${DIAS_C[wday(d)]}</small><b>${+d.slice(8)}</b></button>`).join('');
+    // también se muestra el día en curso (marcado), para ver cómo va hoy
+    const chipsDias = DATES.filter(d => d.startsWith(ui.mes)).slice().reverse().map(d => `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''} ${enCurso(d) ? 'curso' : ''}" data-dia="${d}"><small>${enCurso(d) ? 'en curso' : DIAS_C[wday(d)]}</small><b>${+d.slice(8)}</b></button>`).join('');
     const ms = meses();
 
-    const titulo = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) : `${mesNombre(ui.mes)}, hasta el ${corto(diasMes[diasMes.length - 1] || ui.dia)}`;
+    const titulo = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (enCurso(ui.dia) ? ' (en curso)' : '') : `${mesNombre(ui.mes)}, hasta el ${corto(diasMes[diasMes.length - 1] || ui.dia)}`;
     const VA = filas.reduce((t, f) => t + (f.va || 0), 0), VB = filas.reduce((t, f) => t + (f.vb || 0), 0);
     const linea = esDia ? `${fmt(A)} de ${fmt(B)} clientes visitados` : `${fmt(VA)} de ${fmt(VB)} visitas hechas · ${fmt(A)} de ${fmt(B)} clientes visitados`;
 
@@ -290,7 +293,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Actualizado al ${largo(ultimoCompleto)}</p></div>
+        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Actualizado al ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="mes" class="${esDia ? '' : 'on'}">Mes</button></div>
       </div>
       ${ms.length > 1 ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
@@ -320,6 +323,14 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const chipOn = box.querySelector('.vs-dchip.on'); if (chipOn) chipOn.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 
+  function barraArchivo(){
+    const A = window.Archivos;
+    return `<p class="ar-info">${usado && A ? esc(A.etiqueta(usado)) : ''}${A && A.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
+  }
+  document.addEventListener('click', e => {
+    if (!e.target.closest || !e.target.closest('#visitasView [data-actualizar]')) return;
+    if (window.Archivos) window.Archivos.olvidar(); estado = 'sin-cargar'; cargar();
+  });
   function cargar(){
     if (estado === 'ok' || estado === 'cargando') return;
     estado = 'cargando'; pintar();
