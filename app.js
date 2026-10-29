@@ -61,7 +61,11 @@
   const hasGps = cl => typeof cl[4] === 'number' && typeof cl[5] === 'number';
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const state = { spv:'TODOS', query:'', days:new Set(), openId:null, vista:'lista', soloTop:false, seccion:'ruta', topDay:null };
+  // Supervisor: cuál es su equipo (lo elige una vez en la portada)
+  const CLAVE_MISUP = 'ruteoTR1_miSup';
+  const NOMBRE_SUP = k => { const L = typeof SUPERVISORES !== 'undefined' ? SUPERVISORES : {}; const n = L[k] || ''; return /vacante/i.test(n) ? '' : n.toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase()); };
+  const MI_SUP = (() => { if (MODO_VENDEDOR || MODO_JEFATURA || PREGUNTAR) return ''; try { const k = localStorage.getItem(CLAVE_MISUP) || ''; return sups.some(s => s.k === k) ? k : ''; } catch(e){ return ''; } })();
+  const state = { spv: MI_SUP || 'TODOS', query:'', days:new Set(), openId:null, vista:'lista', soloTop:false, seccion:'ruta', topDay:null };
 
   // ---- Hoy ----
   const now = new Date();
@@ -579,7 +583,7 @@
     let seguir = '';
     if (MODO_VENDEDOR) seguir = `<span class="po-av">${esc(initials(MI_CARTERA))}</span><span class="po-txt"><small>Continuar como</small><b>${esc(isVacante(MI_CARTERA) ? 'Cartera ' + MI_CARTERA.vc : titulo(MI_CARTERA.vn))}</b><em>Vendedor · ${esc(MI_CARTERA.vc)}</em></span>`;
     else if (MODO_JEFATURA) seguir = `<span class="po-av j">${ICO_P.jef}</span><span class="po-txt"><small>Continuar como</small><b>Jefatura</b><em>Control de supervisores</em></span>`;
-    else if (!PREGUNTAR) seguir = `<span class="po-av s">${ICO_P.sup}</span><span class="po-txt"><small>Continuar como</small><b>Supervisor</b><em>Todas las carteras</em></span>`;
+    else if (!PREGUNTAR) seguir = `<span class="po-av s">${ICO_P.sup}</span><span class="po-txt"><small>Continuar como</small><b>${MI_SUP && NOMBRE_SUP(MI_SUP) ? esc(NOMBRE_SUP(MI_SUP)) : 'Supervisor'}</b><em>Supervisor · ${MI_SUP ? esc(supLabel[MI_SUP] || MI_SUP) : 'todas las carteras'}</em></span>`;
     const box = document.createElement('div');
     box.id = 'portada'; box.className = 'portada'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Inicio');
     box.innerHTML = `
@@ -624,7 +628,7 @@
       box.querySelectorAll('.po-btn').forEach(x => x.classList.toggle('on', x === b));
       if (rol === 'vend'){ $('poClave').hidden = true; elegirCartera(); return; }
       const clave = rol === 'sup' ? CLAVE : CLAVE_J, ok = rol === 'sup' ? supValido() : jefValido();
-      if (ok || !clave){ if (rol === 'sup' && CLAVE) try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(e){} entrarComo(rol === 'sup' ? 'TODAS' : 'JEFATURA'); return; }
+      if (ok || !clave){ if (rol === 'sup' && CLAVE) try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(e){} if (rol === 'sup') elegirEquipo(); else entrarComo('JEFATURA'); return; }
       $('poClaveLbl').textContent = rol === 'sup' ? 'Clave de supervisor' : 'Clave de jefatura';
       $('poErr').hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
     });
@@ -633,9 +637,17 @@
       const clave = rol === 'sup' ? CLAVE : CLAVE_J;
       if ($('poClaveIn').value.trim() === clave){
         try { localStorage.setItem(rol === 'sup' ? CLAVE_OK : CLAVE_JOK, huella(clave)); if (rol === 'jef' && CLAVE) localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(err){}
-        entrarComo(rol === 'sup' ? 'TODAS' : 'JEFATURA');
+        if (rol === 'sup') elegirEquipo(); else entrarComo('JEFATURA');
       } else { $('poErr').hidden = false; $('poClaveIn').select(); box.querySelector('.po-clave').classList.remove('tiembla'); void box.offsetWidth; box.querySelector('.po-clave').classList.add('tiembla'); }
     };
+  }
+  // El supervisor elige su equipo (así recibe solo sus avisos)
+  function elegirEquipo(){
+    const box = $('portada'); if (!box) return;
+    $('poClave').hidden = true;
+    const opc = box.querySelector('.po-opc');
+    opc.innerHTML = `<p class="po-o" style="margin-top:0">¿Cuál es tu equipo?</p>` + sups.map(s => `<button type="button" class="po-btn" data-sup="${esc(s.k)}"><span class="po-ic" style="color:${supColor[s.k]}">${ICO_P.sup}</span><span><b>${esc(s.p)}</b><small>${esc(NOMBRE_SUP(s.k) || 'Supervisor')}</small></span></button>`).join('');
+    opc.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => { try { localStorage.setItem(CLAVE_MISUP, b.dataset.sup); } catch(e){} entrarComo('TODAS'); });
   }
   // Lista para que el vendedor elija su cartera
   function elegirCartera(){
@@ -701,6 +713,7 @@
   window.RUTEO = {
     setSeccion, carteras, sups, supLabel, supColor, isMixto, isVacante,
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
+    modo: MODO_VENDEDOR ? 'vendedor' : MODO_JEFATURA ? 'jefatura' : 'supervisor', miSup: MI_SUP, nombreSup: NOMBRE_SUP, hoy: TODAY_LBL,
     getSpv: () => state.spv,
     setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
   };
@@ -758,6 +771,12 @@
   const btnCambiar = $('btnCambiar');
   if (btnCambiar){ btnCambiar.textContent = 'Inicio'; btnCambiar.onclick = mostrarPortada; }
   if (!MODO_VENDEDOR) document.body.classList.add('modo-supervisor');
+  if (MI_SUP){
+    const n = NOMBRE_SUP(MI_SUP);
+    if (n) $('tituloApp').textContent = 'Hola, ' + n.split(' ')[0];
+    $('subtituloApp').textContent = 'Supervisor · ' + (supLabel[MI_SUP] || MI_SUP);
+    requestAnimationFrame(() => { const b = document.querySelector('.spv-pill.active'); if (b) b.scrollIntoView({inline: 'center', block: 'nearest'}); });
+  }
   if (MODO_JEFATURA){ document.body.classList.add('modo-jefatura'); $('tituloApp').innerHTML = 'Jefatura <span>TR1</span>'; $('subtituloApp').textContent = 'Carteras, visitas y control de supervisores'; }
   if (MODO_VENDEDOR){
     document.body.classList.add('modo-vendedor');

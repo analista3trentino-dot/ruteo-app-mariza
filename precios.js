@@ -90,7 +90,8 @@ const LISTAS_PRECIOS = [
 
   // --- Datos ---
   let productos = null, cargando = null, error = '';
-  let filtro = { q: '', cat: '' }, mostrados = POR_PAGINA;
+  let filtro = { q: '', cat: '', stock: false }, mostrados = POR_PAGINA;
+  const STK = () => window.Stock && window.Stock.listo ? window.Stock : null;
 
   // Listas encontradas: [{id, nombre, fecha, archivo}]
   let LISTAS = [];
@@ -212,19 +213,20 @@ const LISTAS_PRECIOS = [
   function abrirCliente(cli) {
     armar();
     modo = { lista: cli.lp ? String(cli.lp).trim() : null, cliente: cli, scroll: window.scrollY };
-    filtro = { q: '', cat: '' }; mostrados = POR_PAGINA; $('pvBuscar').value = '';
+    filtro = { q: '', cat: '', stock: false }; mostrados = POR_PAGINA; $('pvBuscar').value = '';
     $('lpCli').innerHTML = `<b>${esc(cli.nombre)}</b><div class="lp-tags">${cli.codigo ? `<span class="lp-cod">${esc(cli.codigo)}</span>` : ''}<span class="lp-tag lp">Usa LP ${esc(cli.lp || '—')}</span><span class="lp-tag pm">PM ${esc(cli.pm || '—')}</span></div>`;
     const v = $('lpSheet'); v.hidden = false; v.scrollTop = 0;
     document.body.classList.add('lp-abierta');
     try { history.pushState({ lp: 1 }, ''); } catch (e) {}
     pintar(); cargar();
+    if (window.Stock && !window.Stock.listo) window.Stock.cargar().then(() => { if (!$('lpSheet').hidden) pintar(); });
   }
 
   const listasVis = () => modo.lista ? LISTAS.filter(L => L.id === modo.lista) : LISTAS;
   const conPrecio = () => { const ls = listasVis(); return productos.filter(p => ls.some(L => p.precios[L.id])); };
   function filtrar() {
     const palabras = filtro.q ? filtro.q.split(' ') : [];
-    return conPrecio().filter(p => (!filtro.cat || p.cat === filtro.cat) && palabras.every(w => p.busca.includes(w)));
+    return conPrecio().filter(p => (!filtro.cat || p.cat === filtro.cat) && (!filtro.stock || !STK() || STK().de(p.cod) > 0) && palabras.every(w => p.busca.includes(w)));
   }
 
   function pintarCats() {
@@ -232,10 +234,13 @@ const LISTAS_PRECIOS = [
     const base = conPrecio();
     const cnt = {}; base.forEach(p => cnt[p.cat] = (cnt[p.cat] || 0) + 1);
     const cats = orden.filter(c => cnt[c]);
-    $('pvCats').innerHTML = `<button type="button" data-c="" class="${!filtro.cat ? 'on' : ''}">Todos<small>${base.length}</small></button>` +
+    const conSt = STK() ? base.filter(p => STK().de(p.cod) > 0).length : 0;
+    $('pvCats').innerHTML = (STK() ? `<button type="button" data-st="1" class="st ${filtro.stock ? 'on' : ''}">✓ Con stock<small>${conSt}</small></button>` : '') +
+      `<button type="button" data-c="" class="${!filtro.cat ? 'on' : ''}">Todos<small>${base.length}</small></button>` +
       cats.map(c => `<button type="button" data-c="${esc(c)}" class="${filtro.cat === c ? 'on' : ''}">${esc(c)}<small>${cnt[c]}</small></button>`).join('');
     $('pvCats').querySelectorAll('button').forEach(b => b.onclick = () => {
-      filtro.cat = b.dataset.c; mostrados = POR_PAGINA; pintar();
+      if (b.dataset.st) filtro.stock = !filtro.stock; else filtro.cat = b.dataset.c;
+      mostrados = POR_PAGINA; pintar();
       $('lpSheet').scrollTop = 0;
     });
   }
@@ -264,7 +269,7 @@ const LISTAS_PRECIOS = [
     return `<article class="pv-item">
       <div class="pv-info">
         <div class="pv-desc">${resaltar(p.desc)}</div>
-        <div class="pv-meta"><span class="pv-ref">${resaltar(p.ref)}</span><span class="pv-cod">${resaltar(p.cod)}</span>${p.pagina ? `<button type="button" class="pv-cat" data-p="${p.pagina}" aria-label="Ver ${esc(p.marca)} en el catálogo, página ${p.pagina}">${ICON_LIBRO}<span>Catálogo</span></button>` : ''}</div>
+        <div class="pv-meta">${(() => { const S = STK(); if (!S) return ''; const q = S.de(p.cod); return q > 0 ? `<span class="pv-stock ok">Stock ${Math.round(q).toLocaleString('es-PY')}</span>` : '<span class="pv-stock no">Sin stock</span>'; })()}<span class="pv-ref">${resaltar(p.ref)}</span><span class="pv-cod">${resaltar(p.cod)}</span>${p.pagina ? `<button type="button" class="pv-cat" data-p="${p.pagina}" aria-label="Ver ${esc(p.marca)} en el catálogo, página ${p.pagina}">${ICON_LIBRO}<span>Catálogo</span></button>` : ''}</div>
       </div>
       ${precios}
     </article>`;
@@ -308,6 +313,9 @@ const LISTAS_PRECIOS = [
   window.Precios = {
     mostrar() { armar(); pintar(); cargar(); },
     abrirCliente,
-    cerrar
+    cerrar,
+    asegurar(){ return productos ? Promise.resolve() : (cargar() || Promise.resolve()); },
+    codigos(){ return productos ? new Set(productos.map(p => String(p.cod))) : null; },
+    desc(cod){ const p = productos && productos.find(x => String(x.cod) === String(cod)); return p ? p.desc + (p.ref ? ' · ' + p.ref : '') : ''; }
   };
 })();

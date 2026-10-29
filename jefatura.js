@@ -221,5 +221,16 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     if (!e.target.closest || !e.target.closest('#jefaturaView [data-actualizar]')) return;
     window.Archivos.olvidar(); estado = 'sin-cargar'; cargar();
   });
-  window.Jefatura = { mostrar(){ cargar(); pintar(); } };
+  let cargaJ = null;
+  window.Jefatura = {
+    mostrar(){ cargar(); pintar(); },
+    // Para los avisos de jefatura: resumen del último día con marcaciones
+    async resumenUltimo(){
+      if (estado !== 'ok'){ if (!cargaJ) cargaJ = cargarDatos().then(() => { estado = 'ok'; }); await cargaJ; }
+      // último día completo (el de hoy cuenta recién después de las 17 h)
+      const ds = DATES.filter(x => x !== HOY || new Date().getHours() >= 17); const d = ds[ds.length - 1]; if (!d) return null;
+      return {dia: d, largo: largo(d), filas: SUPS.map(s => ({k: s.k, n: s.n, x: resumen(s.k, new Set([d]))}))};
+    },
+    hm
+  };
 })();

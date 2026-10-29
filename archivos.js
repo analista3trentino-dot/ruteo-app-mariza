@@ -20,6 +20,8 @@
   // Tipo por el nombre del archivo (así no hace falta descargarlo para saber qué es)
   function porNombre(n){
     n = String(n).toLowerCase();
+    if (/stock|existencia/.test(n)) return 'stock';
+    if (/\.pdf$/.test(n)) return 'stock';
     if (/potencial/.test(n)) return 'potencial';
     if (/ruteo/.test(n)) return 'ruteo';
     if (/latitud|longitud|gps/.test(n)) return 'gps';
@@ -92,7 +94,7 @@
               } catch(e){}
             }
           }
-          lista = {t: Date.now(), items: j.filter(f => f.type === 'file' && /\.xlsx?$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
+          lista = {t: Date.now(), items: j.filter(f => f.type === 'file' && /\.(xlsx?|pdf)$/i.test(f.name) && !IGNORAR.includes(f.name.toLowerCase())).map(f => ({nombre: f.name, ruta: f.path, sha: f.sha}))};
           guardarCache(kLista, lista); falloGitHub = false;
         } catch(e){
           falloGitHub = true;
@@ -144,6 +146,7 @@
       else if (tiene('pm') && tiene('lp') && con(/subcliente/)) t = 'padron';
       else if (con(/subcliente/) && (tiene('ventas', 'venta') || con(/^ventas /))) t = 'ventas';
       else if (tiene('cod articulo') && con(/precio/)) t = 'precios';
+      else if ((tiene('codigo') || tiene('cod articulo')) && con(/^cant|^stock|existencia|^saldo/)) t = 'stock';
       else if (tiene('potencial')) t = 'potencial';
       else if (tiene('dias habiles')) t = 'cuotas';
     } catch(e){ return 'error'; }

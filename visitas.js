@@ -331,14 +331,25 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     if (!e.target.closest || !e.target.closest('#visitasView [data-actualizar]')) return;
     if (window.Archivos) window.Archivos.olvidar(); estado = 'sin-cargar'; cargar();
   });
+  let cargaP = null;
   function cargar(){
-    if (estado === 'ok' || estado === 'cargando') return;
+    if (estado === 'ok' || estado === 'cargando') return cargaP;
     estado = 'cargando'; pintar();
-    leer().then(regs => { indexar(regs); estado = 'ok'; pintar(); })
+    cargaP = leer().then(regs => { indexar(regs); estado = 'ok'; pintar(); })
       .catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
+    return cargaP;
   }
 
   window.Visitas = {
+    // Para los avisos: carga los datos sin abrir la pestaña
+    asegurar(){ return cargar() || Promise.resolve(); },
+    // Último día completo y, por cartera, a quién no visitó
+    resumenUltimoDia(carts){
+      if (estado !== 'ok' || !DATES.length) return null;
+      const d = diaPorDefecto();
+      const filas = carts.filter(c => !window.RUTEO.isVacante(c)).map(c => { const x = delDia(c, d); return {c, si: x.si.length, toca: x.toca, no: x.no.map(o => o.cl[2])}; }).filter(f => f.toca);
+      return {dia: d, largo: largo(d), filas};
+    },
     mostrar(){ cargar(); pintar(); },
     refrescar(){ if (estado === 'ok') { ui.abiertos.clear(); pintar(); } }
   };
