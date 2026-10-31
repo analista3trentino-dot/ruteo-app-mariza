@@ -1363,3 +1363,95 @@ body.fx-bloq{overflow:hidden;}
 .fx-toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(88px + env(safe-area-inset-bottom,0px)); z-index:3200; background:var(--noche); color:#fff; border-radius:12px; padding:11px 16px; font-size:.9rem; font-weight:600; box-shadow:var(--sh-3); display:flex; gap:8px; align-items:center; max-width:calc(100% - 32px);}
 .fx-toast svg{color:#5BE3A8; flex:none;}
 @media (prefers-reduced-motion: reduce){ .fx-dlg, .fx-spin{animation:none;} }
+
+/* ---- Fotos dentro de la ruta (cada cliente top) ---- */
+.client > .fx-acc{flex:1 0 100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed #EBDDB0;}
+.tp-cli .fx-acc{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.fx-mb{display:flex; align-items:center; justify-content:center; gap:6px; min-height:42px; border-radius:11px; border:1.5px solid #E6D6A3; background:#fff; color:var(--noche); font-weight:700; font-size:.84rem; cursor:pointer;}
+.fx-mb svg{width:17px; height:17px; color:var(--acento); flex:none;}
+.fx-mb:active{transform:scale(.97);}
+.fx-mb.hecho{border-color:var(--esmeralda); background:#E3F6EE; color:var(--esmeralda-osc);}
+.fx-mb.hecho svg{color:var(--esmeralda);}
+.fx-acc.ver{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+.fx-acc-st{display:flex; align-items:center; gap:10px; font-size:.78rem; color:var(--txt-3); font-weight:600;}
+.fx-acc-st svg{width:16px; height:16px; color:var(--txt-3);}
+.fx-st.ok{color:var(--esmeralda-osc);}
+.fx-vermb{border:none; background:var(--noche); color:#fff; font-weight:700; font-size:.78rem; border-radius:999px; padding:7px 13px; cursor:pointer;}
+.fx-sin{font-size:.74rem; color:var(--txt-3);}
+.client.fx-brilla{animation:fxBrilla 1.6s ease;}
+@keyframes fxBrilla{0%,60%{box-shadow:0 0 0 3px var(--oro), inset 3px 0 0 var(--oro);} 100%{box-shadow:inset 3px 0 0 var(--oro);}}
+
+/* ---- Vendedor: "Fotos de hoy" arriba de la ruta ---- */
+.fx-mision{margin:0 0 14px; padding:16px; border-radius:var(--r-lg); color:#fff; background:linear-gradient(150deg, var(--noche) 0%, var(--noche-2) 100%); box-shadow:var(--sh-2); display:flex; flex-direction:column; gap:12px;}
+.fx-mision.listo{background:linear-gradient(150deg, #0B6B4B 0%, var(--esmeralda) 100%);}
+.fx-m-top{display:flex; align-items:center; gap:12px;}
+.fx-m-ic{flex:none; width:44px; height:44px; border-radius:14px; background:var(--oro); color:var(--noche); display:grid; place-items:center;}
+.fx-mision.listo .fx-m-ic{background:#fff; color:var(--esmeralda);}
+.fx-m-ic svg{width:22px; height:22px;}
+.fx-m-t{flex:1; min-width:0;}
+.fx-m-t b{display:block; font-family:var(--f-tit); font-size:1.08rem; font-weight:800;}
+.fx-m-t small{display:block; color:#B9C6DD; font-size:.8rem;}
+.fx-mision.listo .fx-m-t small{color:#D7F5E8;}
+.fx-m-n{font-family:var(--f-tit); font-weight:800; font-size:1.7rem; line-height:1; font-variant-numeric:tabular-nums;}
+.fx-m-n small{font-size:.9rem; color:#8FA0BC; font-weight:700;}
+.fx-mision.listo .fx-m-n small{color:#D7F5E8;}
+.fx-m-bar{height:7px; border-radius:99px; background:rgba(255,255,255,.14); overflow:hidden;}
+.fx-m-bar i{display:block; height:100%; border-radius:99px; background:var(--oro); transition:width .5s;}
+.fx-mision.listo .fx-m-bar i{background:#fff;}
+.fx-m-clis{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -16px; padding:0 16px;}
+.fx-m-clis::-webkit-scrollbar{display:none;}
+.fx-m-cli{flex:none; display:flex; align-items:center; gap:8px; max-width:220px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; border-radius:999px; padding:7px 12px 7px 9px; font-size:.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;}
+.fx-m-dots{display:flex; gap:3px; flex:none;}
+.fx-m-dots i{width:8px; height:8px; border-radius:50%; border:1.5px solid rgba(255,255,255,.55);}
+.fx-m-dots i.ok{background:#5BE3A8; border-color:#5BE3A8;}
+
+/* ---- Supervisor / jefatura: tira de fotos arriba de la ruta ---- */
+.fx-tira{margin:0 0 14px; padding:14px; border-radius:var(--r-lg); background:var(--sup); border:1px solid var(--linea); box-shadow:var(--sh-2); display:flex; flex-direction:column; gap:10px;}
+.fx-t-top{display:flex; justify-content:space-between; align-items:center; gap:10px;}
+.fx-t-top > b{display:flex; align-items:center; gap:7px; font-family:var(--f-tit); font-size:1rem; font-weight:800;}
+.fx-t-top > b svg{color:var(--acento);}
+.fx-t-c{font-size:.78rem; color:var(--txt-2); white-space:nowrap;}
+.fx-t-c b{color:var(--txt); font-variant-numeric:tabular-nums;}
+.fx-t-fotos{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -14px; padding:0 14px;}
+.fx-t-fotos::-webkit-scrollbar{display:none;}
+.fx-t-f{position:relative; flex:none; width:96px; height:96px; padding:0; border:none; border-radius:12px; overflow:hidden; background:var(--linea-2); cursor:pointer;}
+.fx-t-f img{width:100%; height:100%; object-fit:cover; display:block;}
+.fx-t-f span{position:absolute; left:0; right:0; bottom:0; padding:12px 6px 4px; font-size:.64rem; font-weight:700; color:#fff; background:linear-gradient(transparent, rgba(8,16,30,.8)); text-align:left;}
+.fx-t-vacio{margin:0; font-size:.84rem; color:var(--txt-3);}
+.fx-t-mas{align-self:flex-start; border:none; background:none; padding:2px 0; color:var(--acento); font-weight:700; font-size:.84rem; cursor:pointer;}
+
+/* ---- Badge en la pestaña Top ---- */
+.fx-badge{position:absolute; top:3px; left:calc(50% + 6px); min-width:18px; height:18px; padding:0 5px; border-radius:99px; background:#E03131; color:#fff; font-size:.66rem; font-weight:800; line-height:18px; text-align:center; box-shadow:0 0 0 2px #fff;}
+
+/* ---- Pestaña Top (nueva): días + lista ---- */
+.fx-avance{margin-bottom:4px;}
+.tp-h{font-family:var(--f-tit); font-size:1.02rem; font-weight:800; margin:18px 0 10px;}
+.tp-dias{display:grid; grid-template-columns:repeat(6,1fr); gap:6px;}
+.tp-dia{display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 8px; border:1.5px solid var(--linea); border-radius:12px; background:var(--sup); color:var(--txt-2); cursor:pointer;}
+.tp-dia em{font-style:normal; font-size:.74rem; font-weight:700;}
+.tp-dia b{font-family:var(--f-tit); font-size:1.1rem; font-weight:800; color:var(--txt); font-variant-numeric:tabular-nums;}
+.tp-dia.hoy em{color:var(--oro-osc);}
+.tp-dia.on{background:var(--noche); border-color:var(--noche); color:#fff;}
+.tp-dia.on b, .tp-dia.on em{color:#fff;}
+.tp-lista{display:flex; flex-direction:column; gap:10px; margin-top:12px;}
+.tp-cli{background:linear-gradient(90deg, var(--oro-suave), var(--sup) 50%); border:1px solid #F2DC9B; border-radius:var(--r-md); padding:12px; display:flex; flex-direction:column; gap:10px; box-shadow:inset 3px 0 0 var(--oro);}
+.tp-cli-top{display:flex; align-items:center; gap:10px;}
+.tp-cli-n{flex:1; min-width:0;}
+.tp-cli-n b{display:block; font-size:.93rem;}
+.tp-cli-n small{display:block; font-size:.76rem; color:var(--txt-2); margin-top:2px;}
+.tp-tabla{background:var(--sup); border:1px solid var(--linea); border-radius:var(--r-lg); overflow:hidden;}
+.tp-fila{display:flex; align-items:center; gap:10px; width:100%; padding:12px 14px; border:none; border-bottom:1px solid var(--linea-2); background:none; text-align:left; color:var(--txt); cursor:pointer;}
+.tp-fila:last-child{border-bottom:none;}
+.tp-fila .tv-dot{margin:0;}
+.tp-fn{flex:1; min-width:0;}
+.tp-fn b{display:block; font-size:.88rem;}
+.tp-fn b span{font-weight:500; color:var(--txt-2);}
+.tp-fn small{display:block; font-size:.76rem; color:var(--txt-3);}
+.tp-foto{display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:999px; background:var(--oro-suave); color:var(--oro-osc); font-size:.74rem; font-weight:800; white-space:nowrap; font-variant-numeric:tabular-nums;}
+.tp-foto svg{width:13px; height:13px;}
+.tp-foto.full{background:#E3F6EE; color:var(--esmeralda-osc);}
+.tp-foto.cero{background:var(--bad-bg); color:var(--bad-c);}
+.tp-fila .chev{color:var(--txt-3); flex:none;}
+.tp-vacio{padding:24px 12px; text-align:center; color:var(--txt-2); font-size:.88rem; background:var(--sup); border:1px dashed var(--linea); border-radius:var(--r-md);}
+.tp-ruta{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:12px; min-height:48px; border:none; border-radius:14px; background:var(--noche); color:#fff; font-weight:700; font-size:.92rem; cursor:pointer;}
+.tp-ruta svg{color:var(--oro);}

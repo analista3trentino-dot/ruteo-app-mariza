@@ -230,7 +230,8 @@
         Cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), 'Código': cl[6], PM: cl[8], Tipo: h.tipo, Comentario: com, Enlace: j.enlace || '', ID: j.id || ''});
       if (H === h) cerrarHoja();
       toast('Foto subida. Tu supervisor ya la puede ver.');
-      pintarTop();
+      if (R().refrescar) R().refrescar(); else pintarTop();
+      punto();
     } catch(err){
       if (H !== h) return;
       paso('prev');
@@ -288,29 +289,104 @@
   }
   function enlazarReintento(box){ box.querySelectorAll('[data-reint]').forEach(b => b.onclick = () => { errorCarga = ''; pintarTop(); cargar(true).then(pintarTop, pintarTop); }); }
 
+  // Estado de la semana: códigos con foto, por vendedor y tipo
+  function semana(){
+    const desde = lunes(new Date()), m = new Map();
+    fotos().forEach(r => { if (r.Fecha < desde) return; const k = r.Vendedor + '|' + r['Código']; if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
+    return m;
+  }
+  const fotosCli = (vc, cod) => datos || locales.length ? (semana().get(vc + '|' + cod) || []) : null;
+  function semanaDe(vc){
+    if (!datos) return null;
+    const desde = lunes(new Date());
+    return new Set(fotos().filter(r => r.Vendedor === vc && r.Fecha >= desde).map(r => r['Código']));
+  }
+
+  // Botones / estado dentro de cada cliente top (Ruta y Top)
+  function filaCli(cl, c){
+    if (!URL_F || !cl || !cl[6]) return '';
+    const fs = fotosCli(c.vc, cl[6]), hecho = t => fs && fs.some(r => r.Tipo === t);
+    const attrs = `data-fx-vc="${esc(c.vc)}" data-fx-cod="${esc(cl[6])}"`;
+    if (R().modo === 'vendedor'){
+      return `<div class="fx-acc" ${attrs}>${TIPOS.map(t => { const h = hecho(t); return `<button type="button" class="fx-mb${h ? ' hecho' : ''}" data-fx-t="${t}">${h ? IC.ok : IC.cam}<span>${t}</span></button>`; }).join('')}</div>`;
+    }
+    const n = fs ? fs.length : 0;
+    return `<div class="fx-acc ver" ${attrs}><span class="fx-acc-st">${IC.cam}${TIPOS.map(t => `<span class="fx-st${hecho(t) ? ' ok' : ''}">${hecho(t) ? '✓' : '○'} ${t}</span>`).join('')}</span>${n ? `<button type="button" class="fx-vermb" data-fx-ver>Ver ${n === 1 ? 'foto' : n + ' fotos'}</button>` : `<span class="fx-sin">${fs ? 'Sin fotos esta semana' : ''}</span>`}</div>`;
+  }
+
+  // Aviso arriba de la ruta
+  let tiraLista = [];
+  function bannerRuta(current, dia, hoy){
+    if (!URL_F) return '';
+    const r = R();
+    if (r.modo === 'vendedor'){
+      const v = r.vendedor; if (!v) return '';
+      const d = dia && dia !== 'S/Cal' ? dia : null;
+      const tops = v.cl.filter(cl => cl._top && (!d || String(cl[3]).split(',').map(x => x.trim()).includes(d)));
+      if (!tops.length) return '';
+      const st = cl => { const fs = fotosCli(v.vc, cl[6]) || []; return TIPOS.map(t => fs.some(x => x.Tipo === t)); };
+      const n = tops.reduce((a, cl) => a + st(cl).filter(Boolean).length, 0), tot = tops.length * 2, listo = n >= tot;
+      const cuando = !d ? 'de la semana' : d === hoy ? 'de hoy' : 'del ' + ({Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'})[d];
+      return `<section class="fx-mision${listo ? ' listo' : ''}">
+        <div class="fx-m-top"><span class="fx-m-ic">${listo ? IC.ok : IC.cam}</span>
+          <div class="fx-m-t"><b>Fotos ${cuando}</b><small>${listo ? '¡Listo! Ya sacaste todas.' : `${tops.length} ${tops.length === 1 ? 'cliente top' : 'clientes top'} · ampliación y reposición`}</small></div>
+          <span class="fx-m-n">${datos ? n : '…'}<small>/${tot}</small></span></div>
+        <div class="fx-m-bar"><i style="width:${datos ? Math.round(n / tot * 100) : 0}%"></i></div>
+        <div class="fx-m-clis">${tops.map(cl => { const s = st(cl); return `<button type="button" class="fx-m-cli" data-fx-ir="${esc(cl[6])}"><span class="fx-m-dots">${s.map((x, k) => `<i class="${x ? 'ok' : ''}" title="${TIPOS[k]}"></i>`).join('')}</span>${esc(cl[2])}</button>`; }).join('')}</div>
+      </section>`;
+    }
+    // Supervisor / jefatura: últimas fotos del equipo visible
+    const vcs = new Set((current || []).map(x => x.c.vc));
+    const desde = lunes(new Date()), hoyIso = iso(new Date());
+    const fs = fotos().filter(x => vcs.has(x.Vendedor) && x.Fecha >= desde);
+    tiraLista = fs;
+    const nHoy = fs.filter(x => x.Fecha === hoyIso).length;
+    if (!datos) return `<section class="fx-tira"><div class="fx-t-top"><b>${IC.cam}Fotos del equipo</b><span class="fx-t-c"><span class="fx-spin"></span></span></div></section>`;
+    return `<section class="fx-tira">
+      <div class="fx-t-top"><b>${IC.cam}Fotos del equipo</b><span class="fx-t-c"><b>${nHoy}</b> hoy · <b>${fs.length}</b> esta semana</span></div>
+      ${fs.length ? `<div class="fx-t-fotos">${fs.slice(0, 12).map((x, k) => `<button type="button" class="fx-t-f" data-fx-tira="${k}">${miniatura(x, false)}<span>${esc(x.Vendedor)}</span></button>`).join('')}</div>` : '<p class="fx-t-vacio">Todavía no hay fotos esta semana.</p>'}
+      <button type="button" class="fx-t-mas" data-fx-todas>Ver todas y cumplimiento ›</button>
+    </section>`;
+  }
+
+  // Un solo lugar que conecta todos los botones de fotos (Ruta y Top)
+  function enlazar(root){
+    if (!root) return;
+    root.querySelectorAll('[data-fx-t]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const w = b.closest('[data-fx-cod]'), c = vendDe(w.dataset.fxVc), cl = c && c.cl.find(x => x[6] === w.dataset.fxCod);
+      if (cl) abrirHoja({modo: 'cli', cl, tipo: b.dataset.fxT, titulo: cl[2], sub: cl[6] + ' · PM ' + cl[8]});
+    });
+    root.querySelectorAll('[data-fx-ver]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const w = b.closest('[data-fx-cod]'), fs = fotosCli(w.dataset.fxVc, w.dataset.fxCod) || [];
+      if (fs.length === 1) abrirVisor(fs[0], false); else verLista(fs[0] ? fs[0].Cliente : 'Fotos', fs, false);
+    });
+    root.querySelectorAll('[data-fx-ir]').forEach(b => b.onclick = () => {
+      const el = document.querySelector(`#main [data-fx-cod="${CSS.escape(b.dataset.fxIr)}"]`);
+      const card = el && (el.closest('.client') || el);
+      if (card){ const y = card.getBoundingClientRect().top + window.scrollY - (($('stickyBar') || {}).offsetHeight || 0) - 12; window.scrollTo({top: y, behavior: 'smooth'}); card.classList.add('fx-brilla'); setTimeout(() => card.classList.remove('fx-brilla'), 1600); }
+    });
+    const tira = root.querySelector('.fx-tira');
+    if (tira){
+      tira.querySelectorAll('[data-fx-tira]').forEach(b => b.onclick = () => { const f = tiraLista[+b.dataset.fxTira]; if (f) abrirVisor(f, false); });
+      const m = tira.querySelector('[data-fx-todas]'); if (m) m.onclick = () => R().verTopHoy();
+    }
+  }
+
+  // Vendedor, pestaña Top: avance de la semana
   function pintarVendedor(box){
     const v = R().vendedor; if (!v) return;
-    const hoy = R().hoy;
     const tops = v.cl.filter(cl => cl._top);
     if (!tops.length){ box.innerHTML = ''; return; }
-    const desde = lunes(new Date()), sem = fotos().filter(r => r.Fecha >= desde);
-    const hecho = (cl, t) => sem.some(r => r['Código'] === cl[6] && r.Tipo === t);
-    const orden = tops.map((cl, i) => ({cl, i, hoy: !!hoy && String(cl[3]).split(',').map(s => s.trim()).includes(hoy)})).sort((a, b) => b.hoy - a.hoy);
-    const n = tops.reduce((a, cl) => a + TIPOS.filter(t => hecho(cl, t)).length, 0), tot = tops.length * 2;
-    box.innerHTML = `<section class="fx-card">
-      <div class="fx-chead"><div><h3>Fotos de la semana</h3><p>Ampliación y reposición en tus clientes top</p></div><b class="fx-num">${datos ? n + '<small>/' + tot + '</small>' : '…'}</b></div>
+    const desde = lunes(new Date()), sem = fotos().filter(r => r.Vendedor === v.vc && r.Fecha >= desde);
+    const n = tops.reduce((a, cl) => a + TIPOS.filter(t => sem.some(r => r['Código'] === cl[6] && r.Tipo === t)).length, 0), tot = tops.length * 2;
+    box.innerHTML = `<section class="fx-card fx-avance">
+      <div class="fx-chead"><div><h3>Fotos de esta semana</h3><p>${datos ? (n >= tot ? '¡Completaste todas!' : `Te faltan <b>${tot - n}</b>`) : 'Cargando…'}</p></div><b class="fx-num">${datos ? n + '<small>/' + tot + '</small>' : '…'}</b></div>
       <div class="fx-barra"><i style="width:${datos ? Math.round(n / tot * 100) : 0}%"></i></div>
       ${estadoCarga()}
-      <div class="fx-clis">${orden.map(o => `<div class="fx-cli${o.hoy ? ' hoy' : ''}">
-        <div class="fx-cn"><b>${esc(o.cl[2])}</b><small>${o.hoy ? '<em>Hoy</em>' : ''}${esc(o.cl[6])}${o.cl[9] ? ' · venta ' + esc(o.cl[9]) : ''} · PM ${esc(o.cl[8])} · ${esc(o.cl[3])}</small></div>
-        <div class="fx-btns">${TIPOS.map(t => { const h = datos && hecho(o.cl, t); return `<button type="button" class="fx-b${h ? ' hecho' : ''}" data-i="${o.i}" data-t="${t}">${h ? IC.ok : IC.cam}${t}</button>`; }).join('')}</div>
-      </div>`).join('')}</div>
-      <button type="button" class="fx-link fx-mias" id="fxMias">Ver mis fotos de la semana (${sem.length})</button>
+      ${sem.length ? `<button type="button" class="fx-link fx-mias" id="fxMias">Ver mis fotos (${sem.length})</button>` : ''}
     </section>`;
-    box.querySelectorAll('.fx-b').forEach(b => b.onclick = () => {
-      const cl = tops[+b.dataset.i];
-      abrirHoja({modo: 'cli', cl, tipo: b.dataset.t, titulo: cl[2], sub: cl[6] + ' · PM ' + cl[8]});
-    });
     const mias = $('fxMias'); if (mias) mias.onclick = () => verLista('Mis fotos de la semana', sem, false);
     enlazarReintento(box);
   }
@@ -360,7 +436,7 @@
         <button type="button" class="fx-link" id="fxRecargar">Actualizar</button></div>
       <div class="fx-chips" role="group" aria-label="Semana">${SEMS.map((s, i) => `<button type="button" data-sem="${i}" aria-pressed="${filtro.sem === i}">${s}</button>`).join('')}</div>
       ${estadoCarga()}
-      ${datos && conTop.length ? `<details class="fx-cumple"${filtro.vend ? '' : ' open'}><summary>Cumplimiento por vendedor</summary>
+      ${datos && conTop.length ? `<details class="fx-cumple"><summary>Cumplimiento por vendedor</summary>
         <div class="fx-ctab">${cumple.map(x => `<button type="button" class="fx-crow${filtro.vend === x.c.vc ? ' on' : ''}" data-vc="${esc(x.c.vc)}">
           <span class="fx-cvc">${esc(x.c.vc)}</span><span class="fx-cvn">${esc(nombreCorto(x.c.vn))}</span>
           <span class="fx-cbar"><i style="width:${Math.round(x.clis / x.nTop * 100)}%" class="${x.clis >= x.nTop ? 'full' : x.clis ? '' : 'cero'}"></i></span>
@@ -484,6 +560,16 @@
   // Puntito en la pestaña Competencia cuando hay envíos nuevos (supervisor y jefatura)
   function marcarVisto(){ try { localStorage.setItem(VISTO, String(Date.now())); } catch(e){} punto(); }
   function punto(){
+    const top = document.querySelector('.tabbar-btn[data-sec="top"]');
+    if (top){
+      let n = 0;
+      const v = R().vendedor, hoy = R().hoy;
+      if (R().modo === 'vendedor' && v && datos && hoy){
+        v.cl.filter(cl => cl._top && String(cl[3]).split(',').map(x => x.trim()).includes(hoy)).forEach(cl => { const fs = fotosCli(v.vc, cl[6]) || []; n += TIPOS.filter(t => !fs.some(x => x.Tipo === t)).length; });
+      }
+      let b = top.querySelector('.fx-badge'); if (!b && n){ b = document.createElement('span'); b.className = 'fx-badge'; top.appendChild(b); }
+      if (b){ b.textContent = n; b.hidden = !n; }
+    }
     const tab = document.querySelector('.tabbar-btn[data-sec="compe"]'); if (!tab) return;
     if (R().modo === 'vendedor' || !datos){ tab.classList.remove('fx-nuevo'); return; }
     let visto = 0; try { visto = +localStorage.getItem(VISTO) || 0; } catch(e){}
@@ -495,8 +581,8 @@
   function iniciar(){
     if (!URL_F){ document.body.classList.add('fx-sin'); return; }
     if (R().modo === 'vendedor' && !R().vendedor) return;
-    cargar().then(() => { punto(); pintarTop(); pintarCompe(); }, () => {});
+    cargar().then(() => { punto(); if (R().refrescar) R().refrescar(); pintarCompe(); }, () => {});
   }
 
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar};
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam};
 })();

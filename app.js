@@ -289,7 +289,7 @@
     return `<div class="client ${cl._top ? 'is-top' : ''}">
       <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
         <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}</div>
-      </div><div class="acts">${lpBtn}${go}</div>${potCliHtml(codigo)}</div>`;
+      </div><div class="acts">${lpBtn}${go}</div>${potCliHtml(codigo)}${cl._top && window.Fotos ? window.Fotos.filaCli(cl, c) : ''}</div>`;
   }
   function bodyHtml(v){
     const c = v.c;
@@ -318,6 +318,7 @@
     const el = $('c-' + id), v = findV(id); if (!el || !v) return;
     el.classList.add('open'); el.querySelector('.head').setAttribute('aria-expanded', 'true');
     el.querySelector('.body').innerHTML = bodyHtml(v); wireBody(el, v);
+    if (window.Fotos) window.Fotos.enlazar(el);
     if (scroll) scrollToCard(id);
   }
   function collapse(id){
@@ -345,6 +346,8 @@
     });
   }
 
+  // Fotos de clientes top: aviso arriba de la ruta (vendedor: sus fotos de hoy; supervisor: las del equipo)
+  const bannerFotos = () => (window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '';
   function renderList(){
     current = visibleCarteras();
     renderKPIs(current);
@@ -366,7 +369,7 @@
     const hint = `<div class="hint"><span>${cuando}: <b>${unicos.size.toLocaleString('es-PY')}</b> ${unicos.size === 1 ? 'cliente' : 'clientes'}${MODO_VENDEDOR ? '' : ` en <b>${current.length}</b> ${current.length === 1 ? 'cartera' : 'carteras'}`}${topEstado === 'ok' && nTop ? `, <b class="hint-top">${nTop} top</b>` : ''}</span></div>`;
     // Jefatura: primero los supervisores; al tocar uno, sus vendedores
     if (MODO_JEFATURA && state.spv === 'TODOS' && !searching()){
-      main.innerHTML = hint + potDiaHtml(current) + `<div class="vs-lista-h">Tocá un supervisor para ver sus vendedores</div>` + sups.map((s, k) => {
+      main.innerHTML = hint + potDiaHtml(current) + bannerFotos() + `<div class="vs-lista-h">Tocá un supervisor para ver sus vendedores</div>` + sups.map((s, k) => {
         const vs = current.filter(v => v.c.sup === s.k); if (!vs.length) return '';
         const cl = new Set(); vs.forEach(v => v.idx.forEach(i => cl.add(claveCli(v.c, v.c.cl[i]))));
         const sp = DIA_UNO() && POT() ? sumaPot(vs) : null, a = sp && sp.pot ? Math.round(sp.ven / sp.pot * 100) : null;
@@ -379,10 +382,12 @@
         </button>`;
       }).join('');
       main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => window.RUTEO.setSpv(b.dataset.grupo));
+      if (window.Fotos) window.Fotos.enlazar(main);
       return;
     }
     const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
-    main.innerHTML = volver + hint + potDiaHtml(current) + current.map(cardHtml).join('');
+    main.innerHTML = volver + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
+    if (window.Fotos) window.Fotos.enlazar(main);
     if (volver) $('jfVolver').onclick = () => window.RUTEO.setSpv('TODOS');
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
@@ -490,83 +495,56 @@
   function renderTop(){
     const box = $('topView'); if (!box) return;
     if (state.seccion !== 'top') return;
-    if (topEstado !== 'ok'){
-      box.innerHTML = `<div class="tv-wrap"><div class="tv-state">${topEstado === 'cargando'
-        ? '<b>Cargando clientes top…</b>'
-        : `<b>No se pudo leer la lista de clientes top</b><span>Revisá que el archivo <code>clientes_top.xlsx</code> esté subido en GitHub. (${esc(topError)})</span>`}</div></div>`;
-      return;
-    }
     if (!state.topDay) state.topDay = TODAY_LBL || 'Lun';
-    const day = state.topDay;
-    const base = bySpv();
-    // Por cartera: clientes top y visitas por día
-    const filasV = base.map(c => {
-      const porDia = {}; WEEK.forEach(d => porDia[d] = 0); let tot = 0;
-      c.cl.forEach(cl => { if (!cl._top) return; tot++; daysOf(cl).forEach(d => { if (d in porDia) porDia[d]++; }); });
-      return {c, porDia, tot};
-    });
-    const conTop = filasV.filter(r => r.tot > 0);
-    const semana = {}; WEEK.forEach(d => semana[d] = conTop.reduce((a,r) => a + r.porDia[d], 0));
-    const totCli = conTop.reduce((a,r) => a + r.tot, 0);
-    const totVis = WEEK.reduce((a,d) => a + semana[d], 0);
-    const maxDia = Math.max(1, ...WEEK.map(d => semana[d]));
-    const maxCelda = Math.max(1, ...conTop.flatMap(r => WEEK.map(d => r.porDia[d])));
+    const day = state.topDay, F = window.Fotos;
     const DIA_LARGO = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'};
-    const quien = MODO_VENDEDOR ? MI_CARTERA.vc : state.spv === 'TODOS' ? 'Todos los supervisores' : state.spv === 'MIXTOS' ? 'Carteras mixtas' : (supLabel[state.spv] || state.spv);
-
-    const barras = WEEK.map(d => `<button type="button" class="tv-day ${d === day ? 'on' : ''} ${d === TODAY_LBL ? 'hoy' : ''}" data-day="${d}" aria-pressed="${d === day}">
-        <b>${semana[d]}</b><span class="tv-bar"><i style="height:${Math.round(semana[d] / maxDia * 100)}%"></i></span><em>${d}</em></button>`).join('');
-
-    const celda = (n, d) => `<td class="${d === day ? 'sel' : ''}" style="--a:${n ? (0.12 + 0.88 * n / maxCelda).toFixed(2) : 0}">${n || ''}</td>`;
-    const filaHtml = r => `<tr class="tv-row" data-vc="${esc(r.c.vc)}" tabindex="0">
-        <th scope="row"><span class="tv-dot" style="--c:${supColor[r.c.sup] || '#2E5BFF'}"></span><span class="tv-vc">${esc(r.c.vc)}</span><span class="tv-vn">${esc(isVacante(r.c) ? 'Vacante' : shortName(r.c))}</span></th>
-        ${WEEK.map(d => celda(r.porDia[d], d)).join('')}<td class="tv-tot">${r.tot}</td></tr>`;
-    let cuerpo = '';
-    if (state.spv === 'TODOS' && !MODO_VENDEDOR){
-      sups.forEach(sp => {
-        const rs = conTop.filter(r => r.c.sup === sp.k); if (!rs.length) return;
-        const sd = {}; WEEK.forEach(d => sd[d] = rs.reduce((a,r) => a + r.porDia[d], 0));
-        cuerpo += `<tr class="tv-sup"><th scope="rowgroup"><span class="tv-dot" style="--c:${supColor[sp.k]}"></span>${esc(sp.p)}</th>${WEEK.map(d => `<td class="${d === day ? 'sel' : ''}">${sd[d] || ''}</td>`).join('')}<td class="tv-tot">${rs.reduce((a,r) => a + r.tot, 0)}</td></tr>`;
-        cuerpo += rs.map(filaHtml).join('');
-      });
-    } else cuerpo = conTop.map(filaHtml).join('');
-
-    const sinTop = filasV.length - conTop.length;
+    const base = bySpv();
+    const tiene = (cl, d) => daysOf(cl).includes(d);
+    const porDia = {}; WEEK.forEach(d => porDia[d] = 0);
+    let totCli = 0;
+    base.forEach(c => c.cl.forEach(cl => { if (!cl._top) return; totCli++; WEEK.forEach(d => { if (tiene(cl, d)) porDia[d]++; }); }));
+    const quien = MODO_VENDEDOR ? 'Tenés' : state.spv === 'TODOS' ? 'Todos los equipos:' : (supLabel[state.spv] || state.spv) + ':';
+    const dias = `<div class="tp-dias" role="tablist" aria-label="Día">${WEEK.map(d => `<button type="button" class="tp-dia${d === day ? ' on' : ''}${d === TODAY_LBL ? ' hoy' : ''}" data-day="${d}" aria-pressed="${d === day}"><em>${d === TODAY_LBL ? 'Hoy' : d}</em><b>${porDia[d]}</b></button>`).join('')}</div>`;
+    const ir = `<button type="button" class="tp-ruta" id="tpRuta">${ICON.map}Ver en la ruta del ${DIA_LARGO[day]}</button>`;
+    let lista = '';
+    if (MODO_VENDEDOR){
+      const cls = [];
+      base.forEach(c => c.cl.forEach((cl, i) => { if (cl._top && tiene(cl, day)) cls.push({c, cl, i}); }));
+      lista = cls.length ? cls.map(o => {
+        const cl = o.cl, gps = hasGps(cl) ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${cl[4]},${cl[5]}" target="_blank" rel="noopener" aria-label="Cómo llegar">${ICON.nav}<span>Ir</span></a>` : '';
+        return `<article class="tp-cli"><div class="tp-cli-top"><div class="tp-cli-n"><b>${esc(cl[2])}</b><small>${esc(cl[6])} · ${esc(cl[0])} · PM ${esc(cl[8])}</small></div>${gps}</div>${F ? F.filaCli(cl, o.c) : ''}</article>`;
+      }).join('') : `<div class="tp-vacio">No tenés clientes top el ${DIA_LARGO[day]}.</div>`;
+    } else {
+      const filas = base.filter(c => !isVacante(c)).map(c => ({c, n: c.cl.filter(cl => cl._top && tiene(cl, day)).length, tot: c.cl.filter(cl => cl._top).length})).filter(r => r.n);
+      lista = filas.length ? `<div class="tp-tabla">${filas.map(r => {
+        const sem = F ? F.semanaDe(r.c.vc) : null, hechos = sem ? Math.min(sem.size, r.tot) : null;
+        return `<button type="button" class="tp-fila" data-vc="${esc(r.c.vc)}">
+          <span class="tv-dot" style="--c:${supColor[r.c.sup] || '#2E5BFF'}"></span>
+          <span class="tp-fn"><b>${esc(r.c.vc)} <span>${esc(isVacante(r.c) ? 'Vacante' : shortName(r.c))}</span></b><small>${r.n} ${r.n === 1 ? 'cliente top' : 'clientes top'} el ${DIA_LARGO[day]}</small></span>
+          ${hechos !== null ? `<span class="tp-foto${hechos >= r.tot ? ' full' : hechos ? '' : ' cero'}" title="Clientes top con foto esta semana">${F.icono}${hechos}/${r.tot}</span>` : ''}
+          ${ICON.chev}</button>`;
+      }).join('')}</div>` : `<div class="tp-vacio">Ningún cliente top el ${DIA_LARGO[day]} en esta selección.</div>`;
+    }
     box.innerHTML = `<div class="tv-wrap">
       <div class="tv-head">
         <h2>${MODO_VENDEDOR ? 'Tus clientes top' : 'Clientes top'}</h2>
-        <p>${esc(quien)}: <b>${totCli}</b> clientes top y <b>${totVis}</b> visitas por semana.</p>
+        <p>${esc(quien)} <b>${totCli}</b> ${totCli === 1 ? 'cliente top' : 'clientes top'}. Cada semana: una foto de <b>ampliación</b> y otra de <b>reposición</b> en cada uno.</p>
       </div>
       <div id="fotosTop"></div>
-      ${conTop.length ? `
-      <section class="tv-week" aria-label="Visitas top por día">${barras}</section>
-      <div class="tv-callout">
-        <div><b>${semana[day]}</b> visitas a clientes top el ${DIA_LARGO[day]}${day === TODAY_LBL ? ' (hoy)' : ''}</div>
-        <button type="button" class="tv-cta" id="tvVerRuta">Ver en la ruta</button>
-      </div>
-      ${MODO_VENDEDOR ? '' : `<div class="tv-table-wrap">
-        <table class="tv-table">
-          <colgroup><col class="c-name">${WEEK.map(() => '<col>').join('')}<col class="c-tot"></colgroup>
-          <thead><tr><th scope="col">Cartera</th>${WEEK.map(d => `<th scope="col" class="${d === day ? 'sel' : ''}"><span>${WEEK_LETTER[d]}</span></th>`).join('')}<th scope="col">Clientes</th></tr></thead>
-          <tbody>${cuerpo}</tbody>
-        </table>
-      </div>
-      <p class="tv-note">Tocá una cartera para ver sus clientes top del ${DIA_LARGO[day]} en la ruta.${sinTop ? ` ${sinTop} ${sinTop === 1 ? 'cartera no tiene' : 'carteras no tienen'} clientes top.` : ''}</p>`}`
-      : `<div class="tv-state"><b>No hay clientes top en esta selección</b><span>Elegí otro supervisor arriba.</span></div>`}
+      <h3 class="tp-h">${MODO_VENDEDOR ? 'Tu semana' : 'Clientes top por día'}</h3>
+      ${dias}
+      <div class="tp-lista">${lista}</div>
+      ${porDia[day] ? ir : ''}
     </div>`;
-
-    box.querySelectorAll('.tv-day').forEach(b => b.onclick = () => { state.topDay = b.dataset.day; renderTop(); });
+    box.querySelectorAll('.tp-dia').forEach(b => b.onclick = () => { state.topDay = b.dataset.day; renderTop(); });
     const irRuta = vc => {
       state.soloTop = true; state.days = new Set([day]); state.query = ''; $('searchInput').value = '';
       setSeccion('ruta'); setVista('lista'); refresh(true);
       if (vc) openCartera(vc);
     };
-    const cta = $('tvVerRuta'); if (cta) cta.onclick = () => irRuta(null);
-    box.querySelectorAll('.tv-row').forEach(tr => {
-      tr.onclick = () => irRuta(tr.dataset.vc);
-      tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); irRuta(tr.dataset.vc); } };
-    });
-    if (window.Fotos && $('fotosTop')) window.Fotos.enTop($('fotosTop'));
+    const cta = $('tpRuta'); if (cta) cta.onclick = () => irRuta(null);
+    box.querySelectorAll('.tp-fila').forEach(b => b.onclick = () => irRuta(b.dataset.vc));
+    if (F){ F.enlazar(box); if ($('fotosTop')) F.enTop($('fotosTop')); }
   }
 
   // ---- "¿Cuál es tu cartera?" ----
@@ -737,6 +715,9 @@
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     modo: MODO_VENDEDOR ? 'vendedor' : MODO_JEFATURA ? 'jefatura' : 'supervisor', miSup: MI_SUP, nombreSup: NOMBRE_SUP, hoy: TODAY_LBL,
     getSpv: () => state.spv,
+    refrescar: () => { if (state.seccion === 'ruta' && state.vista === 'lista'){ const y = window.scrollY; refresh(false); window.scrollTo(0, y); } else if (state.seccion === 'top') renderTop(); },
+    verTopHoy: () => { state.topDay = TODAY_LBL || state.topDay; setSeccion('top'); },
+    soloTopHoy: () => { state.soloTop = true; state.days = new Set([TODAY_LBL]); state.query = ''; $('searchInput').value = ''; setVista('lista'); refresh(true); },
     setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Fotos && state.seccion === 'compe') window.Fotos.mostrarCompe(); window.scrollTo({top:0}); }
   };
 
