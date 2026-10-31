@@ -21,3 +21,23 @@ const CLAVES_SUPERVISORES = {
 };
 
 const CLAVE_JEFATURA = 'jefatura2026';
+
+
+// =====================================================================
+//  CLIENTES TOP
+// ---------------------------------------------------------------------
+//  Son clientes top los que tienen uno de estos PM (del padrón/ruteo).
+//  Para agregar o quitar un PM, editá la lista. Ej.: "13.8",
+// =====================================================================
+const PM_TOP = ["13.1", "13.2", "13.5", "21.1", "12.1", "12.2"];
+
+
+// =====================================================================
+//  FOTOS Y COMPETENCIA (se guardan en Google Drive)
+// ---------------------------------------------------------------------
+//  FOTOS_URL: el enlace de la "aplicación web" de Google Apps Script
+//  (termina en /exec). FOTOS_CLAVE tiene que ser igual a CLAVE_APP del
+//  script de Google. Si dejás FOTOS_URL vacío, las fotos no aparecen.
+// =====================================================================
+const FOTOS_URL = "https://script.google.com/macros/s/AKfycbwD4J2ho6VOFvZ2TAgkJYiM4ZZIusm7xXcmj3kJNp_JWjVHCNnj3ERJ5mTDxL7HAmxLPw/exec";
+const FOTOS_CLAVE = "trentino-fotos-2026";

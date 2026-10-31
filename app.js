@@ -479,30 +479,12 @@
     }, () => toast('No se pudo obtener tu ubicación'), {enableHighAccuracy:true, timeout:10000});
   };
 
-  // ---- Clientes top (se leen de clientes_top.xlsx) ----
+  // ---- Clientes top: los de los PM elegidos en config.js (PM_TOP) ----
   let topEstado = 'cargando', topFecha = null, topError = '';
+  const PM_TOP_SET = new Set((typeof PM_TOP !== 'undefined' && PM_TOP.length ? PM_TOP : ['13.1','13.2','13.5','21.1','12.1','12.2']).map(x => String(x).trim().replace(',', '.')));
   function cargarTop(){
-    if (typeof window.leerExcel !== 'function'){ topEstado = 'error'; topError = 'Falta excel.js'; return; }
-    // en la página principal o en la carpeta 'datos'
-    window.leerExcel('clientes_top.xlsx', ['Vendedor', 'Subcliente']).catch(() => window.leerExcel('datos/clientes_top.xlsx', ['Vendedor', 'Subcliente'])).then(({filas, fecha}) => {
-      const claves = new Set();
-      filas.forEach(f => {
-        const m = String(f['subcliente']).match(/^\s*(\d+)-(\d+)/);
-        if (m && f['vendedor']) claves.add(f['vendedor'].trim().toUpperCase() + '|' + m[1] + '-' + m[2]);
-      });
-      let marcados = 0;
-      carteras.forEach(c => c.cl.forEach(cl => {
-        cl._top = !!(cl[6] && claves.has(c.vc.toUpperCase() + '|' + cl[6]));
-        if (cl._top) marcados++;
-      }));
-      topEstado = 'ok'; topFecha = fecha;
-      if (claves.size > marcados) console.warn(`Clientes top: ${claves.size - marcados} códigos del Excel no están en el ruteo de la app.`);
-      refresh(false); renderTop();
-    }).catch(err => {
-      topEstado = 'error'; topError = err.message || String(err);
-      console.warn('Clientes top:', topError);
-      refresh(false); renderTop();
-    });
+    carteras.forEach(c => c.cl.forEach(cl => { cl._top = PM_TOP_SET.has(String(cl[8] == null ? '' : cl[8]).trim().replace(',', '.')); }));
+    topEstado = 'ok';
   }
 
   function renderTop(){
@@ -555,6 +537,7 @@
         <h2>${MODO_VENDEDOR ? 'Tus clientes top' : 'Clientes top'}</h2>
         <p>${esc(quien)}: <b>${totCli}</b> clientes top y <b>${totVis}</b> visitas por semana.</p>
       </div>
+      <div id="fotosTop"></div>
       ${conTop.length ? `
       <section class="tv-week" aria-label="Visitas top por día">${barras}</section>
       <div class="tv-callout">
@@ -583,6 +566,7 @@
       tr.onclick = () => irRuta(tr.dataset.vc);
       tr.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); irRuta(tr.dataset.vc); } };
     });
+    if (window.Fotos && $('fotosTop')) window.Fotos.enTop($('fotosTop'));
   }
 
   // ---- "¿Cuál es tu cartera?" ----
@@ -735,6 +719,8 @@
     $('visitasView').hidden = s !== 'visitas';
     if ($('ventasView')) $('ventasView').hidden = s !== 'ventas';
     if ($('jefaturaView')) $('jefaturaView').hidden = s !== 'jefatura';
+    if ($('compeView')) $('compeView').hidden = s !== 'compe';
+    if (s === 'compe' && window.Fotos) window.Fotos.mostrarCompe();
     if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
     if (s === 'ventas' && window.Ventas) window.Ventas.mostrar();
     if (s === 'jefatura' && window.Jefatura) window.Jefatura.mostrar();
@@ -751,7 +737,7 @@
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     modo: MODO_VENDEDOR ? 'vendedor' : MODO_JEFATURA ? 'jefatura' : 'supervisor', miSup: MI_SUP, nombreSup: NOMBRE_SUP, hoy: TODAY_LBL,
     getSpv: () => state.spv,
-    setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
+    setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Fotos && state.seccion === 'compe') window.Fotos.mostrarCompe(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----
@@ -822,9 +808,10 @@
     $('subtituloApp').textContent = MI_CARTERA.vc + ' · ' + MI_CARTERA.vz;
     document.title = MI_CARTERA.vc + ' | Ruteo TR1';
   }
+  cargarTop();
   setSeccion('ruta');
   refresh(false);
-  cargarTop();
+  if (window.Fotos) window.Fotos.iniciar();
   // Si la app estuvo más de 20 minutos en segundo plano, al volver se recarga (trae lo último subido)
   let oculto = 0;
   document.addEventListener('visibilitychange', () => {
