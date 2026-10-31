@@ -163,7 +163,7 @@
       <div class="fx-toast" id="fxToast" hidden>${IC.ok}<span></span></div>`;
     document.body.appendChild(d);
     $('fxHojaX').onclick = cerrarHoja;
-    $('fxVisorX').onclick = () => { $('fxVisor').hidden = true; bloquear(false); };
+    $('fxVisorX').onclick = cerrarVisor;
     $('fxOtra').onclick = () => $('fxIn').click();
     $('fxTipo').querySelectorAll('button').forEach(b => b.onclick = async () => {
       setTipo(b.dataset.t);
@@ -189,8 +189,13 @@
     $('fxTipo').hidden = o.modo !== 'cli'; if (o.modo === 'cli') setTipo(o.tipo);
     $('fxCom').value = ''; paso('cam');
     $('fxHoja').hidden = false; bloquear(true);
+    apilarCapa('hoja', cerrarHojaYa);
   }
-  function cerrarHoja(){ $('fxHoja').hidden = true; bloquear(false); H = null; }
+  function cerrarHojaYa(){ $('fxHoja').hidden = true; bloquear(false); H = null; }
+  function cerrarHoja(){ if ($('fxHoja').hidden) return; if (R().tope && R().tope() === 'hoja') R().volver(); else cerrarHojaYa(); }
+  function cerrarVisorYa(){ $('fxVisor').hidden = true; bloquear(false); }
+  function cerrarVisor(){ if (R().tope && R().tope() === 'visor') R().volver(); else cerrarVisorYa(); }
+  const apilarCapa = (clave, fn) => { if (R().apilar && R().tope() !== clave) R().apilar('', fn, true, clave); };
   function setTipo(t){ if (H) H.tipo = t; $('fxTipo').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t))); }
   function paso(p, txt){
     $('fxCam').hidden = p !== 'cam'; $('fxPrev').hidden = p !== 'prev'; $('fxProc').hidden = p !== 'proc'; $('fxErr').hidden = true;
@@ -260,6 +265,7 @@
       ${conFoto && id ? `<a class="fx-btn pri" href="${bajarUrl(id)}" target="_blank" rel="noopener">${IC.baja}Descargar foto</a>` : ''}`;
     const im = $('fxVImg'); if (im && id) im.onerror = () => { if (!im.dataset.alt){ im.dataset.alt = '1'; im.src = imgAlt(id, 1600); } };
     $('fxVisor').hidden = false; $('fxVisor').scrollTop = 0; bloquear(true);
+    apilarCapa('visor', cerrarVisorYa);
   }
   const miniatura = (r, esCompe) => {
     const id = idDe(r), conFoto = r._local || (esCompe ? r['Enlace foto'] : r.Enlace);
@@ -397,6 +403,7 @@
     $('fxVIn').innerHTML = filas.length ? galeriaHtml(filas, esCompe) : '<div class="fx-vacio">Todavía no subiste fotos esta semana.</div>';
     enlazarGaleria($('fxVIn'), filas, esCompe, true);
     $('fxVisor').hidden = false; bloquear(true);
+    apilarCapa('visor', cerrarVisorYa);
   }
 
   function galeriaHtml(filas, esCompe){

@@ -117,7 +117,8 @@
     ).join('');
     wrap.querySelectorAll('.spv-pill').forEach(b => b.onclick = () => {
       if (state.spv === b.dataset.k) return;
-      state.spv = b.dataset.k; state.openId = null;
+      state.spv = b.dataset.k; state.openId = null; $('main').classList.remove('una');
+      while (PILA.length && PILA[PILA.length - 1].clave === 'cartera') PILA.pop();
       $('vendedorSelect').value = 'TODOS';
       syncPills(); refresh(true); renderTop();
       if (window.Visitas) window.Visitas.refrescar();
@@ -300,7 +301,7 @@
   }
   function wireBody(el, v){
     const cerrar = el.querySelector('[data-act="close"]');
-    if (cerrar) cerrar.onclick = () => { collapse(v.c.vc); state.openId = null; scrollToCard(v.c.vc); };
+    if (cerrar) cerrar.onclick = () => cerrarCartera(v.c.vc);
     el.querySelector('[data-act="map"]').onclick = () => verZonaDe(v.c.vc);
     el.querySelectorAll('[data-lpi]').forEach(b => b.onclick = () => {
       const cl = v.c.cl[+b.dataset.lpi];
@@ -326,15 +327,49 @@
     el.classList.remove('open'); el.querySelector('.head').setAttribute('aria-expanded', 'false');
     el.querySelector('.body').innerHTML = '';
   }
-  function openCartera(id){
+  // ---- Volver atrás: botón "‹" flotante y el "atrás" del celular ----
+  const PILA = [];
+  let conHist = true;
+  function apilar(etq, fn, oculto, clave){
+    PILA.push({etq, fn, oculto, clave});
+    try { history.pushState({ruteo: PILA.length}, ''); } catch(e){ conHist = false; }
+    pintarVolver();
+  }
+  function volver(){
+    if (!PILA.length) return;
+    if (conHist) history.back(); else { const p = PILA.pop(); p.fn(); pintarVolver(); }
+  }
+  window.addEventListener('popstate', () => { const p = PILA.pop(); if (p) p.fn(); pintarVolver(); });
+  const tope = () => PILA.length ? (PILA[PILA.length - 1].clave || '') : '';
+  function pintarVolver(){
+    const b = $('btnVolver'); if (!b) return;
+    const p = PILA[PILA.length - 1], ok = !!p && !p.oculto && state.seccion === 'ruta';
+    b.hidden = !ok; if (ok) b.querySelector('span').textContent = p.etq;
+  }
+  const modoUna = () => !MODO_VENDEDOR && !searching();
+  function cerrarAbierta(){
+    const id = state.openId; state.openId = null;
+    $('main').classList.remove('una');
+    if (id){ collapse(id); scrollToCard(id); }
+  }
+  function cerrarCartera(id){
+    if (tope() === 'cartera') volver();
+    else { collapse(id); if (state.openId === id) state.openId = null; $('main').classList.remove('una'); scrollToCard(id); }
+  }
+
+  function openCartera(id, sinPila){
     if (state.vista !== 'lista') setVista('lista');
+    if (modoUna()){
+      $('main').classList.add('una');
+      if (!sinPila && tope() !== 'cartera') apilar('Todas las carteras', cerrarAbierta, false, 'cartera');
+    }
     // Una sola cartera abierta a la vez (salvo en búsqueda): la lista queda corta y fácil de recorrer
     if (!searching()) document.querySelectorAll('.cartera.open').forEach(o => { if (o.dataset.id !== id) collapse(o.dataset.id); });
     state.openId = id; expand(id, true);
   }
   function toggle(id){
     const el = $('c-' + id);
-    if (el.classList.contains('open')){ collapse(id); if (state.openId === id) state.openId = null; return; }
+    if (el.classList.contains('open')){ cerrarCartera(id); return; }
     openCartera(id);
   }
   function stickyH(){ return $('stickyBar').offsetHeight; }
@@ -381,14 +416,14 @@
           <span class="jf-g-n"><b>${cl.size.toLocaleString('es-PY')}</b><small>clientes</small></span>${ICON.chev}
         </button>`;
       }).join('');
-      main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => window.RUTEO.setSpv(b.dataset.grupo));
+      main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => { apilar('Todos los supervisores', () => window.RUTEO.setSpv('TODOS'), false, 'sup'); window.RUTEO.setSpv(b.dataset.grupo); });
       if (window.Fotos) window.Fotos.enlazar(main);
       return;
     }
     const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
     main.innerHTML = volver + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
     if (window.Fotos) window.Fotos.enlazar(main);
-    if (volver) $('jfVolver').onclick = () => window.RUTEO.setSpv('TODOS');
+    if (volver) $('jfVolver').onclick = () => { if (PILA.some(p => p.clave === 'sup')){ while (tope() && tope() !== 'sup') PILA.pop(); volver(); } else window.RUTEO.setSpv('TODOS'); };
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
       h.onclick = () => toggle(el.dataset.id);
@@ -397,6 +432,7 @@
     if (searching() || MODO_VENDEDOR) current.forEach(v => expand(v.c.vc, false));
     else if (state.openId && findV(state.openId)) expand(state.openId, false);
     else state.openId = null;
+    main.classList.toggle('una', !!state.openId && modoUna());
   }
 
   // Al cambiar un filtro, la lista vuelve a empezar justo debajo de la barra (sin saltos raros)
@@ -538,9 +574,16 @@
     </div>`;
     box.querySelectorAll('.tp-dia').forEach(b => b.onclick = () => { state.topDay = b.dataset.day; renderTop(); });
     const irRuta = vc => {
+      const antes = {soloTop: state.soloTop, days: new Set(state.days), y: window.scrollY};
       state.soloTop = true; state.days = new Set([day]); state.query = ''; $('searchInput').value = '';
+      state.openId = null;
       setSeccion('ruta'); setVista('lista'); refresh(true);
-      if (vc) openCartera(vc);
+      apilar('Volver a Top', () => {
+        if (state.openId) collapse(state.openId); state.openId = null; $('main').classList.remove('una');
+        state.soloTop = antes.soloTop; state.days = antes.days; refresh(false);
+        setSeccion('top'); window.scrollTo(0, antes.y);
+      }, false, 'top');
+      if (vc) openCartera(vc, true);
     };
     const cta = $('tpRuta'); if (cta) cta.onclick = () => irRuta(null);
     box.querySelectorAll('.tp-fila').forEach(b => b.onclick = () => irRuta(b.dataset.vc));
@@ -705,6 +748,7 @@
     if (s === 'top') renderTop();
     if (s === 'precios' && window.Precios) window.Precios.mostrar();
     if (s === 'ruta' && state.vista === 'mapa') renderMap();
+    pintarVolver();
     window.scrollTo({top:0});
   }
   document.querySelectorAll('.tabbar-btn[data-sec]').forEach(b => b.onclick = () => { if (state.seccion !== b.dataset.sec) setSeccion(b.dataset.sec); else window.scrollTo({top:0, behavior: reduceMotion ? 'auto' : 'smooth'}); });
@@ -715,10 +759,11 @@
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     modo: MODO_VENDEDOR ? 'vendedor' : MODO_JEFATURA ? 'jefatura' : 'supervisor', miSup: MI_SUP, nombreSup: NOMBRE_SUP, hoy: TODAY_LBL,
     getSpv: () => state.spv,
+    apilar, volver, tope,
     refrescar: () => { if (state.seccion === 'ruta' && state.vista === 'lista'){ const y = window.scrollY; refresh(false); window.scrollTo(0, y); } else if (state.seccion === 'top') renderTop(); },
     verTopHoy: () => { state.topDay = TODAY_LBL || state.topDay; setSeccion('top'); },
     soloTopHoy: () => { state.soloTop = true; state.days = new Set([TODAY_LBL]); state.query = ''; $('searchInput').value = ''; setVista('lista'); refresh(true); },
-    setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Fotos && state.seccion === 'compe') window.Fotos.mostrarCompe(); window.scrollTo({top:0}); }
+    setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; $('main').classList.remove('una'); while (PILA.length && PILA[PILA.length - 1].clave === 'cartera') PILA.pop(); pintarVolver(); syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); if (window.Fotos && state.seccion === 'compe') window.Fotos.mostrarCompe(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----
@@ -789,6 +834,7 @@
     $('subtituloApp').textContent = MI_CARTERA.vc + ' · ' + MI_CARTERA.vz;
     document.title = MI_CARTERA.vc + ' | Ruteo TR1';
   }
+  if ($('btnVolver')) $('btnVolver').onclick = volver;
   cargarTop();
   setSeccion('ruta');
   refresh(false);

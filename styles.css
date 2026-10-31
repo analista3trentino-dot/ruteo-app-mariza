@@ -1455,3 +1455,13 @@ body.fx-bloq{overflow:hidden;}
 .tp-vacio{padding:24px 12px; text-align:center; color:var(--txt-2); font-size:.88rem; background:var(--sup); border:1px dashed var(--linea); border-radius:var(--r-md);}
 .tp-ruta{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:12px; min-height:48px; border:none; border-radius:14px; background:var(--noche); color:#fff; font-weight:700; font-size:.92rem; cursor:pointer;}
 .tp-ruta svg{color:var(--oro);}
+
+/* ---- Volver atrás (cartera abierta, supervisor elegido, desde Top) ---- */
+#main.una .cartera:not(.open){display:none;}
+#main.una .vs-lista-h{display:none;}
+.btn-volver{position:fixed; z-index:1001; left:max(14px, env(safe-area-inset-left,0px)); bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  display:inline-flex; align-items:center; gap:6px; height:46px; padding:0 18px 0 12px; border:none; border-radius:999px;
+  background:var(--noche); color:#fff; font:inherit; font-weight:700; font-size:.9rem; box-shadow:0 10px 26px -8px rgba(12,26,46,.55); cursor:pointer; animation:fxSube .25s ease-out;}
+.btn-volver svg{color:var(--oro); flex:none;}
+.btn-volver:active{transform:scale(.97);}
+@media (min-width:760px){ .btn-volver{left:calc(50% - 470px);} }
