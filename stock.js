@@ -39,18 +39,24 @@
   // PDF: cada renglón "5792  5792-RESIDENCE FOSFORO ...  RESIDENCE  CUIDADO DEL HOG  198,862"
   async function leerPdf(buf){
     const pdfjs = await cargarPdf();
-    const doc = await pdfjs.getDocument({data: new Uint8Array(buf)}).promise;
+    const doc = await pdfjs.getDocument({data: new Uint8Array(buf.slice(0))}).promise;   // copia: pdf.js se queda con el original
     const out = {};
     for (let p = 1; p <= doc.numPages; p++){
       const page = await doc.getPage(p), tc = await page.getTextContent();
-      const filas = new Map();
-      tc.items.forEach(it => { const y = Math.round(it.transform[5] / 2); if (!filas.has(y)) filas.set(y, []); filas.get(y).push(it); });
-      [...filas.values()].forEach(items => {
-        const txt = items.sort((a, b) => a.transform[4] - b.transform[4]).map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
-        const m = txt.match(/^(\d+)\s+(\d+-.*?)\s+(-?[\d.,]+)$/);
-        if (!m) return;
-        const desc = m[2].replace(/^\d+-/, '').trim();
-        out[m[1]] = [cant(m[3]), desc];
+      const ancho = page.view ? page.view[2] : 600;
+      const its = tc.items.map(i => ({s: String(i.str || '').trim(), x: i.transform[4], y: i.transform[5]})).filter(i => i.s);
+      // artículos ("8365-8 PM WHISKY...") y cantidades (columna de la derecha); se juntan por altura
+      const arts = its.filter(i => /^\d+-\S/.test(i.s) && i.x < ancho * 0.6);
+      const cants = its.filter(i => /^-?\d[\d.,]*$/.test(i.s) && i.x > ancho * 0.6);
+      const usadas = new Set();
+      arts.forEach(a => {
+        let mejor = -1, dist = 15;
+        cants.forEach((c, k) => { if (usadas.has(k)) return; const d = Math.abs(c.y - a.y); if (d < dist){ dist = d; mejor = k; } });
+        if (mejor < 0) return;
+        usadas.add(mejor);
+        const m = a.s.match(/^(\d+)-(.*)$/); if (!m) return;
+        const cod = m[1];
+        out[cod] = [(out[cod] ? out[cod][0] : 0) + cant(cants[mejor].s), m[2].trim()];
       });
     }
     return out;
@@ -79,7 +85,7 @@
   }
 
   async function leer(f){
-    const k = 'ruteoTR1_stock_' + f.sha;
+    const k = 'ruteoTR1_stock2_' + f.sha;
     try { const c = JSON.parse(localStorage.getItem(k) || 'null'); if (c) return c; } catch(e){}
     const buf = await window.Archivos.bajar(f);
     const esPdf = /\.pdf$/i.test(f.nombre) || new TextDecoder().decode(new Uint8Array(buf.slice(0, 5))) === '%PDF-';

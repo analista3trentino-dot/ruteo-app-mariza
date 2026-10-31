@@ -13,6 +13,7 @@
 // =====================================================================
 
 const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en naranja
+const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora que todavía cuenta como "coincide"
 
 
 // ---------------------------------------------------------------------
@@ -89,7 +90,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
   }
 
   // --- Datos ---
-  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], VACANTES = [], fArchivo = null, usado = null;
+  let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], VACANTES = [], fArchivo = null, usado = null, vacios = [];
   async function cargarDatos(){
     const XLSX = await window.cargarExcelLib();
     const [f] = await window.Archivos.buscar('supervisores', 1);
@@ -97,6 +98,8 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     const regs = procesar(XLSX, await window.Archivos.bajar(f));
     if (!regs) throw new Error('El Excel de marcaciones de supervisores no tiene las columnas SPV, Subcliente y Date');
     REGS = regs; fArchivo = f.fecha; usado = f;
+    // marcaciones de los vendedores, para cruzarlas con las del supervisor
+    if (window.Visitas && window.Visitas.asegurar){ try { await window.Visitas.asegurar(); } catch(e){} }
     DATES = [...new Set(regs.map(r => r.d))].sort();
     const m = new Map(); regs.forEach(r => { if (!m.has(r.sup)) m.set(r.sup, r.nombre); });
     // nombre y vacantes según vendedores.js (SUPERVISORES)
@@ -135,12 +138,35 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
       h += `<div class="jf-vis ${corta ? 'corta' : ''}">
         <div class="jf-hora"><b>${r.ini != null ? hora(r.ini) : '—'}</b><small>${r.fin != null ? hora(r.fin) : ''}</small></div>
         <div class="jf-punto"></div>
-        <div class="jf-info"><b>${esc(r.cli)}</b><small>${r.code ? esc(r.code) + ' · ' : ''}${esc(r.cartera)}${nombreCartera(r.cartera) ? ' (' + esc(nombreCartera(r.cartera)) + ')' : ''}${r.ciudad ? ' · ' + esc(r.ciudad) : ''}</small></div>
+        <div class="jf-info"><b>${esc(r.cli)}</b><small>${r.code ? esc(r.code) + ' · ' : ''}${esc(r.cartera)}${nombreCartera(r.cartera) ? ' (' + esc(nombreCartera(r.cartera)) + ')' : ''}${r.ciudad ? ' · ' + esc(r.ciudad) : ''}</small>${(() => { const c = cruce(r); return `<span class="jf-cruce c-${c.t}">${ICO_C[c.t]} ${esc(c.txt)}</span>`; })()}</div>
         <div class="jf-dur ${corta ? 'corta' : ''}">${hm(r.seg)}</div>
       </div>`;
     });
     return h + `</div>`;
   }
+  // ---- Cruce con el vendedor de la cartera ----
+  const aSeg = h => { const m = String(h || '').match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 3600 + +m[2] * 60 : null; };
+  function cruce(r){
+    const V = window.Visitas;
+    if (!V || !V.tieneDia || !V.tieneDia(r.d)) return {t: 'sd', txt: 'Sin marcaciones de vendedores de ese día'};
+    const ms = V.marcasDe(r.cartera, r.d) || [];
+    if (!ms.length) return {t: 'nov', txt: 'El vendedor no marcó ningún cliente ese día'};
+    const m = ms.find(x => x.code && x.code === r.code);
+    if (m){
+      const dv = aSeg(m.h1), dif = r.ini != null && dv != null ? Math.abs(dv - r.ini) : 0;
+      const hv = (m.h1 || '') + (m.h2 && m.h2 !== m.h1 ? '–' + m.h2 : '');
+      return dif <= TOLERANCIA_MINUTOS * 60 ? {t: 'ok', txt: 'Coincide · el vendedor marcó ' + hv} : {t: 'hora', txt: `Diferencia de horario · el vendedor marcó ${hv} (${hm(dif)} de diferencia)`};
+    }
+    let cerca = null;
+    ms.forEach(x => { const s = aSeg(x.h1); if (s == null || r.ini == null) return; const dd = Math.abs(s - r.ini); if (!cerca || dd < cerca.dd) cerca = Object.assign({dd}, x); });
+    return {t: 'dist', txt: 'Cliente distinto · el vendedor no marcó este cliente' + (cerca ? ` · a esa hora estaba en ${cerca.nombre} (${cerca.h1})` : '')};
+  }
+  function cuentaCruce(rs){
+    const c = {ok: 0, hora: 0, dist: 0, nov: 0, sd: 0}; rs.forEach(r => c[cruce(r).t]++);
+    c.base = rs.length - c.sd; return c;
+  }
+  const ICO_C = {ok: '✓', hora: '⏱', dist: '✗', nov: '✗', sd: '·'};
+
   function detalleMes(x){
     const dias = [...x.porDia.keys()].sort().reverse();
     let h = `<div class="vs-sec si">Por día <b>${dias.length}</b><small>Visitas · en clientes · jornada</small></div>`;
@@ -150,6 +176,8 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
       return `<button type="button" class="jf-dia" data-ir="${d}"><span><b>${DIAS_C[fromISO(d).getDay()]} ${+d.slice(8)}</b><small>${isFinite(i) ? hora(i) + ' a ' + hora(f) : ''}</small></span><span>${rs.length} visitas</span><span><b>${hm(en)}</b></span></button>`;
     }).join('');
     const porCart = new Map(); x.rs.forEach(r => porCart.set(r.cartera, (porCart.get(r.cartera) || 0) + 1));
+    const cm = cuentaCruce(x.rs);
+    if (cm.base) h += `<div class="jf-cruce-res"><b>Cruce con vendedores:</b> ${cm.ok} coinciden · ${cm.hora} con diferencia de horario · ${cm.dist + cm.nov} con cliente distinto <span>(${Math.round(cm.ok / cm.base * 100)}% coincide)</span></div>`;
     h += `<div class="vs-sec ot">Carteras que acompañó <b>${porCart.size}</b><small>Visitas</small></div>`;
     h += [...porCart.entries()].sort((a, b) => b[1] - a[1]).map(([vc, n]) => `<div class="vs-cli"><div class="vs-cli-n">${esc(vc)} <small>${esc(nombreCartera(vc))}</small></div><span class="vs-h">${n}</span></div>`).join('');
     return h;
@@ -166,7 +194,9 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
     const esDia = ui.modo === 'dia';
     const dias = new Set(esDia ? [ui.dia] : DATES.filter(d => d.startsWith(ui.mes)));
-    const filas = SUPS.map(s => ({s, x: resumen(s.k, dias)})).sort((a, b) => (b.x.visitas ? 1 : 0) - (a.x.visitas ? 1 : 0));   // los que no marcaron, al final
+    const primera = x => x.rs.length ? Math.min(...x.rs.map(r => r.ini ?? Infinity)) : Infinity;
+    const filas = SUPS.map(s => ({s, x: resumen(s.k, dias)})).sort((a, b) => (b.x.visitas ? 1 : 0) - (a.x.visitas ? 1 : 0) || (esDia ? primera(a.x) - primera(b.x) : 0));   // los que no marcaron, al final; en el día, del más temprano al más tarde
+    const CT = cuentaCruce([].concat(...filas.map(f => f.x.rs)));
     const T = filas.reduce((t, f) => ({v: t.v + f.x.visitas, e: t.e + f.x.enCli, j: t.j + f.x.jornada}), {v: 0, e: 0, j: 0});
     const maxE = Math.max(1, ...filas.map(f => f.x.enCli));
     const RU = window.RUTEO;
@@ -175,7 +205,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
     const titulo_ = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (ui.dia === HOY ? ' (en curso)' : '') : `${mesNombre(ui.mes)}, hasta el ${+ultimoDia().slice(8)}`;
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p><p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
+        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p>${vacios.length ? `<span class="ar-vacio">⚠ Hay ${vacios.length === 1 ? 'un Excel subido' : vacios.length + ' Excel subidos'} después de este que está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => window.Archivos.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : ''}<p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="mes" class="${esDia ? '' : 'on'}">Mes</button></div>
       </div>
       ${esDia ? `<div class="vs-dias">${chips}</div>` : ''}
@@ -186,11 +216,13 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
           <div><b>${hm(T.e)}</b><span>en clientes</span></div>
           <div><b>${T.v ? Math.round(T.e / T.v / 60) : 0} min</b><span>por visita</span></div>
         </div>
+        ${CT.base ? `<p class="jf-cruce-tot"><b>Cruce con vendedores:</b> <span class="c-ok">✓ ${CT.ok} coinciden</span> <span class="c-hora">⏱ ${CT.hora} diferencia de horario</span> <span class="c-dist">✗ ${CT.dist + CT.nov} cliente distinto</span></p>` : ''}
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
-        const sub = esDia ? (x.visitas ? `${x.visitas} visitas · ${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))} a ${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))}` : 'Sin marcaciones este día') : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
+        const cc = cuentaCruce(x.rs);
+        const sub = (esDia ? (x.visitas ? `${x.visitas} visitas · ${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))} a ${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))}` : 'Sin marcaciones este día') : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`) + (cc.base ? ` · coincide con el vendedor ${cc.ok} de ${cc.base}` : '');
         return `<article class="vs-v jf-v ${abierto ? 'open' : ''} ${x.visitas ? '' : 'vacio'}" data-sup="${esc(f.s.k)}">
           <button type="button" class="vs-v-head" aria-expanded="${abierto}">
             <span class="vs-v-info">
@@ -215,7 +247,7 @@ const VISITA_CORTA_MINUTOS = 5;   // visitas más cortas que esto se marcan en n
   function cargar(){
     if (estado === 'ok' || estado === 'cargando') return;
     estado = 'cargando'; pintar();
-    cargarDatos().then(() => { estado = 'ok'; pintar(); }).catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
+    cargarDatos().then(() => { estado = 'ok'; pintar(); window.Archivos.vaciosDesde(usado && usado.fecha).then(v => { vacios = v; if (v.length) pintar(); }).catch(() => {}); }).catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
   }
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#jefaturaView [data-actualizar]')) return;

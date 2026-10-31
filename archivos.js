@@ -128,19 +128,24 @@
   const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   async function tipoDe(f){
     const nom = porNombre(f.nombre); if (nom) return nom;
-    const k = 'ruteoTR1_tipo2_' + f.sha;
+    const k = 'ruteoTR1_tipo3_' + f.sha;
     try { const c = localStorage.getItem(k); if (c) return c; } catch(e){}
     let t = 'otro';
     try {
       const XLSX = await window.cargarExcelLib();
       const buf = await bajar(f);
       const wb = window.abrirLibro ? window.abrirLibro(XLSX, buf, {sheetRows: 40}) : XLSX.read(buf, {type: 'array', sheetRows: 40});
-      const H = new Set();
-      wb.SheetNames.slice(0, 3).forEach(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, defval: null}).forEach(r => (r || []).forEach(x => { const v = norm(x); if (v && v.length < 60) H.add(v); })));
+      const H = new Set(), hojas = wb.SheetNames.slice(0, 3).map(sn => XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, defval: null}));
+      let todo = '';
+      hojas.forEach(rows => rows.forEach(r => (r || []).forEach(x => { const v = norm(x); if (v && v.length < 60) H.add(v); if (v) todo += ' ' + v.slice(0, 80); })));
       const tiene = (...xs) => xs.some(x => H.has(x));
       const con = re => [...H].some(x => re.test(x));
-      if (con(/^tiempo asist/) || con(/horas trabajadas/) || tiene('cod persona spv')) t = 'supervisores';
-      else if (tiene('cartera') && con(/subcliente/) && tiene('date', 'fecha')) t = 'visitas';
+      const filas = Math.max(0, ...hojas.map(rows => rows.filter(r => r && r.some(x => x != null && String(x).trim() !== '')).length));
+      // ¿Los vendedores de este Excel son de Apolo (AR1933...)?
+      const deApolo = () => { const vals = []; hojas.forEach(rows => { const i = rows.findIndex(r => r && r.some(x => /^(cartera|cod vendedor|vendedor)/.test(norm(x)))); if (i < 0) return; const j = rows[i].findIndex(x => /^(cartera|cod vendedor|vendedor)/.test(norm(x))); rows.slice(i + 1).forEach(r => { if (r && r[j] != null) vals.push(String(r[j]).trim().toUpperCase()); }); }); return vals.length && vals.filter(v => /^AR\d/.test(v)).length > vals.length / 2; };
+      if (/connected to power bi/.test(todo) && filas <= 3) t = 'vacio';   // exportado con "conexión dinámica": no trae datos
+      else if (con(/^tiempo asist/) || con(/horas trabajadas supervisores/) || tiene('cod persona spv')) t = 'supervisores';
+      else if (con(/subcliente/) && tiene('date', 'fecha') && (tiene('cartera') || con(/^cod vendedor/))) t = deApolo() ? 'apolo' : 'visitas';
       else if (tiene('desc visita') && con(/subcliente/) && con(/vendedor/)) t = 'ruteo';
       else if (tiene('latitud') && tiene('longitud')) t = 'gps';
       else if (tiene('pm') && tiene('lp') && con(/subcliente/)) t = 'padron';
@@ -183,5 +188,12 @@
     const d = f.fecha; const fx = d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
     return fx ? 'archivo del ' + fx : f.nombre;
   }
-  window.Archivos = { ultimos, tipo, buscar, bajar, tipoDe, porNombre, olvidar, etiqueta, fallo: () => falloGitHub };
+  // Excel subidos vacíos (exportados de Power BI con conexión dinámica) más nuevos que una fecha
+  async function vaciosDesde(fecha){
+    let lista = []; try { lista = await window.Archivos.ultimos(''); } catch(e){ return []; }
+    const out = [];
+    for (const f of lista.slice(0, 8)){ if (fecha && f.fecha && f.fecha <= fecha) break; if (await tipoDe(f) === 'vacio') out.push(f); }
+    return out;
+  }
+  window.Archivos = { ultimos, tipo, buscar, bajar, tipoDe, porNombre, olvidar, etiqueta, vaciosDesde, fallo: () => falloGitHub };
 })();

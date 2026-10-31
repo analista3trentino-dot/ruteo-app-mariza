@@ -26,7 +26,7 @@ const NOMBRES_SUPERVISORES = {
 //  NO MODIFICAR DESDE AQUÍ
 // ---------------------------------------------------------------------
 (function (global) {
-  const CLAVE = 'ruteoTR1_ruteoExcel_v1';
+  const CLAVE = 'ruteoTR1_ruteoExcel_v2';
   const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   const CODE_RX = /^\s*(\d+)\s*-\s*(\d+)\s*-?\s*/;
   const DIAS = {lunes: 'Lun', martes: 'Mar', miercoles: 'Mié', jueves: 'Jue', viernes: 'Vie', sabado: 'Sáb'};
@@ -114,7 +114,9 @@ const NOMBRES_SUPERVISORES = {
       const cl = [...ct.cli.values()].map(x => {
         const g = gps.get(x.code), p = pad_.get(x.code) || {};
         const dias = ORDEN.filter(d => x.dias.has(d)).join(', ');
-        return [x.ciudad, '', x.nombre, dias, g ? g[0] : null, g ? g[1] : null, x.code, p.lp || '', p.pm || ''];
+        // Clientes de cadena (ej. "12485-486-RUBEN SARABIA (3096-1)"): el código entre paréntesis es el que usan las ventas
+        const alias = (x.nombre.match(/\((\d+)\s*-\s*(\d+)\)\s*$/) || []).slice(1, 3).join('-');
+        return [x.ciudad, '', x.nombre, dias, g ? g[0] : null, g ? g[1] : null, x.code, p.lp || '', p.pm || '', alias];
       }).sort((a, b) => a[0].localeCompare(b[0], 'es') || a[2].localeCompare(b[2], 'es'));
       return {sup, vc: ct.vc, vn: ct.vn, vz: ct.vz, cl};
     });

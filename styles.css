@@ -1175,3 +1175,34 @@ body[data-seccion="jefatura"] #mapView{display:none !important;}
 .pv-stock{padding:1px 8px; border-radius:99px; font-size:.7rem; font-weight:700; white-space:nowrap;}
 .pv-stock.ok{background:var(--ok-bg); color:var(--ok-c);} .pv-stock.no{background:var(--bad-bg); color:var(--bad-c);}
 .pv-cats button.st{border-color:#9ED9C0; color:var(--ok-c);} .pv-cats button.st.on{background:var(--ok-c); border-color:var(--ok-c); color:#fff;}
+
+/* Cruce supervisor / vendedor */
+.jf-cruce{display:block; margin-top:4px; font-size:.72rem; font-weight:600; line-height:1.35;}
+.jf-cruce.c-ok, .c-ok{color:var(--ok-c);} .jf-cruce.c-hora, .c-hora{color:var(--mid-c);} .jf-cruce.c-dist, .jf-cruce.c-nov, .c-dist{color:var(--bad-c);} .jf-cruce.c-sd{color:var(--txt-3);}
+.jf-cruce-tot{margin:10px 0 0; font-size:.78rem; display:flex; flex-wrap:wrap; gap:4px 10px; color:var(--txt-2);}
+.jf-cruce-tot b{width:100%; color:var(--txt);}
+.jf-cruce-tot span{font-weight:700;}
+.jf-cruce-res{margin:10px 6px 4px; padding:10px 12px; border-radius:var(--r-md); background:#fff; border:1px solid var(--linea-2); font-size:.8rem; color:var(--txt-2);}
+.jf-cruce-res span{color:var(--txt-3);}
+
+/* Jefatura: Ruta agrupada por supervisor */
+.jf-grupo{display:flex; align-items:center; gap:12px; width:100%; padding:14px; margin-bottom:10px; text-align:left; color:var(--txt); background:var(--sup); border:1px solid var(--linea); border-left:4px solid var(--c); border-radius:var(--r-lg); box-shadow:var(--sh-1); animation:fadeUp .4s cubic-bezier(.2,.8,.2,1) both; transition:transform .12s, box-shadow .2s;}
+.jf-grupo:hover{box-shadow:var(--sh-2);} .jf-grupo:active{transform:scale(.99);}
+.jf-g-av{flex:0 0 auto; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-family:var(--f-tit); font-weight:800; font-size:.85rem; color:var(--c); background:color-mix(in srgb, var(--c) 12%, #fff);}
+.jf-g-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.jf-g-info b{font-family:var(--f-tit); font-size:1.05rem; font-weight:800;}
+.jf-g-info small{font-size:.78rem; color:var(--txt-2);}
+.jf-g-n{flex:0 0 auto; text-align:right;} .jf-g-n b{display:block; font-family:var(--f-tit); font-size:1.3rem; font-weight:800;} .jf-g-n small{font-size:.7rem; color:var(--txt-3);}
+.jf-volver{margin:0 0 10px;}
+
+/* Visitas: horas trabajadas y marcaciones por Apolo */
+.vs-horas{display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:8px; margin:8px 2px 4px; padding:10px 12px; background:#fff; border:1px solid var(--linea-2); border-radius:var(--r-md);}
+.vs-horas b{display:block; font-family:var(--f-tit); font-size:.95rem; font-weight:800; font-variant-numeric:tabular-nums;}
+.vs-horas small{font-size:.7rem; color:var(--txt-3);}
+.vs-apolo{display:inline-block; padding:0 6px; border-radius:6px; background:#EFE9FF; color:#5B3CC4; font-size:.64rem; font-weight:800; vertical-align:1px;}
+
+.ar-vacio{display:block; margin:8px 0 2px; padding:10px 12px; border-radius:var(--r-md); background:var(--mid-bg); color:#7A4A00; font-size:.78rem; line-height:1.45;}
+
+/* Supervisor fijo en su equipo: sin botones de otros equipos */
+body.sup-fijo .spv-scroll{display:none;}
+body.sup-fijo header.top{padding-bottom:20px;}

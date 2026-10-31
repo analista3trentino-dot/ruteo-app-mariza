@@ -22,16 +22,19 @@
   const guardar = v => { try { if (v) localStorage.setItem(CLAVE_CARTERA, v); else localStorage.removeItem(CLAVE_CARTERA); } catch(e){} };
   const PARAM_C = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
   // Modo supervisor protegido con clave (config.js)
-  const CLAVE = (typeof CLAVE_SUPERVISORES !== 'undefined' ? String(CLAVE_SUPERVISORES) : '').trim();
+  // Cada supervisor tiene su clave (config.js) y ve solo su equipo
+  const CLAVES_SUP = typeof CLAVES_SUPERVISORES !== 'undefined' ? CLAVES_SUPERVISORES : {};
+  const claveSup = k => String(CLAVES_SUP[k] || '').trim();
   const huella = t => { let h = 5381; for (const ch of String(t)) h = ((h << 5) + h + ch.charCodeAt(0)) | 0; return 'k' + (h >>> 0).toString(36); };
   const CLAVE_OK = 'ruteoTR1_supOK';
-  const supValido = () => { if (!CLAVE) return true; try { return localStorage.getItem(CLAVE_OK) === huella(CLAVE); } catch(e){ return false; } };
+  const supValidoDe = k => { const c = claveSup(k); if (!k || !c) return false; try { return localStorage.getItem(CLAVE_OK + '_' + k) === huella(c); } catch(e){ return false; } };
+  const MISUP_GUARD = (() => { try { return localStorage.getItem('ruteoTR1_miSup') || ''; } catch(e){ return ''; } })();
   // Jefatura: otra clave (config.js)
   const CLAVE_J = (typeof CLAVE_JEFATURA !== 'undefined' ? String(CLAVE_JEFATURA) : '').trim();
   const CLAVE_JOK = 'ruteoTR1_jefOK';
   const jefValido = () => { if (!CLAVE_J) return true; try { return localStorage.getItem(CLAVE_JOK) === huella(CLAVE_J); } catch(e){ return false; } };
   let GUARDADA = leerGuardada();
-  if (GUARDADA === 'TODAS' && !supValido()) GUARDADA = '';      // sin clave válida vuelve a preguntar
+  if (GUARDADA === 'TODAS' && !supValidoDe(MISUP_GUARD)) GUARDADA = '';      // sin la clave de su equipo vuelve a preguntar
   if (GUARDADA === 'JEFATURA' && !jefValido()) GUARDADA = '';
   const ESPECIAL = GUARDADA === 'TODAS' || GUARDADA === 'JEFATURA';
   const ELEGIDA = PARAM_C || (ESPECIAL ? '' : GUARDADA);
@@ -64,7 +67,8 @@
   // Supervisor: cuál es su equipo (lo elige una vez en la portada)
   const CLAVE_MISUP = 'ruteoTR1_miSup';
   const NOMBRE_SUP = k => { const L = typeof SUPERVISORES !== 'undefined' ? SUPERVISORES : {}; const n = L[k] || ''; return /vacante/i.test(n) ? '' : n.toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase()); };
-  const MI_SUP = (() => { if (MODO_VENDEDOR || MODO_JEFATURA || PREGUNTAR) return ''; try { const k = localStorage.getItem(CLAVE_MISUP) || ''; return sups.some(s => s.k === k) ? k : ''; } catch(e){ return ''; } })();
+  const MI_SUP = (() => { if (MODO_VENDEDOR || MODO_JEFATURA || PREGUNTAR) return ''; return sups.some(s => s.k === MISUP_GUARD) ? MISUP_GUARD : ''; })();
+  const SUP_FIJO = !!MI_SUP;   // el supervisor solo ve su equipo
   const state = { spv: MI_SUP || 'TODOS', query:'', days:new Set(), openId:null, vista:'lista', soloTop:false, seccion:'ruta', topDay:null };
 
   // ---- Hoy ----
@@ -360,7 +364,26 @@
     const DIA_LARGO = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado', 'S/Cal':'sin día fijo'};
     const cuando = state.days.size === 1 ? (state.days.has(TODAY_LBL) ? 'Hoy' : 'El ' + DIA_LARGO[[...state.days][0]]) : state.days.size ? 'Esos días' : 'En total';
     const hint = `<div class="hint"><span>${cuando}: <b>${unicos.size.toLocaleString('es-PY')}</b> ${unicos.size === 1 ? 'cliente' : 'clientes'}${MODO_VENDEDOR ? '' : ` en <b>${current.length}</b> ${current.length === 1 ? 'cartera' : 'carteras'}`}${topEstado === 'ok' && nTop ? `, <b class="hint-top">${nTop} top</b>` : ''}</span></div>`;
-    main.innerHTML = hint + potDiaHtml(current) + current.map(cardHtml).join('');
+    // Jefatura: primero los supervisores; al tocar uno, sus vendedores
+    if (MODO_JEFATURA && state.spv === 'TODOS' && !searching()){
+      main.innerHTML = hint + potDiaHtml(current) + `<div class="vs-lista-h">Tocá un supervisor para ver sus vendedores</div>` + sups.map((s, k) => {
+        const vs = current.filter(v => v.c.sup === s.k); if (!vs.length) return '';
+        const cl = new Set(); vs.forEach(v => v.idx.forEach(i => cl.add(claveCli(v.c, v.c.cl[i]))));
+        const sp = DIA_UNO() && POT() ? sumaPot(vs) : null, a = sp && sp.pot ? Math.round(sp.ven / sp.pot * 100) : null;
+        const activos = vs.filter(v => !isVacante(v.c)).length, nom = NOMBRE_SUP(s.k);
+        return `<button type="button" class="jf-grupo" data-grupo="${esc(s.k)}" style="--c:${supColor[s.k]}; animation-delay:${k * 40}ms">
+          <span class="jf-g-av">${esc(s.k)}</span>
+          <span class="jf-g-info"><b>${esc(s.p)}</b><small>${nom ? esc(nom) : 'Supervisor vacante'} · ${activos} ${activos === 1 ? 'vendedor' : 'vendedores'}${vs.length > activos ? ` (+${vs.length - activos} ${vs.length - activos === 1 ? "vacante" : "vacantes"})` : ''}</small>
+            ${a !== null ? `<span class="cpot-head"><span class="cpot-bar"><i class="${a >= 90 ? 'good' : a >= 60 ? 'mid' : 'bad'}" style="width:${Math.min(100, a)}%"></i></span><span>${a}% de ${mill(sp.pot)}</span></span>` : ''}</span>
+          <span class="jf-g-n"><b>${cl.size.toLocaleString('es-PY')}</b><small>clientes</small></span>${ICON.chev}
+        </button>`;
+      }).join('');
+      main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => window.RUTEO.setSpv(b.dataset.grupo));
+      return;
+    }
+    const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
+    main.innerHTML = volver + hint + potDiaHtml(current) + current.map(cardHtml).join('');
+    if (volver) $('jfVolver').onclick = () => window.RUTEO.setSpv('TODOS');
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
       h.onclick = () => toggle(el.dataset.id);
@@ -577,6 +600,7 @@
     jef: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6 6 .9-4.5 4.3 1 6.3L12 16.6 6.5 19.5l1-6.3L3 8.9 9 8z"/></svg>',
     flecha: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
   };
+  let rol = '';   // qué opción eligió en la portada
   function mostrarPortada(){
     if ($('portada')) return;
     const titulo = s => String(s).toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase());
@@ -622,22 +646,25 @@
       setTimeout(() => box.remove(), 420);
     };
     const s = $('poSeguir'); if (s) s.onclick = cerrar;
-    let rol = '';
+    rol = '';
     box.querySelectorAll('.po-btn').forEach(b => b.onclick = () => {
       rol = b.dataset.rol;
       box.querySelectorAll('.po-btn').forEach(x => x.classList.toggle('on', x === b));
       if (rol === 'vend'){ $('poClave').hidden = true; elegirCartera(); return; }
-      const clave = rol === 'sup' ? CLAVE : CLAVE_J, ok = rol === 'sup' ? supValido() : jefValido();
-      if (ok || !clave){ if (rol === 'sup' && CLAVE) try { localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(e){} if (rol === 'sup') elegirEquipo(); else entrarComo('JEFATURA'); return; }
-      $('poClaveLbl').textContent = rol === 'sup' ? 'Clave de supervisor' : 'Clave de jefatura';
+      if (rol === 'sup'){ $('poClave').hidden = true; elegirEquipo(); return; }
+      if (jefValido() || !CLAVE_J){ entrarComo('JEFATURA'); return; }
+      $('poClaveLbl').textContent = 'Clave de jefatura';
       $('poErr').hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
     });
     $('poClave').onsubmit = e => {
       e.preventDefault();
-      const clave = rol === 'sup' ? CLAVE : CLAVE_J;
-      if ($('poClaveIn').value.trim() === clave){
-        try { localStorage.setItem(rol === 'sup' ? CLAVE_OK : CLAVE_JOK, huella(clave)); if (rol === 'jef' && CLAVE) localStorage.setItem(CLAVE_OK, huella(CLAVE)); } catch(err){}
-        if (rol === 'sup') elegirEquipo(); else entrarComo('JEFATURA');
+      const clave = rol === 'jef' ? CLAVE_J : claveSup(rol);
+      if (clave && $('poClaveIn').value.trim() === clave){
+        try {
+          if (rol === 'jef') localStorage.setItem(CLAVE_JOK, huella(clave));
+          else { localStorage.setItem(CLAVE_OK + '_' + rol, huella(clave)); localStorage.setItem(CLAVE_MISUP, rol); }
+        } catch(err){}
+        entrarComo(rol === 'jef' ? 'JEFATURA' : 'TODAS');
       } else { $('poErr').hidden = false; $('poClaveIn').select(); box.querySelector('.po-clave').classList.remove('tiembla'); void box.offsetWidth; box.querySelector('.po-clave').classList.add('tiembla'); }
     };
   }
@@ -647,7 +674,16 @@
     $('poClave').hidden = true;
     const opc = box.querySelector('.po-opc');
     opc.innerHTML = `<p class="po-o" style="margin-top:0">¿Cuál es tu equipo?</p>` + sups.map(s => `<button type="button" class="po-btn" data-sup="${esc(s.k)}"><span class="po-ic" style="color:${supColor[s.k]}">${ICO_P.sup}</span><span><b>${esc(s.p)}</b><small>${esc(NOMBRE_SUP(s.k) || 'Supervisor')}</small></span></button>`).join('');
-    opc.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => { try { localStorage.setItem(CLAVE_MISUP, b.dataset.sup); } catch(e){} entrarComo('TODAS'); });
+    opc.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => {
+      const k = b.dataset.sup;
+      opc.querySelectorAll('[data-sup]').forEach(x => x.classList.toggle('on', x === b));
+      if (supValidoDe(k)){ try { localStorage.setItem(CLAVE_MISUP, k); } catch(e){} entrarComo('TODAS'); return; }
+      // cada equipo tiene su clave
+      rol = k;
+      $('poClaveLbl').textContent = 'Clave de ' + (supLabel[k] || k);
+      $('poErr').hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
+      $('poClave').scrollIntoView({block: 'center', behavior: 'smooth'});
+    });
   }
   // Lista para que el vendedor elija su cartera
   function elegirCartera(){
@@ -715,7 +751,7 @@
     vendedor: MODO_VENDEDOR ? MI_CARTERA : null,
     modo: MODO_VENDEDOR ? 'vendedor' : MODO_JEFATURA ? 'jefatura' : 'supervisor', miSup: MI_SUP, nombreSup: NOMBRE_SUP, hoy: TODAY_LBL,
     getSpv: () => state.spv,
-    setSpv: k => { state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
+    setSpv: k => { if (SUP_FIJO && k !== MI_SUP) return; state.spv = k; state.openId = null; syncPills(); refresh(false); renderTop(); if (window.Visitas) window.Visitas.refrescar(); window.scrollTo({top:0}); }
   };
 
   // ---- Lista / Mapa ----
@@ -771,6 +807,7 @@
   const btnCambiar = $('btnCambiar');
   if (btnCambiar){ btnCambiar.textContent = 'Inicio'; btnCambiar.onclick = mostrarPortada; }
   if (!MODO_VENDEDOR) document.body.classList.add('modo-supervisor');
+  if (SUP_FIJO) document.body.classList.add('sup-fijo');
   if (MI_SUP){
     const n = NOMBRE_SUP(MI_SUP);
     if (n) $('tituloApp').textContent = 'Hola, ' + n.split(' ')[0];

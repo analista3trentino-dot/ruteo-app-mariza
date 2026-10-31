@@ -59,24 +59,28 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     for (const sn of wb.SheetNames){
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false});
       for (let i = 0; i < Math.min(rows.length, 40); i++){
-        const h = (rows[i] || []).map(x => norm(x).trim());
-        const cS = h.findIndex(x => x === 'subcliente' || x === 'cliente'), cC = h.indexOf('cartera'), cD = h.findIndex(x => x === 'date' || x === 'fecha');
+        const h = (rows[i] || []).map(x => norm(x).replace(/[^a-z0-9]+/g, ' ').trim());
+        let cS = h.findIndex(x => x === 'subcliente' || x === 'cliente'); if (cS < 0) cS = h.findIndex(x => x.includes('subcliente'));
+        let cC = h.indexOf('cartera'); if (cC < 0) cC = h.findIndex(x => /^cod vendedor/.test(x)); if (cC < 0) cC = h.findIndex(x => x === 'vendedor');
+        const cD = h.findIndex(x => x === 'date' || x === 'fecha');
         if (cS < 0 || cC < 0 || cD < 0) continue;
-        const c1 = h.findIndex(x => x.startsWith('primera')), c2 = h.findIndex(x => x.startsWith('ultima'));
+        const c1 = h.findIndex(x => x.startsWith('primera') || x.startsWith('minhora')), c2 = h.findIndex(x => x.startsWith('ultima') || x.startsWith('maxhora'));
+        const cP = h.findIndex(x => x === 'cod persona');
         const out = [];
         for (let k = i + 1; k < rows.length; k++){
           const r = rows[k]; if (!r) continue;
-          const vc = String(r[cC] == null ? '' : r[cC]).trim().toUpperCase(), sub = String(r[cS] == null ? '' : r[cS]).trim(), d = aISO(r[cD]);
+          const vtxt = String(r[cC] == null ? '' : r[cC]).trim().toUpperCase(), sub = String(r[cS] == null ? '' : r[cS]).trim(), d = aISO(r[cD]);
+          const vc = (vtxt.match(/\b((?:TR|TM|AR)\d{4})\b/) || [])[1] || vtxt;
           if (!vc || !sub || !d) continue;
           const m = sub.match(CODE_RX);
-          out.push({vc, code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
+          out.push({vc, emp: /^AR/.test(vc) ? 'A' : 'T', p: cP >= 0 && r[cP] != null ? String(r[cP]).trim() : '', code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
         }
         if (out.length) return out;
       }
     }
     return null;
   }
-  let usado = null;   // archivo de visitas que se está mostrando
+  let usado = null, usadoApolo = null, vacios = [];   // archivos de visitas que se están mostrando
   async function leer(){
     if (!window.cargarExcelLib) throw new Error('Falta excel.js');
     const XLSX = await window.cargarExcelLib();
@@ -84,7 +88,18 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     let cand = [];
     try { cand = window.Archivos ? await window.Archivos.buscar('visitas', 2) : []; } catch(e){ cand = []; }
     for (const f of cand){
-      try { const regs = procesar(XLSX, await window.Archivos.bajar(f)); if (regs){ usado = f; return regs; } } catch(e){}
+      try {
+        const regs = procesar(XLSX, await window.Archivos.bajar(f));
+        if (regs){
+          usado = f;
+          // + marcaciones por Apolo de los vendedores mixtos (si se subió ese Excel)
+          try {
+            const [fa] = await window.Archivos.buscar('apolo', 1);
+            if (fa){ const ra = procesar(XLSX, await window.Archivos.bajar(fa)); if (ra){ usadoApolo = fa; ra.forEach(x => x.emp = 'A'); return regs.concat(ra); } }
+          } catch(e){}
+          return regs;
+        }
+      } catch(e){}
     }
     // 2) Respaldo: visitas.xlsx en la raíz
     const r = await fetch(ARCHIVO_VISITAS, {cache: 'no-cache'});
@@ -109,13 +124,16 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const rutaDe = new Map();
     carts.forEach(c => {
       const byCode = new Map(), byName = new Map();
-      c.cl.forEach((cl, i) => { if (cl[6]) byCode.set(cl[6], i); const k = nameKey(cl[2]); if (!byName.has(k)) byName.set(k, i); });
+      c.cl.forEach((cl, i) => { if (cl[6]) byCode.set(cl[6], i); if (cl[9] && !byCode.has(cl[9])) byCode.set(cl[9], i); const k = nameKey(cl[2]); if (!byName.has(k)) byName.set(k, i); });
       rutaDe.set(c.vc.toUpperCase(), {c, byCode, byName});
       porCartera.set(c.vc, new Map());   // índice de cliente -> Map(fecha -> [h1,h2])
       fuera.set(c.vc, new Map());        // clave -> {name, code, dias:Map}
     });
+    // Vendedores mixtos: lo que marcan por Apolo (AR1933) va a su cartera de Trentino (TR1933), por Cod Persona o por número
+    const porPersona = new Map(); regs.forEach(r => { if (r.emp === 'T' && r.p && rutaDe.has(r.vc)) porPersona.set(r.p, r.vc); });
     regs.forEach(r => {
-      days.add(r.d); porDia.set(r.d, (porDia.get(r.d) || 0) + 1);
+      if (r.emp === 'A'){ const n = r.vc.replace(/\D/g, ''); r.vc = (r.p && porPersona.get(r.p)) || ['TR' + n, 'TM' + n].find(x => rutaDe.has(x)) || r.vc; }
+      days.add(r.d); if (r.emp !== 'A') porDia.set(r.d, (porDia.get(r.d) || 0) + 1);
       const ru = rutaDe.get(r.vc);
       if (!ru){ huerfanas.add(r.vc); return; }
       const mc = marcasCartera.get(ru.c.vc) || new Map(); mc.set(r.d.slice(0, 7), (mc.get(r.d.slice(0, 7)) || 0) + 1); marcasCartera.set(ru.c.vc, mc);
@@ -124,8 +142,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       // Cada visita viene en dos filas (entrada y salida): se junta en una sola por cliente y día
       const guardar = (map, d) => {
         const p = map.get(d);
-        if (!p) map.set(d, [r.h1, r.h2, r.venta, r.monto]);
-        else { if (r.h1 && (!p[0] || r.h1 < p[0])) p[0] = r.h1; if (r.h2 && (!p[1] || r.h2 > p[1])) p[1] = r.h2; p[2] = Math.max(p[2], r.venta); p[3] = Math.max(p[3], r.monto); }
+        if (!p) map.set(d, [r.h1, r.h2, 0, 0, r.emp]);
+        else { if (r.h1 && (!p[0] || r.h1 < p[0])) p[0] = r.h1; if (r.h2 && (!p[1] || r.h2 > p[1])) p[1] = r.h2; if (!String(p[4] || '').includes(r.emp)) p[4] = (p[4] || '') + r.emp; }
       };
       if (i !== undefined){
         const m = porCartera.get(ru.c.vc); if (!m.has(i)) m.set(i, new Map()); guardar(m.get(i), r.d);
@@ -196,20 +214,45 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   }
   const meses = () => [...new Set(DATES.map(d => d.slice(0, 7)))];
 
-  function filaCliente(cl, der, cls){
-    return `<div class="vs-cli"><div class="vs-cli-n">${esc(cl[2])}${cl[6] ? ` <span class="ccode">${esc(cl[6])}</span>` : ''}${cl._top ? ' <span class="vs-top">★ top</span>' : ''}</div>${der ? `<span class="vs-h ${cls || ''}">${esc(der)}</span>` : ''}</div>`;
+  function filaCliente(cl, der, cls, emp){
+    return `<div class="vs-cli"><div class="vs-cli-n">${esc(cl[2])}${cl[6] ? ` <span class="ccode">${esc(cl[6])}</span>` : ''}${cl._top ? ' <span class="vs-top">★ top</span>' : ''}${emp && emp.includes('A') ? ` <span class="vs-apolo">${emp.includes('T') ? 'Trentino + Apolo' : 'Apolo'}</span>` : ''}</div>${der ? `<span class="vs-h ${cls || ''}">${esc(der)}</span>` : ''}</div>`;
+  }
+  // Horas de un vendedor en un día: jornada (primera a última marcación) y tiempo dentro de clientes
+  const aMin = h => { const m = String(h || '').match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+  const hmin = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60); return h ? `${h} h ${pad(m % 60)} min` : `${m} min`; };
+  function horasDia(c, d){
+    const hits = [];
+    (porCartera.get(c.vc) || new Map()).forEach(f => { const x = f.get(d); if (x) hits.push(x); });
+    (fuera.get(c.vc) || new Map()).forEach(o => { const x = o.dias.get(d); if (x) hits.push(x); });
+    let ini = Infinity, fin = -Infinity, enCli = 0, apolo = 0;
+    hits.forEach(x => { const a = aMin(x[0]), b = aMin(x[1]); if (a != null) ini = Math.min(ini, a); if (b != null) fin = Math.max(fin, b); if (a != null && b != null && b > a) enCli += b - a; if (String(x[4] || '').includes('A')) apolo++; });
+    return {visitas: hits.length, apolo, ini: isFinite(ini) ? ini : null, fin: isFinite(fin) ? fin : null, jornada: isFinite(ini) && isFinite(fin) && fin > ini ? fin - ini : 0, enCli};
+  }
+  const hhmm = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+  function horasHtml(hd){
+    if (!hd || !hd.visitas) return '';
+    return `<div class="vs-horas"><span><b>${hd.ini != null ? hhmm(hd.ini) : '—'} a ${hd.fin != null ? hhmm(hd.fin) : '—'}</b><small>jornada</small></span><span><b>${hmin(hd.jornada)}</b><small>trabajadas</small></span><span><b>${hmin(hd.enCli)}</b><small>en clientes</small></span>${hd.apolo ? `<span><b>${hd.visitas - hd.apolo} + ${hd.apolo}</b><small>Trentino + Apolo</small></span>` : ''}</div>`;
   }
   // Detalle de un vendedor en un día: quién faltó y quién fue visitado
   function detalleDia(x){
-    let h = `<div class="vs-sec no">No visitados <b>${x.no.length}</b></div>`;
+    let h = horasHtml(x.horas);
+    h += `<div class="vs-sec no">No visitados <b>${x.no.length}</b></div>`;
     h += x.no.length ? x.no.map(o => filaCliente(o.cl)).join('') : `<p class="vs-nada">Visitó a todos los clientes que le tocaban.</p>`;
     h += `<div class="vs-sec si">Visitados <b>${x.si.length}</b><small>Hora</small></div>`;
-    h += x.si.length ? x.si.map(o => filaCliente(o.cl, o.hit[0] || o.hit[1] || '')).join('') : `<p class="vs-nada">Ninguno.</p>`;
+    // en el orden en que los visitó (del más temprano al más tarde)
+    const porHora = (a, b) => String(a.hit[0] || a.hit[1] || '99').localeCompare(String(b.hit[0] || b.hit[1] || '99'));
+    h += x.si.length ? x.si.slice().sort(porHora).map(o => filaCliente(o.cl, (o.hit[0] || '') + (o.hit[1] && o.hit[1] !== o.hit[0] ? '–' + o.hit[1] : ''), '', o.hit[4])).join('') : `<p class="vs-nada">Ninguno.</p>`;
+    if (x.fuera.length) h += `<div class="vs-sec fu">Fuera de su ruteo <b>${x.fuera.length}</b><small>Hora</small></div>` + x.fuera.slice().sort(porHora).map(o => filaCliente(o.cl, o.hit[0] || '', '', o.hit[4])).join('');
     if (x.otro.length) h += `<p class="vs-nada">Además visitó ${x.otro.length} ${x.otro.length === 1 ? 'cliente' : 'clientes'} de otro día de su ruteo.</p>`;
     return h;
   }
   // Detalle de un vendedor en el mes: clientes sin visita y clientes con visitas de menos
   function detalleMes(x){
+    const hm_ = x.horasMes;
+    const cab = hm_ && hm_.dias ? `<div class="vs-horas"><span><b>${hm_.dias}</b><small>días trabajados</small></span><span><b>${hmin(hm_.jor / hm_.dias)}</b><small>por día (promedio)</small></span><span><b>${Math.round(hm_.jor / 60)} h</b><small>en el mes</small></span><span><b>${hmin(hm_.en / hm_.dias)}</b><small>en clientes por día</small></span></div>` : '';
+    return cab + detalleMes_(x);
+  }
+  function detalleMes_(x){
     const porNombre = (a, b) => String(a.cl[2]).localeCompare(String(b.cl[2]), 'es');
     const nunca = x.lista.filter(o => o.p && !o.a).sort(porNombre);
     const faltan = x.lista.filter(o => o.a && o.h < o.p).sort((a, b) => (b.p - b.h) - (a.p - a.h) || porNombre(a, b));
@@ -246,8 +289,12 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     // Carteras sin ninguna marcación en el mes (vacantes) no se cuentan
     const conMarcas = c => !!(marcasCartera.get(c.vc) || new Map()).get(ui.mes);
     const filas = carts.filter(conMarcas).map(c => {
-      if (esDia){ const x = delDia(c, ui.dia); return {c, x, a: x.si.length, b: x.toca}; }
-      const x = delMes(c, ui.mes); return {c, x, a: x.cliVis, b: x.cli, va: x.hechas, vb: x.prog};
+      if (esDia){ const x = delDia(c, ui.dia); x.horas = horasDia(c, ui.dia); return {c, x, a: x.si.length, b: x.toca}; }
+      const x = delMes(c, ui.mes);
+      // horas del mes: días trabajados, horas de jornada y en clientes
+      let dias = 0, jor = 0, en = 0; DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d)).forEach(d => { const hd = horasDia(c, d); if (hd.visitas){ dias++; jor += hd.jornada; en += hd.enCli; } });
+      x.horasMes = {dias, jor, en};
+      return {c, x, a: x.cliVis, b: x.cli, va: x.hechas, vb: x.prog};
     }).filter(f => f.b);
     const tot = (fs, k1, k2) => pct(fs.reduce((t, f) => t + f[k1], 0), fs.reduce((t, f) => t + f[k2], 0));
     // Día: % de clientes visitados de los que tocaban. Mes: % de visitas hechas de las que tocaban.
@@ -283,7 +330,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <button type="button" class="vs-v-head" aria-expanded="${abierto}">
           <span class="vs-v-info">
             <span class="vs-v-n ${vac ? 'vac' : ''}">${esc(vac ? 'Cartera vacante' : f.c.vn)}</span>
-            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}</span>
+            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}${esDia && f.x.horas && f.x.horas.jornada ? ` · ${hmin(f.x.horas.jornada)} trabajadas` : ''}${esDia && f.x.horas && f.x.horas.apolo ? ` · ${f.x.horas.apolo} por Apolo` : ''}</span>
           </span>
           <b class="vs-v-p ${tono(q)}">${q === null ? '—' : q + '%'}</b>
         </button>
@@ -325,7 +372,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
   function barraArchivo(){
     const A = window.Archivos;
-    return `<p class="ar-info">${usado && A ? esc(A.etiqueta(usado)) : ''}${A && A.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
+    const vac = vacios.length ? `<span class="ar-vacio">⚠ ${vacios.length === 1 ? 'Un Excel subido' : vacios.length + ' Excel subidos'} después de este está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => A.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel en la computadora, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : '';
+    return vac + `<p class="ar-info">${usado && A ? esc(A.etiqueta(usado)) : ''}${usadoApolo && A ? ' · Apolo: ' + esc(A.etiqueta(usadoApolo)) : ''}${A && A.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
   }
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#visitasView [data-actualizar]')) return;
@@ -335,7 +383,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   function cargar(){
     if (estado === 'ok' || estado === 'cargando') return cargaP;
     estado = 'cargando'; pintar();
-    cargaP = leer().then(regs => { indexar(regs); estado = 'ok'; pintar(); })
+    cargaP = leer().then(regs => { indexar(regs); estado = 'ok'; pintar();
+        if (window.Archivos && window.Archivos.vaciosDesde) window.Archivos.vaciosDesde(usado && usado.fecha).then(v => { vacios = v; if (v.length) pintar(); }).catch(() => {}); })
       .catch(e => { estado = 'error'; error = e.message || String(e); pintar(); });
     return cargaP;
   }
@@ -344,6 +393,15 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     // Para los avisos: carga los datos sin abrir la pestaña
     asegurar(){ return cargar() || Promise.resolve(); },
     // Último día completo y, por cartera, a quién no visitó
+    // Marcaciones de una cartera en un día: [{code, nombre, h1, h2}] ordenadas por hora (para cruzar con supervisores)
+    marcasDe(vc, d){
+      if (estado !== 'ok') return null;
+      const out = [], c = window.RUTEO.carteras.find(x => x.vc === vc);
+      const m = porCartera.get(vc); if (m && c) m.forEach((fechas, i) => { const h = fechas.get(d); if (h) out.push({code: c.cl[i][6], nombre: c.cl[i][2], h1: h[0], h2: h[1]}); });
+      const f = fuera.get(vc); if (f) f.forEach(o => { const h = o.dias.get(d); if (h) out.push({code: o.code, nombre: o.name, h1: h[0], h2: h[1]}); });
+      return out.sort((a, b) => String(a.h1 || '99').localeCompare(String(b.h1 || '99')));
+    },
+    tieneDia(d){ return estado === 'ok' && DATES.includes(d); },
     resumenUltimoDia(carts){
       if (estado !== 'ok' || !DATES.length) return null;
       const d = diaPorDefecto();
