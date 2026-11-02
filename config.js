@@ -31,6 +31,11 @@ const CLAVE_JEFATURA = 'jefatura2026';
 // =====================================================================
 const PM_TOP = ["13.1", "13.2", "13.5", "21.1", "12.1", "12.2"];
 
+// Clientes que NO son top aunque tengan uno de esos PM (código del subcliente)
+const TOP_EXCLUIR = [
+  "3136-30",   // COOPERATIVA CHORTITZER LTDA - ITA
+];
+
 
 // =====================================================================
 //  FOTOS Y COMPETENCIA (se guardan en Google Drive)

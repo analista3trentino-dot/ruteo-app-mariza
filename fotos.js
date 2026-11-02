@@ -60,15 +60,23 @@
         if (!j || !j.ok) throw new Error(j && j.error === 'clave' ? 'La clave de fotos no coincide (FOTOS_CLAVE)' : 'Respuesta inválida');
         datos = j; datosT = Date.now(); errorCarga = '';
         // lo que ya llegó a Drive deja de ser "local"
-        for (let i = locales.length - 1; i >= 0; i--){ const L = locales[i]; if ((L.compe ? j.compe : j.fotos).some(r => idDe(r) && idDe(r) === L.ID)) locales.splice(i, 1); }
+        for (let i = locales.length - 1; i >= 0; i--){ const L = locales[i]; if (L.gest){ if ((j.gestion || []).some(r => r.ID === L.ID)) locales.splice(i, 1); continue; } if ((L.compe ? j.compe : j.fotos).some(r => idDe(r) && idDe(r) === L.ID)) locales.splice(i, 1); }
         return j;
       })
       .catch(e => { errorCarga = e.message || String(e); throw e; })
       .finally(() => { pend = null; });
     return pend;
   }
-  const fotos = () => locales.filter(l => !l.compe).concat(datos ? datos.fotos : []);
+  const fotos = () => locales.filter(l => !l.compe && !l.gest).concat(datos ? datos.fotos : []);
   const compe = () => locales.filter(l => l.compe).concat(datos ? datos.compe : []);
+  const gestion = () => locales.filter(l => l.gest).concat(datos && datos.gestion ? datos.gestion : []);
+  // Fichas TOP enviadas esta semana (por vendedor|código): fecha de la última
+  function fichasSemana(){
+    const desde = lunes(new Date()), m = new Map();
+    gestion().forEach(r => { if (r.Fecha < desde) return; const k = r.Vendedor + '|' + r['Código']; if (!m.has(k) || m.get(k) < r.Fecha) m.set(k, r.Fecha); });
+    return m;
+  }
+  const fichaDe = (vc, cod) => (datos || locales.length) ? (fichasSemana().get(vc + '|' + cod) || '') : null;
 
   function aBase64(blob){
     return new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = () => mal(fr.error); fr.readAsDataURL(blob); });
@@ -212,8 +220,8 @@
     paso('proc', 'Preparando la foto…');
     try {
       H.fuente = await cargarImagen(f); H.fecha = new Date();
-      H.foto = await procesar(H.fuente, H.modo === 'cli' ? lineasCli(H.cl, H.tipo, H.fecha) : lineasCompe(H.form, H.fecha));
-      if (H.modo === 'compe'){ const fo = H.foto; fo.fecha = H.fecha; const fn = alListo; cerrarHoja(); if (fn) fn(fo); return; }
+      H.foto = await procesar(H.fuente, H.modo === 'cli' ? lineasCli(H.cl, H.tipo, H.fecha) : H.modo === 'libre' ? H.lineas(H.fecha) : lineasCompe(H.form, H.fecha));
+      if (H.modo === 'compe' || H.modo === 'libre'){ const fo = H.foto; fo.fecha = H.fecha; const fn = alListo; cerrarHoja(); if (fn) fn(fo); return; }
       verPrevia();
     } catch(err){ paso('cam'); error('No se pudo leer la foto. Probá sacarla de nuevo.'); }
   }
@@ -305,19 +313,19 @@
   function semanaDe(vc){
     if (!datos) return null;
     const desde = lunes(new Date());
-    return new Set(fotos().filter(r => r.Vendedor === vc && r.Fecha >= desde).map(r => r['Código']));
+    return new Set(fotos().filter(r => r.Vendedor === vc && r.Fecha >= desde).map(r => r['Código']).concat(gestion().filter(r => r.Vendedor === vc && r.Fecha >= desde).map(r => r['Código'])));
   }
 
   // Botones / estado dentro de cada cliente top (Ruta y Top)
+  const diaC = f => { const d = deIso(f); return d ? DIAS[d.getDay()].toLowerCase() + ' ' + p2(d.getDate()) + '/' + p2(d.getMonth() + 1) : ''; };
   function filaCli(cl, c){
-    if (!URL_F || !cl || !cl[6]) return '';
-    const fs = fotosCli(c.vc, cl[6]), hecho = t => fs && fs.some(r => r.Tipo === t);
+    if (!cl || !cl[6]) return '';
+    const T = window.TopFoco, rs = T ? T.resumen(cl) : null, f = URL_F ? fichaDe(c.vc, cl[6]) : null;
     const attrs = `data-fx-vc="${esc(c.vc)}" data-fx-cod="${esc(cl[6])}"`;
-    if (R().modo === 'vendedor'){
-      return `<div class="fx-acc" ${attrs}>${TIPOS.map(t => { const h = hecho(t); return `<button type="button" class="fx-mb${h ? ' hecho' : ''}" data-fx-t="${t}">${h ? IC.ok : IC.cam}<span>${t}</span></button>`; }).join('')}</div>`;
-    }
-    const n = fs ? fs.length : 0;
-    return `<div class="fx-acc ver" ${attrs}><span class="fx-acc-st">${IC.cam}${TIPOS.map(t => `<span class="fx-st${hecho(t) ? ' ok' : ''}">${hecho(t) ? '✓' : '○'} ${t}</span>`).join('')}</span>${n ? `<button type="button" class="fx-vermb" data-fx-ver>Ver ${n === 1 ? 'foto' : n + ' fotos'}</button>` : `<span class="fx-sin">${fs ? 'Sin fotos esta semana' : ''}</span>`}</div>`;
+    const chips = rs ? `<span class="fx-fchips"><span class="fx-fc amp">${rs.amp} ampliar</span><span class="fx-fc rep">${rs.rep} reposición</span><span class="fx-fc ing">${rs.ing} ingresar</span></span>` : '';
+    const est = f ? `<span class="fx-fok">${IC.ok}Ficha enviada ${diaC(f)}</span>` : f === '' ? `<span class="fx-fpend">Ficha pendiente esta semana</span>` : '';
+    if (R().modo === 'vendedor') return `<div class="fx-ficha" ${attrs}><button type="button" class="fx-fbtn${f ? ' hecho' : ''}" data-tf-abrir>${f ? IC.ok : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>'}<span>${f ? 'Ver ficha TOP' : 'Completar ficha TOP'}</span></button>${chips}${est}</div>`;
+    return `<div class="fx-ficha ver" ${attrs}>${est || chips}<button type="button" class="fx-vermb" data-tf-abrir>Ver ficha</button></div>`;
   }
 
   // Aviso arriba de la ruta
@@ -330,15 +338,15 @@
       const d = dia && dia !== 'S/Cal' ? dia : null;
       const tops = v.cl.filter(cl => cl._top && (!d || String(cl[3]).split(',').map(x => x.trim()).includes(d)));
       if (!tops.length) return '';
-      const st = cl => { const fs = fotosCli(v.vc, cl[6]) || []; return TIPOS.map(t => fs.some(x => x.Tipo === t)); };
-      const n = tops.reduce((a, cl) => a + st(cl).filter(Boolean).length, 0), tot = tops.length * 2, listo = n >= tot;
+      const st = cl => !!fichaDe(v.vc, cl[6]);
+      const n = tops.filter(st).length, tot = tops.length, listo = n >= tot;
       const cuando = !d ? 'de la semana' : d === hoy ? 'de hoy' : 'del ' + ({Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'})[d];
       return `<section class="fx-mision${listo ? ' listo' : ''}">
         <div class="fx-m-top"><span class="fx-m-ic">${listo ? IC.ok : IC.cam}</span>
-          <div class="fx-m-t"><b>Fotos ${cuando}</b><small>${listo ? '¡Listo! Ya sacaste todas.' : `${tops.length} ${tops.length === 1 ? 'cliente top' : 'clientes top'} · ampliación y reposición`}</small></div>
+          <div class="fx-m-t"><b>Clientes top ${cuando}</b><small>${listo ? '¡Listo! Enviaste todas las fichas.' : `${tot} ${tot === 1 ? 'ficha' : 'fichas'}: ampliación, reposición con foto e ingreso`}</small></div>
           <span class="fx-m-n">${datos ? n : '…'}<small>/${tot}</small></span></div>
         <div class="fx-m-bar"><i style="width:${datos ? Math.round(n / tot * 100) : 0}%"></i></div>
-        <div class="fx-m-clis">${tops.map(cl => { const s = st(cl); return `<button type="button" class="fx-m-cli" data-fx-ir="${esc(cl[6])}"><span class="fx-m-dots">${s.map((x, k) => `<i class="${x ? 'ok' : ''}" title="${TIPOS[k]}"></i>`).join('')}</span>${esc(cl[2])}</button>`; }).join('')}</div>
+        <div class="fx-m-clis">${tops.map(cl => `<button type="button" class="fx-m-cli" data-fx-ir="${esc(cl[6])}"><span class="fx-m-dots"><i class="${st(cl) ? 'ok' : ''}"></i></span>${esc(cl[2])}</button>`).join('')}</div>
       </section>`;
     }
     // Supervisor / jefatura: últimas fotos del equipo visible
@@ -358,6 +366,11 @@
   // Un solo lugar que conecta todos los botones de fotos (Ruta y Top)
   function enlazar(root){
     if (!root) return;
+    root.querySelectorAll('[data-tf-abrir]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const w = b.closest('[data-fx-cod]'), c = vendDe(w.dataset.fxVc), cl = c && c.cl.find(x => x[6] === w.dataset.fxCod);
+      if (cl && window.TopFoco) window.TopFoco.abrir(c, cl, R().modo !== 'vendedor');
+    });
     root.querySelectorAll('[data-fx-t]').forEach(b => b.onclick = e => {
       e.stopPropagation();
       const w = b.closest('[data-fx-cod]'), c = vendDe(w.dataset.fxVc), cl = c && c.cl.find(x => x[6] === w.dataset.fxCod);
@@ -386,9 +399,9 @@
     const tops = v.cl.filter(cl => cl._top);
     if (!tops.length){ box.innerHTML = ''; return; }
     const desde = lunes(new Date()), sem = fotos().filter(r => r.Vendedor === v.vc && r.Fecha >= desde);
-    const n = tops.reduce((a, cl) => a + TIPOS.filter(t => sem.some(r => r['Código'] === cl[6] && r.Tipo === t)).length, 0), tot = tops.length * 2;
+    const n = tops.filter(cl => fichaDe(v.vc, cl[6])).length, tot = tops.length;
     box.innerHTML = `<section class="fx-card fx-avance">
-      <div class="fx-chead"><div><h3>Fotos de esta semana</h3><p>${datos ? (n >= tot ? '¡Completaste todas!' : `Te faltan <b>${tot - n}</b>`) : 'Cargando…'}</p></div><b class="fx-num">${datos ? n + '<small>/' + tot + '</small>' : '…'}</b></div>
+      <div class="fx-chead"><div><h3>Fichas TOP de esta semana</h3><p>${datos ? (n >= tot ? '¡Completaste todas!' : `Te faltan <b>${tot - n}</b>`) : 'Cargando…'}</p></div><b class="fx-num">${datos ? n + '<small>/' + tot + '</small>' : '…'}</b></div>
       <div class="fx-barra"><i style="width:${datos ? Math.round(n / tot * 100) : 0}%"></i></div>
       ${estadoCarga()}
       ${sem.length ? `<button type="button" class="fx-link fx-mias" id="fxMias">Ver mis fotos (${sem.length})</button>` : ''}
@@ -572,7 +585,7 @@
       let n = 0;
       const v = R().vendedor, hoy = R().hoy;
       if (R().modo === 'vendedor' && v && datos && hoy){
-        v.cl.filter(cl => cl._top && String(cl[3]).split(',').map(x => x.trim()).includes(hoy)).forEach(cl => { const fs = fotosCli(v.vc, cl[6]) || []; n += TIPOS.filter(t => !fs.some(x => x.Tipo === t)).length; });
+        n = v.cl.filter(cl => cl._top && String(cl[3]).split(',').map(x => x.trim()).includes(hoy) && !fichaDe(v.vc, cl[6])).length;
       }
       let b = top.querySelector('.fx-badge'); if (!b && n){ b = document.createElement('span'); b.className = 'fx-badge'; top.appendChild(b); }
       if (b){ b.textContent = n; b.hidden = !n; }
@@ -591,5 +604,31 @@
     cargar().then(() => { punto(); if (R().refrescar) R().refrescar(); pintarCompe(); }, () => {});
   }
 
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam};
+  // ---- Para la ficha TOP (top.js) ----
+  // Saca una foto con datos grabados; devuelve la foto lista (sin subir) o null si se cancela
+  function tomarFoto(o){
+    return new Promise(ok => {
+      let hecho = false;
+      alListo = fo => { hecho = true; ok(fo); };
+      abrirHoja({modo: 'libre', lineas: o.lineas, titulo: o.titulo, sub: o.sub});
+      $('fxIn').click();
+      const mirar = setInterval(() => { if ($('fxHoja').hidden){ clearInterval(mirar); if (!hecho) ok(null); } }, 400);
+    });
+  }
+  async function subirFotoApi(foto, m){
+    const j = await enviar({imagen: await aBase64(foto.blob), fecha: (foto.fecha || new Date()).toISOString(), sup: m.sup, vendedor: m.vendedor, nomVendedor: m.nomVendedor, cliente: m.cliente, codigo: m.codigo, pm: m.pm, tipo: m.tipo || 'Reposición', comentario: m.comentario || ''});
+    const d = foto.fecha || new Date();
+    locales.unshift({_local: foto.url, Fecha: iso(d), Hora: p2(d.getHours()) + ':' + p2(d.getMinutes()), Supervisor: m.sup, Vendedor: m.vendedor, 'Nombre vendedor': m.nomVendedor, Cliente: m.cliente, 'Código': m.codigo, PM: m.pm, Tipo: m.tipo || 'Reposición', Comentario: m.comentario || '', Enlace: j.enlace || '', ID: j.id || ''});
+    return j;
+  }
+  async function enviarGestion(m, filas){
+    const d = new Date();
+    const j = await enviar(Object.assign({gestion: true, fecha: d.toISOString(), filas}, m));
+    filas.forEach(x => locales.unshift({gest: true, ID: j.id, Fecha: iso(d), Hora: p2(d.getHours()) + ':' + p2(d.getMinutes()), Supervisor: m.sup, Vendedor: m.vendedor, 'Nombre vendedor': m.nomVendedor, Cliente: m.cliente, 'Código': m.codigo, PM: m.pm,
+      'Acción': x.accion, Marca: x.marca, 'Categoría': x.categoria, Producto: x.producto || '', 'Cód. artículo': x.art || '', Respuesta: x.resp, 'Caras tenemos': x.tenemos ?? '', 'Caras faltan': x.faltan ?? '', Comentario: x.com || '', 'Enlace foto': x.enlace || ''}));
+    punto();
+    return j;
+  }
+
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe};
 })();

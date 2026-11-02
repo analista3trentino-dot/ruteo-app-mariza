@@ -1,0 +1,106 @@
+/* =====================================================================
+   FOTOS RUTEO TR1 · puente entre la app y tu Google Drive
+   ---------------------------------------------------------------------
+   Guarda las fotos de los vendedores en tu Drive (carpeta "Fotos Ruteo TR1")
+   y anota cada envío en la planilla "Registro Fotos Ruteo TR1".
+   No hace falta modificar nada, salvo CLAVE_APP si querés cambiarla
+   (la misma clave tiene que estar en config.js de la app).
+   ===================================================================== */
+const CLAVE_APP = 'trentino-fotos-2026';
+const CARPETA = 'Fotos Ruteo TR1';
+const MESES = ['01 Enero','02 Febrero','03 Marzo','04 Abril','05 Mayo','06 Junio','07 Julio','08 Agosto','09 Septiembre','10 Octubre','11 Noviembre','12 Diciembre'];
+const COL_FOTOS = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Tipo','Comentario','Enlace','ID'];
+const COL_GEST = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Acción','Marca','Categoría','Producto','Cód. artículo','Respuesta','Caras tenemos','Caras faltan','Comentario','Enlace foto','ID'];
+const COL_COMPE = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Qué vio','Empresa/Marca','Producto','Precio Gs.','Cliente','Comentario','Enlace foto','ID'];
+
+// 1) Tocá ▶ Ejecutar con esta función elegida la primera vez: crea la carpeta y la planilla y pide los permisos.
+function PREPARAR() {
+  const r = raiz(), p = planilla();
+  Logger.log('Listo. Carpeta: ' + r.getUrl());
+  Logger.log('Planilla: ' + p.getUrl());
+}
+
+function raiz() {
+  const it = DriveApp.getFoldersByName(CARPETA);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(CARPETA);
+}
+function sub(padre, nombre) {
+  const it = padre.getFoldersByName(nombre);
+  return it.hasNext() ? it.next() : padre.createFolder(nombre);
+}
+function planilla() {
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('PLANILLA'), ss = null;
+  if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; } }
+  if (!ss) {
+    ss = SpreadsheetApp.create('Registro Fotos Ruteo TR1');
+    DriveApp.getFileById(ss.getId()).moveTo(raiz());
+    const h1 = ss.getSheets()[0].setName('Fotos');
+    h1.appendRow(COL_FOTOS); h1.setFrozenRows(1); h1.getRange(1, 1, 1, COL_FOTOS.length).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
+    const h2 = ss.insertSheet('Competencia');
+    h2.appendRow(COL_COMPE); h2.setFrozenRows(1); h2.getRange(1, 1, 1, COL_COMPE.length).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
+    props.setProperty('PLANILLA', ss.getId());
+  }
+  // hoja de la gestión de clientes TOP (ampliación, reposición, ingreso)
+  if (!ss.getSheetByName('Gestion TOP')){
+    const h3 = ss.insertSheet('Gestion TOP');
+    h3.appendRow(COL_GEST); h3.setFrozenRows(1); h3.getRange(1, 1, 1, COL_GEST.length).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
+  }
+  return ss;
+}
+const json = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+const tz = () => Session.getScriptTimeZone() || 'America/Asuncion';
+
+// Guardar una foto o un comentario de competencia
+function doPost(e) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const d = JSON.parse(e.postData.contents);
+    if (d.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
+    const f = new Date(d.fecha || Date.now());
+    // Gestión de un cliente TOP: varias filas de una vez
+    if (d.gestion){
+      const T2 = v => "'" + String(v == null ? '' : v), dia2 = Utilities.formatDate(f, tz(), 'yyyy-MM-dd'), hora2 = Utilities.formatDate(f, tz(), 'HH:mm'), id2 = Utilities.getUuid().slice(0, 8);
+      const filas = (d.filas || []).map(x => [T2(dia2), T2(hora2), T2(d.sup), T2(d.vendedor), T2(d.nomVendedor), T2(d.cliente), T2(d.codigo), T2(d.pm), T2(x.accion), T2(x.marca), T2(x.categoria), T2(x.producto), T2(x.art), T2(x.resp), x.tenemos === '' || x.tenemos == null ? '' : +x.tenemos, x.faltan === '' || x.faltan == null ? '' : +x.faltan, T2(x.com), x.enlace || '', T2(id2)]);
+      if (filas.length){ const sh = planilla().getSheetByName('Gestion TOP'); sh.getRange(sh.getLastRow() + 1, 1, filas.length, COL_GEST.length).setValues(filas); }
+      return json({ok: true, id: id2, filas: filas.length});
+    }
+    const dia = Utilities.formatDate(f, tz(), 'yyyy-MM-dd'), hora = Utilities.formatDate(f, tz(), 'HH:mm');
+    let enlace = '', idFoto = '';
+    if (d.imagen) {
+      const carpeta = sub(sub(sub(raiz(), String(f.getFullYear())), MESES[f.getMonth()]), (d.sup || 'SIN SUP') + ' · ' + d.vendedor + ' ' + (d.nomVendedor || ''));
+      const nombre = dia + '_' + hora.replace(':', '') + '_' + d.vendedor + '_' + (d.compe ? 'competencia' : String(d.tipo).toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')) + '_' + (d.codigo || 'sin-cliente') + '.jpg';
+      const blob = Utilities.newBlob(Utilities.base64Decode(d.imagen), 'image/jpeg', nombre);
+      const file = carpeta.createFile(blob);
+      file.setDescription(d.comentario || '');
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      idFoto = file.getId(); enlace = file.getUrl();
+    }
+    const ss = planilla(), id = Utilities.getUuid().slice(0, 8);
+    const T = v => "'" + String(v == null ? '' : v);   // se guarda como texto (sin convertir a fecha o número)
+    if (d.compe) ss.getSheetByName('Competencia').appendRow([T(dia), T(hora), T(d.sup), T(d.vendedor), T(d.nomVendedor), T(d.queVio), T(d.marca), T(d.producto), d.precio ? +d.precio : '', T(d.cliente), T(d.comentario), enlace, T(idFoto || id)]);
+    else ss.getSheetByName('Fotos').appendRow([T(dia), T(hora), T(d.sup), T(d.vendedor), T(d.nomVendedor), T(d.cliente), T(d.codigo), T(d.pm), T(d.tipo), T(d.comentario), enlace, T(idFoto)]);
+    return json({ok: true, id: idFoto || id, enlace: enlace});
+  } catch (err) {
+    return json({ok: false, error: String(err)});
+  } finally { lock.releaseLock(); }
+}
+
+// Lista de envíos para la app: ?clave=...&sup=TR15 (o TODOS)&vendedor=TR1534&dias=14
+function doGet(e) {
+  const q = e.parameter || {};
+  if (q.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
+  const dias = +q.dias || 14, desde = Utilities.formatDate(new Date(Date.now() - dias * 864e5), tz(), 'yyyy-MM-dd');
+  const ss = planilla(), out = {ok: true, fotos: [], compe: []};
+  const leer = (hoja, cols) => {
+    const v = ss.getSheetByName(hoja).getDataRange().getValues(); v.shift();
+    const txt = (x, i) => x instanceof Date ? Utilities.formatDate(x, tz(), i === 1 ? 'HH:mm' : 'yyyy-MM-dd') : String(x);
+    return v.map(r => Object.fromEntries(cols.map((c, i) => [c, txt(r[i], i)])))
+      .filter(r => r.Fecha >= desde && (!q.sup || q.sup === 'TODOS' || r.Supervisor === q.sup) && (!q.vendedor || r.Vendedor === q.vendedor))
+      .reverse();
+  };
+  out.fotos = leer('Fotos', COL_FOTOS);
+  out.compe = leer('Competencia', COL_COMPE);
+  out.gestion = leer('Gestion TOP', COL_GEST);
+  return json(out);
+}

@@ -524,7 +524,8 @@
   let topEstado = 'cargando', topFecha = null, topError = '';
   const PM_TOP_SET = new Set((typeof PM_TOP !== 'undefined' && PM_TOP.length ? PM_TOP : ['13.1','13.2','13.5','21.1','12.1','12.2']).map(x => String(x).trim().replace(',', '.')));
   function cargarTop(){
-    carteras.forEach(c => c.cl.forEach(cl => { cl._top = PM_TOP_SET.has(String(cl[8] == null ? '' : cl[8]).trim().replace(',', '.')); }));
+    const fuera = new Set(typeof TOP_EXCLUIR !== 'undefined' ? TOP_EXCLUIR.map(x => String(x).trim()) : []);
+    carteras.forEach(c => c.cl.forEach(cl => { cl._top = PM_TOP_SET.has(String(cl[8] == null ? '' : cl[8]).trim().replace(',', '.')) && !fuera.has(String(cl[6])); }));
     topEstado = 'ok';
   }
 
@@ -564,9 +565,10 @@
     box.innerHTML = `<div class="tv-wrap">
       <div class="tv-head">
         <h2>${MODO_VENDEDOR ? 'Tus clientes top' : 'Clientes top'}</h2>
-        <p>${esc(quien)} <b>${totCli}</b> ${totCli === 1 ? 'cliente top' : 'clientes top'}. Cada semana: una foto de <b>ampliación</b> y otra de <b>reposición</b> en cada uno.</p>
+        <p>${esc(quien)} <b>${totCli}</b> ${totCli === 1 ? 'cliente top' : 'clientes top'}. Cada semana, una ficha por cliente: <b>ampliación</b>, <b>reposición</b> con foto e <b>ingreso</b>.</p>
       </div>
       <div id="fotosTop"></div>
+      ${MODO_VENDEDOR ? '' : '<div id="tfAnalisis"></div>'}
       <h3 class="tp-h">${MODO_VENDEDOR ? 'Tu semana' : 'Clientes top por día'}</h3>
       ${dias}
       <div class="tp-lista">${lista}</div>
@@ -588,6 +590,7 @@
     const cta = $('tpRuta'); if (cta) cta.onclick = () => irRuta(null);
     box.querySelectorAll('.tp-fila').forEach(b => b.onclick = () => irRuta(b.dataset.vc));
     if (F){ F.enlazar(box); if ($('fotosTop')) F.enTop($('fotosTop')); }
+    if (window.TopFoco && $('tfAnalisis')) window.TopFoco.analisis($('tfAnalisis'), base.filter(c => !isVacante(c)));
   }
 
   // ---- "¿Cuál es tu cartera?" ----
