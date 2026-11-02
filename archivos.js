@@ -175,6 +175,43 @@
     return out;
   }
 
+  /**
+   * Junta varios Excel del mismo tipo (visitas, Apolo, supervisores) para tener varios meses:
+   * cada mes sale del archivo MÁS NUEVO que trae ese mes. Así, al empezar un mes nuevo,
+   * el mes anterior queda como histórico (con su último Excel) y el nuevo aparece aparte.
+   * leerFn(buf) devuelve registros con .d = 'AAAA-MM-DD'. Devuelve {regs, usados}.
+   */
+  const ym = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  async function porMes(tipo, leerFn, meses){
+    meses = meses || 3;
+    let lista = [];
+    try { lista = await window.Archivos.ultimos(''); } catch(e){ return {regs: [], usados: []}; }
+    const hoy = new Date(), minMes = ym(new Date(hoy.getFullYear(), hoy.getMonth() - (meses - 1), 1));
+    const tomados = new Set(), regs = [], usados = [];
+    let abiertos = 0;
+    for (const f of lista){
+      if (tomados.size >= meses || abiertos >= 8) break;
+      // meses que puede traer el archivo: el de su fecha y, si se subió en la primera semana, también el anterior
+      const cand = [];
+      if (f.fecha){
+        cand.push(ym(f.fecha));
+        if (f.fecha.getDate() <= 7) cand.push(ym(new Date(f.fecha.getFullYear(), f.fecha.getMonth() - 1, 1)));
+        if (cand.every(m => m < minMes)) break;                 // ya es más viejo que lo que se muestra
+        if (cand.every(m => tomados.has(m))) continue;           // esos meses ya salieron de un archivo más nuevo
+      }
+      if (await tipoDe(f) !== tipo) continue;
+      abiertos++;
+      let rs = null; try { rs = await leerFn(await bajar(f)); } catch(e){ rs = null; }
+      if (!rs || !rs.length) continue;
+      const ms = new Set(rs.map(r => String(r.d).slice(0, 7)));
+      const nuevos = [...ms].filter(m => !tomados.has(m) && m >= minMes);
+      if (!nuevos.length) continue;
+      rs.forEach(r => { if (nuevos.includes(String(r.d).slice(0, 7))) regs.push(r); });
+      nuevos.forEach(m => tomados.add(m)); usados.push(f);
+    }
+    return {regs, usados};
+  }
+
   // Recuerda datos de cada archivo (por ejemplo, qué listas trae)
   const tipo = {
     leer: (sha, t) => { try { return localStorage.getItem('ruteoTR1_es_' + t + '_' + sha); } catch(e){ return null; } },
@@ -195,5 +232,5 @@
     for (const f of lista.slice(0, 8)){ if (fecha && f.fecha && f.fecha <= fecha) break; if (await tipoDe(f) === 'vacio') out.push(f); }
     return out;
   }
-  window.Archivos = { ultimos, tipo, buscar, bajar, tipoDe, porNombre, olvidar, etiqueta, vaciosDesde, fallo: () => falloGitHub };
+  window.Archivos = { ultimos, tipo, buscar, porMes, bajar, tipoDe, porNombre, olvidar, etiqueta, vaciosDesde, fallo: () => falloGitHub };
 })();

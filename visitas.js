@@ -37,6 +37,11 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   const TODAY = toISO(new Date());
   const largo = d => { const x = fromISO(d); return `${DIAS[x.getDay()]} ${x.getDate()} de ${MESES[x.getMonth()]}`; };
   const corto = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+  // Semanas: de lunes a sábado. lunesDe('2026-10-29') = '2026-10-26'; semNum = número de semana del año
+  const lunesDe = d => { const x = fromISO(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return toISO(x); };
+  const semNum = d => { const x = fromISO(d); x.setDate(x.getDate() + 3 - ((x.getDay() + 6) % 7)); const e = new Date(x.getFullYear(), 0, 4); return 1 + Math.round(((x - e) / 864e5 - 3 + ((e.getDay() + 6) % 7)) / 7); };
+  const diasSem = l => DATES.filter(d => lunesDe(d) === l);
+  const rangoSem = l => { const ds = diasSem(l); if (!ds.length) return ''; const a = fromISO(ds[0]), b = fromISO(ds[ds.length - 1]); return a.getMonth() === b.getMonth() ? `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]}` : `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]}`; };
   const mesNombre = m => { const n = MESES[+m.slice(5, 7) - 1]; return n.charAt(0).toUpperCase() + n.slice(1); };
 
   // --- Lectura del Excel ---
@@ -80,24 +85,22 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     }
     return null;
   }
-  let usado = null, usadoApolo = null, vacios = [];   // archivos de visitas que se están mostrando
+  let usado = null, usadoApolo = null, usados = [], vacios = [];   // archivos de visitas que se están mostrando
   async function leer(){
     if (!window.cargarExcelLib) throw new Error('Falta excel.js');
     const XLSX = await window.cargarExcelLib();
-    // 1) El Excel de visitas más nuevo (con cualquier nombre)
-    let cand = [];
-    try { cand = window.Archivos ? await window.Archivos.buscar('visitas', 2) : []; } catch(e){ cand = []; }
-    for (const f of cand){
+    // 1) Los Excel de visitas (con cualquier nombre): cada mes del más nuevo que lo trae
+    if (window.Archivos && window.Archivos.porMes){
       try {
-        const regs = procesar(XLSX, await window.Archivos.bajar(f));
-        if (regs){
-          usado = f;
+        const r = await window.Archivos.porMes('visitas', buf => procesar(XLSX, buf));
+        if (r.regs.length){
+          usados = r.usados; usado = r.usados[0];
           // + marcaciones por Apolo de los vendedores mixtos (si se subió ese Excel)
           try {
-            const [fa] = await window.Archivos.buscar('apolo', 1);
-            if (fa){ const ra = procesar(XLSX, await window.Archivos.bajar(fa)); if (ra){ usadoApolo = fa; ra.forEach(x => x.emp = 'A'); return regs.concat(ra); } }
+            const ra = await window.Archivos.porMes('apolo', buf => procesar(XLSX, buf));
+            if (ra.regs.length){ usadoApolo = ra.usados[0]; ra.regs.forEach(x => x.emp = 'A'); return r.regs.concat(ra.regs); }
           } catch(e){}
-          return regs;
+          return r.regs;
         }
       } catch(e){}
     }
@@ -176,8 +179,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const conVenta = visitas.filter(o => o.hit[2]).length, monto = visitas.reduce((t, o) => t + (o.hit[3] || 0), 0);
     return {si, no, otro, fuera: fu, toca: si.length + no.length, visitas: visitas.length, conVenta, monto};
   }
-  function delMes(c, m){
-    const ds = DATES.filter(d => d.startsWith(m)), vis = porCartera.get(c.vc) || new Map();
+  function delMes(c, m){ return delRango(c, DATES.filter(d => d.startsWith(m))); }
+  function delRango(c, ds){
+    const vis = porCartera.get(c.vc) || new Map();
     let prog = 0, hechas = 0, enDia = 0, cli = 0, cliVis = 0, otroDia = 0, visitas = 0, conVenta = 0, monto = 0;
     const lista = [];
     c.cl.forEach((cl, i) => {
@@ -198,7 +202,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       lista.push({cl, p, a, e, h, falto});
     });
     const fu = []; (fuera.get(c.vc) || new Map()).forEach(f => {
-      const ks = [...f.dias.keys()].filter(d => d.startsWith(m)); if (!ks.length) return;
+      const ks = [...f.dias.keys()].filter(d => ds.includes(d)); if (!ks.length) return;
       fu.push({name: f.name, code: f.code, n: ks.length});
       ks.forEach(d => { const x = f.dias.get(d); visitas++; if (x[2]) conVenta++; monto += x[3] || 0; });
     });
@@ -206,7 +210,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   }
 
   // --- Pantalla ---
-  const ui = {modo: 'dia', dia: '', mes: '', abiertos: new Set()};
+  const ui = {modo: 'dia', dia: '', mes: '', sem: '', abiertos: new Set()};
   function diaPorDefecto(){
     if (!DATES.length) return '';
     const u = DATES[DATES.length - 1];
@@ -249,7 +253,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   // Detalle de un vendedor en el mes: clientes sin visita y clientes con visitas de menos
   function detalleMes(x){
     const hm_ = x.horasMes;
-    const cab = hm_ && hm_.dias ? `<div class="vs-horas"><span><b>${hm_.dias}</b><small>días trabajados</small></span><span><b>${hmin(hm_.jor / hm_.dias)}</b><small>por día (promedio)</small></span><span><b>${Math.round(hm_.jor / 60)} h</b><small>en el mes</small></span><span><b>${hmin(hm_.en / hm_.dias)}</b><small>en clientes por día</small></span></div>` : '';
+    const cab = hm_ && hm_.dias ? `<div class="vs-horas"><span><b>${hm_.dias}</b><small>días trabajados</small></span><span><b>${hmin(hm_.jor / hm_.dias)}</b><small>por día (promedio)</small></span><span><b>${Math.round(hm_.jor / 60)} h</b><small>${ui.modo === 'semana' ? 'en la semana' : 'en el mes'}</small></span><span><b>${hmin(hm_.en / hm_.dias)}</b><small>en clientes por día</small></span></div>` : '';
     return cab + detalleMes_(x);
   }
   function detalleMes_(x){
@@ -276,8 +280,14 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       return;
     }
     if (!DATES.length){ box.innerHTML = `<div class="vs-wrap"><div class="tv-state"><b>El archivo de visitas está vacío</b></div></div>`; return; }
-    if (!ui.dia) ui.dia = diaPorDefecto();
+    // Al abrir: el mes más nuevo (si empezó un mes, se ve el mes nuevo) y su último día completo
+    if (!ui.dia){ const ult = DATES[DATES.length - 1], ds = DATES.filter(d => d.startsWith(ult.slice(0, 7)) && !enCurso(d)); ui.dia = ds.length ? ds[ds.length - 1] : ult; }
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
+    // semanas del mes elegido (una semana que cruza de mes aparece en los dos)
+    const SEMS = [...new Set(DATES.filter(d => d.startsWith(ui.mes)).map(lunesDe))];
+    if (!SEMS.includes(ui.sem)) ui.sem = SEMS.includes(lunesDe(ui.dia)) ? lunesDe(ui.dia) : SEMS[SEMS.length - 1] || '';
+    const esSem = ui.modo === 'semana';
+    const DSEM = esSem ? diasSem(ui.sem) : [];
     const spv = RU.getSpv(), yo = RU.vendedor;
     const delSup = yo ? RU.carteras.filter(c => c.vc === yo.vc)
       : RU.carteras.filter(c => !/^AR/i.test(c.vc) && (spv === 'TODOS' || spv === 'MIXTOS' || c.sup === spv));
@@ -287,12 +297,13 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const esDia = ui.modo === 'dia';
 
     // Carteras sin ninguna marcación en el mes (vacantes) no se cuentan
-    const conMarcas = c => !!(marcasCartera.get(c.vc) || new Map()).get(ui.mes);
+    const mesesSem = [...new Set(DSEM.map(d => d.slice(0, 7)))];
+    const conMarcas = c => { const mc = marcasCartera.get(c.vc) || new Map(); return esSem ? mesesSem.some(m => mc.get(m)) : !!mc.get(ui.mes); };
     const filas = carts.filter(conMarcas).map(c => {
       if (esDia){ const x = delDia(c, ui.dia); x.horas = horasDia(c, ui.dia); return {c, x, a: x.si.length, b: x.toca}; }
-      const x = delMes(c, ui.mes);
-      // horas del mes: días trabajados, horas de jornada y en clientes
-      let dias = 0, jor = 0, en = 0; DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d)).forEach(d => { const hd = horasDia(c, d); if (hd.visitas){ dias++; jor += hd.jornada; en += hd.enCli; } });
+      const x = esSem ? delRango(c, DSEM) : delMes(c, ui.mes);
+      // horas del mes (o de la semana): días trabajados, horas de jornada y en clientes
+      let dias = 0, jor = 0, en = 0; (esSem ? DSEM : DATES.filter(d => d.startsWith(ui.mes))).filter(d => !enCurso(d)).forEach(d => { const hd = horasDia(c, d); if (hd.visitas){ dias++; jor += hd.jornada; en += hd.enCli; } });
       x.horasMes = {dias, jor, en};
       return {c, x, a: x.cliVis, b: x.cli, va: x.hechas, vb: x.prog};
     }).filter(f => f.b);
@@ -307,7 +318,10 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const chipsDias = DATES.filter(d => d.startsWith(ui.mes)).slice().reverse().map(d => `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''} ${enCurso(d) ? 'curso' : ''}" data-dia="${d}"><small>${enCurso(d) ? 'en curso' : DIAS_C[wday(d)]}</small><b>${+d.slice(8)}</b></button>`).join('');
     const ms = meses();
 
-    const titulo = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (enCurso(ui.dia) ? ' (en curso)' : '') : `${mesNombre(ui.mes)}, hasta el ${corto(diasMes[diasMes.length - 1] || ui.dia)}`;
+    const chipsSem = SEMS.slice().reverse().map(l => { const ds = diasSem(l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>Semana ${semNum(l)}</small><b>${+ds[0].slice(8)}–${+ds[ds.length - 1].slice(8)}</b></button>`; }).join('');
+    const titulo = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (enCurso(ui.dia) ? ' (en curso)' : '')
+      : esSem ? `Semana ${semNum(ui.sem)} · del ${rangoSem(ui.sem)}${DSEM.some(enCurso) || (DSEM.length && DSEM[DSEM.length - 1] === DATES[DATES.length - 1] && wday(DSEM[DSEM.length - 1]) < 6) ? ' (en curso)' : ''}`
+      : `${mesNombre(ui.mes)}, hasta el ${corto(diasMes[diasMes.length - 1] || ui.dia)}`;
     const VA = filas.reduce((t, f) => t + (f.va || 0), 0), VB = filas.reduce((t, f) => t + (f.vb || 0), 0);
     const linea = esDia ? `${fmt(A)} de ${fmt(B)} clientes visitados` : `${fmt(VA)} de ${fmt(VB)} visitas hechas · ${fmt(A)} de ${fmt(B)} clientes visitados`;
 
@@ -341,26 +355,28 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
         <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Actualizado al ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
-        <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="mes" class="${esDia ? '' : 'on'}">Mes</button></div>
+        <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
       ${ms.length > 1 ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
       ${esDia ? `<div class="vs-dias">${chipsDias}</div>` : ''}
+      ${esSem ? `<div class="vs-dias">${chipsSem}</div>` : ''}
       <div class="vs-res">
         <div class="vs-res-t">${esc(titulo)}</div>
-        <div class="vs-big ${tono(P)}"><b>${P === null ? '—' : P + '%'}</b><span>${esDia ? 'cumplimiento del día' : 'cumplimiento del mes'}</span></div>
+        <div class="vs-big ${tono(P)}"><b>${P === null ? '—' : P + '%'}</b><span>${esDia ? 'cumplimiento del día' : esSem ? 'cumplimiento de la semana' : 'cumplimiento del mes'}</span></div>
         <div class="vs-bar big"><i class="${tono(P)}" style="width:${P || 0}%"></i></div>
         <p class="vs-linea">${linea}</p>
       </div>
       ${supHtml}
-      ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : 'Todavía no hay visitas tuyas este mes'}</b></div>`) : `
+      ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
-      ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : 'este mes'}</b></div>`}`}
+      ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : esSem ? 'esta semana' : 'este mes'}</b></div>`}`}
       ${vacantes.length ? `<p class="tv-note">Solo se cuentan carteras con vendedor. No se incluyen ${vacantes.length} ${vacantes.length === 1 ? 'cartera vacante' : 'carteras vacantes'}: ${esc(vacantes.map(c => c.vc).join(', '))}.</p>` : ''}
     </div>`;
 
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abiertos.clear(); pintar(); });
     box.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => { ui.dia = b.dataset.dia; ui.abiertos.clear(); pintar(); });
-    box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d)); ui.dia = ds[ds.length - 1] || ui.dia; ui.abiertos.clear(); pintar(); });
+    box.querySelectorAll('[data-sem]').forEach(b => b.onclick = () => { ui.sem = b.dataset.sem; ui.abiertos.clear(); pintar(); });
+    box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d)); ui.dia = ds[ds.length - 1] || ui.dia; ui.sem = ''; ui.abiertos.clear(); pintar(); });
     box.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => RU.setSpv(b.dataset.sup));
     box.querySelectorAll('.vs-v-head').forEach(b => b.onclick = () => {
       const vc = b.closest('.vs-v').dataset.vc;

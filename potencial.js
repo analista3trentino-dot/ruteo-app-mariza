@@ -41,7 +41,7 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
     const hD = wb.SheetNames.find(n => /datos/i.test(n)), hH = wb.SheetNames.find(n => /hist/i.test(norm(n)));
     const pide = [hD, hH].filter(Boolean);
     wb = XLSX.read(buf, pide.length ? {type: 'array', sheets: pide} : {type: 'array'});
-    const out = {mes: null, por: {}, hist: {}};
+    const out = {mes: null, por: {}, hist: {}, hist2: {}};
     let conValores = 0;
     // 1) Hoja "Datos": potencial ya calculado por el Excel
     for (const sn of wb.SheetNames.filter(n => n !== hH)){
@@ -83,6 +83,9 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
           // meses con venta, de mayor a menor: el 2º; si compró un solo mes, ese mes
           const vs = antes.map(([, j]) => typeof r[j] === 'number' ? r[j] : 0).filter(v => v > 0).sort((a, b) => b - a);
           out.hist[cod] = [vs.length > 1 ? vs[1] : (vs[0] || 0), typeof r[actual[1]] === 'number' ? r[actual[1]] : 0];
+          // para el mes siguiente (cuando el Excel todavía no trae el mes nuevo): el mes actual ya pasa a ser historia
+          const v2 = meses.map(([, j]) => typeof r[j] === 'number' ? r[j] : 0).filter(v => v > 0).sort((a, b) => b - a);
+          out.hist2[cod] = [v2.length > 1 ? v2[1] : (v2[0] || 0), 0];
         }
         break;
       }
@@ -121,7 +124,7 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
     const codigos = new Set(); ALIAS = {}; RU.carteras.forEach(c => c.cl.forEach(cl => { if (cl[6]) codigos.add(cl[6]); if (cl[9]){ codigos.add(cl[9]); ALIAS[cl[6]] = cl[9]; } }));
     const [fp] = await window.Archivos.buscar('potencial', 1);
     if (!fp) throw new Error('sin-potencial');
-    const kP = 'ruteoTR1_pot2_' + fp.sha;
+    const kP = 'ruteoTR1_pot3_' + fp.sha;
     POT = leerC(kP);
     if (!POT){ POT = leerPotencial(XLSX, await window.Archivos.bajar(fp), codigos); if (!POT) throw new Error('El Excel de potencial no tiene las columnas Subcliente y Potencial'); guardarC(kP, POT); }
     fPot = fp.fecha;
@@ -138,12 +141,16 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
   }
 
   // Venta del mes de un cliente: del Excel de ventas si es del mismo mes (o más nuevo), si no del Excel de potencial
-  const usaVentas = () => VEN && (VEN.mes === null || POT.mes === null || VEN.mes >= POT.mes || (POT.mes === 11 && VEN.mes === 0));
-  const mesVenta = () => usaVentas() ? (VEN.mes !== null ? VEN.mes : (fVen || new Date()).getMonth()) : POT.mes;
+  // Mes nuevo: el Excel de potencial todavía es del mes pasado (ej. hoy noviembre y el Excel llega hasta octubre).
+  // El potencial se recalcula con el mes pasado como historia y lo comprado arranca en cero.
+  const MES_HOY = new Date().getMonth();
+  const rodar = () => POT && POT.mes !== null && MES_HOY === (POT.mes + 1) % 12;
+  const usaVentas = () => VEN && (rodar() ? VEN.mes === MES_HOY : (VEN.mes === null || POT.mes === null || VEN.mes >= POT.mes || (POT.mes === 11 && VEN.mes === 0)));
+  const mesVenta = () => usaVentas() ? (VEN.mes !== null ? VEN.mes : (fVen || new Date()).getMonth()) : rodar() ? MES_HOY : POT.mes;
   // c = código del cliente en el ruteo; los clientes de cadena usan su código entre paréntesis para ventas
   const desde = (obj, c) => obj[c] || (ALIAS[c] && obj[ALIAS[c]]);
-  const ventaDe = c => usaVentas() ? (VEN.por[c] || VEN.por[ALIAS[c]] || 0) : ((desde(POT.por, c) || desde(POT.hist || {}, c) || [0, 0])[1]);
-  const potDe = c => ((desde(POT.por, c) || desde(POT.hist || {}, c) || [0, 0])[0]);
+  const ventaDe = c => usaVentas() ? (VEN.por[c] || VEN.por[ALIAS[c]] || 0) : rodar() ? 0 : ((desde(POT.por, c) || desde(POT.hist || {}, c) || [0, 0])[1]);
+  const potDe = c => ((rodar() && desde(POT.hist2 || {}, c)) || desde(POT.por, c) || desde(POT.hist || {}, c) || [0, 0])[0];
 
   // Cuántos días de ese tipo (ej. lunes) quedan en el mes, contando hoy
   function quedan(dia){
@@ -161,9 +168,10 @@ const POTENCIAL_MINIMO_DESTACADO = 2000000;   // clientes "+2MM"
     },
     potDe: c => P.listo ? Math.max(0, potDe(c)) : 0,
     ventaDe: c => P.listo ? Math.max(0, ventaDe(c)) : 0,
-    tiene: c => P.listo && !!(desde(POT.por, c) || desde(POT.hist || {}, c)),
+    tiene: c => P.listo && !!(desde(POT.por, c) || desde(POT.hist || {}, c) || desde(POT.hist2 || {}, c)),
     mes: () => MESES[mesVenta()] || '',
-    fuente: () => usaVentas() ? 'Compras al ' + (fVen ? fVen.toLocaleDateString('es-PY', {day: 'numeric', month: 'short'}) : '—') : 'Compras de ' + (MESES[POT.mes] || '—'),
+    fuente: () => usaVentas() ? 'Compras al ' + (fVen ? fVen.toLocaleDateString('es-PY', {day: 'numeric', month: 'short'}) : '—') : rodar() ? 'Mes nuevo · compras de ' + MESES[MES_HOY] + ' todavía sin cargar' : 'Compras de ' + (MESES[POT.mes] || '—'),
+    mesNuevo: () => P.listo && rodar() && !usaVentas(),
     quedan,
     destacado: POTENCIAL_MINIMO_DESTACADO
   };
