@@ -19,7 +19,7 @@
 const SUPERVISORES = {
   "TR12": "VACANTE",                    // ST. MAY. AYGAS
   "TR13": "FELIX SEGOVIA",              // ST. GAS CENTRO
-  "TR15": "VACANTE",                    // ST. GAS ITAUGUA/ITA
+  "TR15": "ANGEL MARTINEZ",                    // ST. GAS ITAUGUA/ITA
   "TR16": "DIEGO GARCIA",               // ST. CAACUPE
   "TR17": "JORGE GONZALEZ",             // ST. GAS NORTE
   "TR18": "MARIA LIZ GALEANO",          // ST. PARAGUARI
@@ -51,14 +51,14 @@ const VENDEDORES = {
   "TR1534": "FRANCISCO LEIVA",                      // RV. ITA
   "TR1535": "VACANTE",                      // VD. YPACARAI
   "TR1536": "MARIA ROMERO",                         // VD. ITAUGUA
-  "TR1537": "RUBEN MEDINA",                         // RV. CAPIATA
+  "TR1537": "VACANTE",                         // RV. CAPIATA
   "TR1538": "VACANTE",                      // VD. AREGUA-LUQUE
 
   // ---------- TR16 Caacupé ----------
   "TR1621": "LORENA MENDEZ",                        // PV. SUPER CAACUPE
   "TR1632": "TOMMY GIMENEZ",                        // VD. ZONAL CAACUPE
-  "TR1633": "RUTH VERA",                            // RV. SANBER
-  "TR1634": "MARIBEL REYES",                        // RV. ALTOS/ATYRA
+  "TR1633": "VACANTE",                            // RV. SANBER
+  "TR1634": "VACANTE",                        // RV. ALTOS/ATYRA
   "TR1635": "MARIA GONZALEZ",                       // RV. TOBATI
   "TR1637": "VACANTE",                      // RV. EUSEBIO AYALIA
   "TR1638": "VACANTE",                      // VD. CARAGUATAY
