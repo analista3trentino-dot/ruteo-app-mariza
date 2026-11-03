@@ -30,7 +30,7 @@ const VENDEDORES = {
 
   // ---------- TR12 Aygas ----------
   "TR1201": "VACANTE",                      // ST. LICITACIONES-NANAWA
-  "TR1231": "ROCIO MEDINA",                         // RV. ABASTO
+  "TR1231": "VACANTE",                         // RV. ABASTO
   "TR1232": "VACANTE",                      // RV. MERCADO 4
   "TR1233": "RAMONA BENITEZ",                       // RV. MERCADO SAN LORENZO
   "TR1234": "YOHANA PALACIOS",                      // RV. CENTRO/MERCADO LUQUE
@@ -47,7 +47,7 @@ const VENDEDORES = {
   // ---------- TR15 Itauguá ----------
   "TR1531": "ERIK YEGRS",                           // RV. VILLETA-GUARAMBARE
   "TR1532": "SERGIO BENITEZ",                       // RV. YPANE
-  "TR1533": "VACANTE",                      // VD. ZONAL J.A SALDIVAR
+  "TR1533": "ROCIO MEDINA",                      // VD. ZONAL J.A SALDIVAR
   "TR1534": "FRANCISCO LEIVA",                      // RV. ITA
   "TR1535": "VACANTE",                      // VD. YPACARAI
   "TR1536": "MARIA ROMERO",                         // VD. ITAUGUA
