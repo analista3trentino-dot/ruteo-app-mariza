@@ -90,6 +90,7 @@ function doPost(e) {
 function doGet(e) {
   const q = e.parameter || {};
   if (q.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
+  if (q.accion === 'marcas') return json(imagenesMarcas(q.carpeta));
   const dias = +q.dias || 14, desde = Utilities.formatDate(new Date(Date.now() - dias * 864e5), tz(), 'yyyy-MM-dd');
   const ss = planilla(), out = {ok: true, fotos: [], compe: []};
   const leer = (hoja, cols) => {
@@ -103,4 +104,25 @@ function doGet(e) {
   out.compe = leer('Competencia', COL_COMPE);
   out.gestion = leer('Gestion TOP', COL_GEST);
   return json(out);
+}
+
+// Imágenes de la carpeta "Marcas" (logos y fotos de productos) para la ficha TOP.
+// Se revisa la carpeta y sus subcarpetas; cada imagen queda visible para quien tenga el enlace.
+function imagenesMarcas(carpetaId){
+  const cache = CacheService.getScriptCache(), k = 'marcas_' + carpetaId, c = cache.get(k);
+  if (c) return JSON.parse(c);
+  const out = [];
+  const recorrer = (carpeta, nombre, nivel) => {
+    const fs = carpeta.getFiles();
+    while (fs.hasNext()){
+      const f = fs.next(); if (!/^image\//.test(f.getMimeType())) continue;
+      try { if (f.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+      out.push({n: f.getName(), id: f.getId(), c: nombre});
+    }
+    if (nivel < 2){ const ss = carpeta.getFolders(); while (ss.hasNext()){ const s = ss.next(); recorrer(s, (nombre ? nombre + ' ' : '') + s.getName(), nivel + 1); } }
+  };
+  try { recorrer(DriveApp.getFolderById(carpetaId), '', 0); } catch (e) { return {ok: false, error: String(e)}; }
+  const res = {ok: true, archivos: out};
+  try { cache.put(k, JSON.stringify(res), 21600); } catch (e) {}
+  return res;
 }

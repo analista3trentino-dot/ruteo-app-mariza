@@ -117,13 +117,16 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   let DATES = [], porCartera = new Map(), fuera = new Map(), huerfanas = new Set();
   let EN_CURSO = '';                     // último día exportado a medias (todavía en curso)
   let marcasCartera = new Map();         // cartera -> Map(mes -> cantidad de marcaciones)
+  let apoloMes = new Set();              // meses que traen marcaciones por Apolo (vendedores mixtos)
+  let apoloCart = new Set();             // carteras con marcaciones por Apolo
+  const isMix = c => (typeof MIXTOS !== 'undefined' && MIXTOS.includes(c.vc)) || apoloCart.has(c.vc);
   // Día todavía en curso: el de hoy antes de las 17 h, o un último día con muy pocas marcaciones
   const enCurso = d => (d === TODAY && new Date().getHours() < 17) || d === EN_CURSO;
   function indexar(regs){
     const RU = window.RUTEO;
     const carts = RU.carteras;
     const days = new Set(), porDia = new Map();
-    porCartera = new Map(); fuera = new Map(); huerfanas = new Set(); marcasCartera = new Map();
+    porCartera = new Map(); fuera = new Map(); huerfanas = new Set(); marcasCartera = new Map(); apoloMes = new Set(); apoloCart = new Set();
     const rutaDe = new Map();
     carts.forEach(c => {
       const byCode = new Map(), byName = new Map();
@@ -136,9 +139,10 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const porPersona = new Map(); regs.forEach(r => { if (r.emp === 'T' && r.p && rutaDe.has(r.vc)) porPersona.set(r.p, r.vc); });
     regs.forEach(r => {
       if (r.emp === 'A'){ const n = r.vc.replace(/\D/g, ''); r.vc = (r.p && porPersona.get(r.p)) || ['TR' + n, 'TM' + n].find(x => rutaDe.has(x)) || r.vc; }
-      days.add(r.d); if (r.emp !== 'A') porDia.set(r.d, (porDia.get(r.d) || 0) + 1);
+      days.add(r.d); if (r.emp !== 'A') porDia.set(r.d, (porDia.get(r.d) || 0) + 1); else apoloMes.add(r.d.slice(0, 7));
       const ru = rutaDe.get(r.vc);
       if (!ru){ huerfanas.add(r.vc); return; }
+      if (r.emp === 'A') apoloCart.add(ru.c.vc);
       const mc = marcasCartera.get(ru.c.vc) || new Map(); mc.set(r.d.slice(0, 7), (mc.get(r.d.slice(0, 7)) || 0) + 1); marcasCartera.set(ru.c.vc, mc);
       let i = r.code && ru.byCode.has(r.code) ? ru.byCode.get(r.code) : undefined;
       if (i === undefined && !r.code) i = ru.byName.get(nameKey(r.name));
@@ -344,7 +348,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <button type="button" class="vs-v-head" aria-expanded="${abierto}">
           <span class="vs-v-info">
             <span class="vs-v-n ${vac ? 'vac' : ''}">${esc(vac ? 'Cartera vacante' : f.c.vn)}</span>
-            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}${esDia && f.x.horas && f.x.horas.jornada ? ` · ${hmin(f.x.horas.jornada)} trabajadas` : ''}${esDia && f.x.horas && f.x.horas.apolo ? ` · ${f.x.horas.apolo} por Apolo` : ''}</span>
+            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}${esDia && f.x.horas && f.x.horas.jornada ? ` · ${hmin(f.x.horas.jornada)} trabajadas` : ''}${esDia && f.x.horas && f.x.horas.apolo ? ` · ${f.x.horas.apolo} por Apolo` : ''}${isMix(f.c) ? ' · ⇄ mixto' : ''}</span>
           </span>
           <b class="vs-v-p ${tono(q)}">${q === null ? '—' : q + '%'}</b>
         </button>
@@ -366,6 +370,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <div class="vs-bar big"><i class="${tono(P)}" style="width:${P || 0}%"></i></div>
         <p class="vs-linea">${linea}</p>
       </div>
+      ${(() => { const mx = carts.filter(isMix); return mx.length && !apoloMes.has(ui.mes) ? `<div class="vs-apolo-falta"><b>Faltan las marcaciones de Apolo de ${esc(mesNombre(ui.mes).toLowerCase())}</b> de los vendedores mixtos (${esc(mx.map(c => c.vc).join(', '))}). Por eso sus visitas por Apolo no se suman todavía. Para sumarlas, subí también el Excel de visitas de los vendedores mixtos de Apolo (AR1621, AR1737, AR1821, AR1933, AR1934), igual que el de octubre.</div>` : ''; })()}
       ${supHtml}
       ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>

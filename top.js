@@ -75,44 +75,95 @@
     const r = 23, L = 2 * Math.PI * r;
     return `<div class="tf-anillo"><svg viewBox="0 0 56 56" aria-hidden="true"><circle class="b" cx="28" cy="28" r="${r}" fill="none" stroke-width="6"/><circle class="v" cx="28" cy="28" r="${r}" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L * (1 - p)}"/></svg><b>${Math.round(p * 100)}%</b></div>`;
   }
-  const logo = cat => `<span class="tf-logo" style="--bc:${BC[cat.m] || '#2E5BFF'}">${esc(sigla(cat.m))}</span>`;
+  // ---- Imágenes de marcas y productos (carpeta "Marcas" de Google Drive, ver config.js) ----
+  // Una imagen cuyo nombre empieza con el código del artículo (ej. "5033 aceto.jpg") es la foto del producto;
+  // si no, se usa como logo de la marca cuyo nombre aparece en el archivo o en su carpeta (ej. "Menoyo.png").
+  const nrm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const MARCAS = [...new Set(MF.cats.map(c => c.m))];
+  const IMG = {marca: {}, prod: {}};
+  const urlImg = (id, w) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w || 300}`;
+  function cargarImagenes(){
+    const url = typeof FOTOS_URL !== 'undefined' ? String(FOTOS_URL).trim() : '', carpeta = typeof MARCAS_CARPETA !== 'undefined' ? String(MARCAS_CARPETA).trim() : '';
+    if (!url || !carpeta) return;
+    const K = 'ruteoTR1_imgMarcas', usar = lista => {
+      (lista || []).forEach(f => {
+        const n = nrm(f.n.replace(/\.[a-z0-9]+$/i, '')), m = n.match(/^(\d{2,6})\b/);
+        if (m && MF.sku[m[1]]){ IMG.prod[m[1]] = f.id; return; }
+        const donde = n + ' ' + nrm(f.c || '');
+        const marca = MARCAS.find(x => donde.includes(nrm(x)) || donde.replace(/ /g, '').includes(nrm(x).replace(/ /g, '')));
+        if (marca && !IMG.marca[marca]) IMG.marca[marca] = f.id;
+      });
+    };
+    let c = null; try { c = JSON.parse(localStorage.getItem(K) || 'null'); } catch(e){}
+    if (c && c.l) usar(c.l);
+    if (c && Date.now() - c.t < 6 * 3600e3) return;
+    fetch(url + '?' + new URLSearchParams({clave: typeof FOTOS_CLAVE !== 'undefined' ? FOTOS_CLAVE : '', accion: 'marcas', carpeta}), {redirect: 'follow'})
+      .then(r => r.json()).then(j => { if (j && j.ok && j.archivos){ IMG.marca = {}; IMG.prod = {}; usar(j.archivos); try { localStorage.setItem(K, JSON.stringify({t: Date.now(), l: j.archivos})); } catch(e){} } }).catch(() => {});
+  }
+  cargarImagenes();
+  const logo = cat => IMG.marca[cat.m]
+    ? `<span class="tf-logo img"><img src="${urlImg(IMG.marca[cat.m], 160)}" alt="${esc(cat.m)}" loading="lazy" onerror="this.parentNode.classList.remove('img');this.parentNode.textContent='${esc(sigla(cat.m))}'"></span>`
+    : `<span class="tf-logo" style="--bc:${BC[cat.m] || '#2E5BFF'}">${esc(sigla(cat.m))}</span>`;
+  function fotoProd(s, cat, chico){
+    const id = IMG.prod[s] || IMG.marca[cat.m];
+    if (id) return `<span class="tf-fotop img${chico ? ' chico' : ''}"><img src="${urlImg(id, 300)}" alt="" loading="lazy"></span>`;
+    return chico ? '' : `<span class="tf-fotop" style="--bc:${BC[cat.m] || '#2E5BFF'}">${esc(cat.m.toUpperCase())}</span>`;
+  }
   const sino = (k, v, ro) => `<div class="tf-sino" role="group"><button type="button" data-k="${k}" data-v="si" aria-pressed="${v === 'si'}" ${ro ? 'disabled' : ''}>Sí</button><button type="button" data-k="${k}" data-v="no" aria-pressed="${v === 'no'}" ${ro ? 'disabled' : ''}>No</button></div>`;
   function toast(t){ const el = document.createElement('div'); el.className = 'tf-toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
 
   // ================= FICHA =================
+  // La hoja se arma una sola vez; cada toque actualiza solo la parte que cambió (más rápido).
   let F = null;   // {c, cl, tab, abierto, ro, r, A}
   function abrir(c, cl, soloVer){
     const ro = soloVer || R_().modo !== 'vendedor';
     F = {c, cl, tab: 'amp', abierto: '', ro, A: analizar(cl), r: ro ? desdeGestion(cl) : borrador(cl[6])};
     if (!F.A.amp.length) F.tab = F.A.rep.length ? 'rep' : 'ing';
-    let box = $('tfCapa'); if (!box){ box = document.createElement('div'); box.id = 'tfCapa'; document.body.appendChild(box); }
-    pintar(); document.body.classList.add('fx-bloq');
+    let box = $('tfCapa'); if (!box){ box = document.createElement('div'); box.id = 'tfCapa'; document.body.appendChild(box); enlazarCapa(box); }
+    const A = F.A;
+    box.innerHTML = `<div class="tf-hoja" role="dialog" aria-modal="true" aria-label="Ficha del cliente top">
+      <div class="tf-cab"><div class="tf-in">
+        <div class="tf-fila"><button type="button" class="tf-x" data-cerrar aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="15 6 9 12 15 18"/></svg></button>
+          <div class="tf-t"><b>${esc(cl[2])}</b><small>${esc(cl[6])}${cl[9] ? ' · venta ' + esc(cl[9]) : ''} · PM ${esc(cl[8])} · compró ${mill(A.d.t || 0)} (${esc(MF.fecha)})</small></div>${anillo(A.cob)}</div>
+        <div class="tf-tabs" role="tablist" id="tfTabs"></div>
+      </div></div>
+      <div class="tf-cuerpo"><div class="tf-in" id="tfCuerpo"></div></div>
+      ${ro ? '' : `<div class="tf-pie"><div class="tf-in" id="tfPie"></div></div>`}
+    </div>`;
+    pintarTabs(); pintarCuerpo(); pintarPie();
+    document.body.classList.add('fx-bloq');
     if (R_().apilar && R_().tope() !== 'ficha') R_().apilar('', cerrarYa, true, 'ficha');
   }
   function cerrarYa(){ const b = $('tfCapa'); if (b) b.innerHTML = ''; F = null; document.body.classList.remove('fx-bloq'); if (R_().refrescar) R_().refrescar(); }
   function cerrar(){ if (R_().tope && R_().tope() === 'ficha') R_().volver(); else cerrarYa(); }
-  function hoja(){ return $('tfCapa').querySelector('.tf-hoja'); }
-  function repintar(fn){ const h = hoja(), y = h ? h.scrollTop : 0; if (fn) fn(); pintar(); const h2 = hoja(); if (h2) h2.scrollTop = y; }
+  const hoja = () => $('tfCapa').querySelector('.tf-hoja');
 
-  function pintar(){
-    const {c, cl, A, r, ro} = F;
-    const nAmp = A.amp.reduce((t, x) => t + x.falta.length, 0), repOk = A.rep.filter(x => (r.rep[x.cat.id] || {}).ok).length;
-    const TABS = [['amp', 'Ampliación', A.amp.length + ' marcas · ' + nAmp + ' prod.', 'var(--acento)'], ['rep', 'Reposición', repOk + ' de ' + A.rep.length, 'var(--esmeralda)'], ['ing', 'Ingreso', A.ing.length + ' categorías', 'var(--oro)']];
-    const cuerpo = F.tab === 'amp' ? tabAmp() : F.tab === 'rep' ? tabRep() : tabIng();
-    const n = cuenta();
-    $('tfCapa').innerHTML = `<div class="tf-hoja" role="dialog" aria-modal="true" aria-label="Ficha del cliente top">
-      <div class="tf-cab"><div class="tf-in">
-        <div class="tf-fila"><button type="button" class="tf-x" id="tfX" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="15 6 9 12 15 18"/></svg></button>
-          <div class="tf-t"><b>${esc(cl[2])}</b><small>${esc(cl[6])}${cl[9] ? ' · venta ' + esc(cl[9]) : ''} · PM ${esc(cl[8])} · compró ${mill(A.d.t || 0)} (${esc(MF.fecha)})</small></div>${anillo(A.cob)}</div>
-        <div class="tf-tabs" role="tablist">${TABS.map(t => `<button type="button" role="tab" data-tab="${t[0]}" aria-selected="${F.tab === t[0]}" style="--c:${t[3]}">${t[1]}<small>${t[2]}</small></button>`).join('')}</div>
-      </div></div>
-      <div class="tf-cuerpo"><div class="tf-in">
-        ${ro ? `<div class="tf-aviso">${r.fecha ? `Última ficha enviada por <b>${esc(nom(c.vn))}</b> el <b>${esc(r.fecha.split('-').reverse().join('/'))}</b>. Se muestra lo que respondió.` : `<b>${esc(nom(c.vn))}</b> todavía no envió la ficha de este cliente en las últimas semanas.`}</div>` : ''}
-        ${A.d.sv ? `<div class="tf-aviso"><b>Sin compras registradas</b> de ${esc(MF.fecha)} con este código: todas las marcas foco aparecen para ingresar.</div>` : ''}
-        ${cuerpo}</div></div>
-      ${ro ? '' : `<div class="tf-pie"><div class="tf-in"><div class="tf-pie-t"><b>${n.n} ${n.n === 1 ? 'respuesta' : 'respuestas'}</b>${A.rep.length && !n.rep ? 'Falta al menos una reposición con foto' : n.rep + ' ' + (n.rep === 1 ? 'reposición controlada' : 'reposiciones controladas')}</div><button type="button" class="tf-btn" id="tfEnviar" ${n.n && (!A.rep.length || n.rep) ? '' : 'disabled'}>Enviar al supervisor</button></div></div>`}
-    </div>`;
-    enlazar();
+  function pintarTabs(){
+    const {A, r} = F, nAmp = A.amp.reduce((t, x) => t + x.falta.length, 0), repOk = A.rep.filter(x => (r.rep[x.cat.id] || {}).ok).length;
+    const TABS = [['amp', 'Ampliación', A.amp.length + ' marcas · ' + nAmp + ' prod.', 'var(--acento)'], ['rep', 'Reposición', repOk + ' de ' + A.rep.length + ' con foto', 'var(--esmeralda)'], ['ing', 'Ingreso', A.ing.length + ' categorías', 'var(--oro)']];
+    $('tfTabs').innerHTML = TABS.map(t => `<button type="button" role="tab" data-tab="${t[0]}" aria-selected="${F.tab === t[0]}" style="--c:${t[3]}">${t[1]}<small>${t[2]}</small></button>`).join('');
+  }
+  const listaTab = () => F.tab === 'amp' ? F.A.amp : F.tab === 'rep' ? F.A.rep : F.A.ing;
+  function secHtml(x){ return F.tab === 'amp' ? secAmp(x) : F.tab === 'rep' ? secRep(x) : secIng(x); }
+  function pintarCuerpo(){
+    const {c, A, r, ro} = F, xs = listaTab();
+    const INTRO = {amp: 'Marcas que el cliente ya compra pero le faltan productos del surtido de su PM. Ofrecé los que faltan y marcá si se ofreció.',
+      rep: 'Para cada marca que el cliente ya trabaja: <b>foto de la góndola</b> y dos preguntas. Si alguna es <b>No</b>, anotá cuántas caras tenemos y cuántas faltan.',
+      ing: 'Marcas foco que este cliente todavía no compra. Cada producto trae su código de barras y la cantidad sugerida para la góndola.'};
+    const VACIO = {amp: '<b>Sin ampliación pendiente.</b> En las marcas que ya compra tiene todo el surtido.', rep: '<b>Todavía no compra marcas foco.</b> La reposición aparece cuando la marca ya está ingresada. Empezá por Ingreso.', ing: '<b>¡Excelente!</b> Ya compra todas las categorías foco.'};
+    $('tfCuerpo').innerHTML =
+      (ro ? `<div class="tf-aviso">${r.fecha ? `Última ficha enviada por <b>${esc(nom(c.vn))}</b> el <b>${esc(r.fecha.split('-').reverse().join('/'))}</b>. Se muestra lo que respondió.` : `<b>${esc(nom(c.vn))}</b> todavía no envió la ficha de este cliente en las últimas semanas.`}</div>` : '') +
+      (A.d.sv ? `<div class="tf-aviso"><b>Sin compras registradas</b> de ${esc(MF.fecha)} con este código: todas las marcas foco aparecen para ingresar.</div>` : '') +
+      (xs.length ? `<p class="tf-intro">${INTRO[F.tab]}</p>` + xs.map(secHtml).join('') : `<div class="tf-aviso">${VACIO[F.tab]}</div>`);
+  }
+  function pintarSec(id){
+    const x = listaTab().find(y => y.cat.id === id), el = $('tfCuerpo').querySelector(`[data-sec="${id}"]`);
+    if (x && el) el.outerHTML = secHtml(x);
+  }
+  function pintarPie(){
+    if (F.ro || !$('tfPie')) return;
+    const n = cuenta(), A = F.A, falta = A.rep.length && !n.rep;
+    $('tfPie').innerHTML = `<div class="tf-pie-t"><b>${n.n} ${n.n === 1 ? 'respuesta' : 'respuestas'}</b>${falta ? 'Falta al menos una reposición con foto' : n.rep + ' ' + (n.rep === 1 ? 'reposición con foto' : 'reposiciones con foto')}</div><button type="button" class="tf-btn" id="tfEnviar" data-enviar ${n.n && !falta ? '' : 'disabled'}>Enviar al supervisor</button>`;
   }
   function cuenta(){
     const r = F.r;
@@ -120,95 +171,96 @@
     return {n, rep: Object.values(r.rep).filter(x => x.ok).length};
   }
 
-  function tabAmp(){
-    const {A, r, ro} = F;
-    if (!A.amp.length) return `<div class="tf-aviso"><b>Sin ampliación pendiente.</b> En las marcas que ya compra tiene todo el surtido.</div>`;
-    return `<p class="tf-intro">Marcas que el cliente ya compra pero le faltan productos del surtido de su PM. Ofrecé los que faltan y marcá si se ofreció.</p>` + A.amp.map(x => {
-      const ab = F.abierto === x.cat.id, tiene = x.req.length - x.falta.length, cont = x.falta.filter(s => (r.amp[s] || {}).v).length;
-      return `<section class="tf-cat ${cont === x.falta.length ? 'listo' : ''}">
-        <button type="button" class="tf-cat-h" data-abrir="${x.cat.id}" aria-expanded="${ab}">${logo(x.cat)}
-          <span class="tf-cat-i"><b>${esc(nombreCat(x.cat))}</b><small>Tiene ${tiene} de ${x.req.length} · faltan ${x.falta.length}</small><span class="tf-mini"><i style="width:${Math.round(tiene / x.req.length * 100)}%"></i></span></span>
-          <span class="tf-est ${cont === x.falta.length ? 'ok' : ''}">${cont}/${x.falta.length}</span></button>
-        ${ab ? `<div class="tf-cat-b">${x.req.map(s => {
-          const k = MF.sku[s], ya = !x.falta.includes(s), a = r.amp[s] || {};
-          return `<div class="tf-sku"><div class="tf-sku-n">${esc(k.d)}<small>${s}${k.b ? ' · ' + k.b : ''}</small></div>
-            ${ya ? `<span class="tf-tiene">✓ Ya lo tiene</span>` : sino('amp:' + s, a.v, ro) + `<span class="tf-lbl">¿Se ofreció?</span>${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="amp:${s}" placeholder="Comentario (opcional)" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}`}</div>`;
-        }).join('')}</div>` : ''}
-      </section>`;
-    }).join('');
+  const cabCat = (x, sub, est, ok) => `<button type="button" class="tf-cat-h" data-abrir="${x.cat.id}" aria-expanded="${F.abierto === x.cat.id}">${logo(x.cat)}
+      <span class="tf-cat-i"><b>${esc(nombreCat(x.cat))}</b>${sub}</span><span class="tf-est ${ok ? 'ok' : ''}">${est}</span></button>`;
+  function secAmp(x){
+    const {r, ro} = F, ab = F.abierto === x.cat.id, tiene = x.req.length - x.falta.length, cont = x.falta.filter(s => (r.amp[s] || {}).v).length, ok = cont === x.falta.length;
+    return `<section class="tf-cat ${ok ? 'listo' : ''}" data-sec="${x.cat.id}">
+      ${cabCat(x, `<small>Tiene ${tiene} de ${x.req.length} · faltan ${x.falta.length}</small><span class="tf-mini"><i style="width:${Math.round(tiene / x.req.length * 100)}%"></i></span>`, cont + '/' + x.falta.length, ok)}
+      ${ab ? `<div class="tf-cat-b">${x.req.map(s => {
+        const k = MF.sku[s], ya = !x.falta.includes(s), a = r.amp[s] || {};
+        return `<div class="tf-sku">${fotoProd(s, x.cat, true)}<div class="tf-sku-n">${esc(k.d)}<small>${s}${k.b ? ' · ' + k.b : ''}</small></div>
+          ${ya ? `<span class="tf-tiene">✓ Ya lo tiene</span>` : sino('amp:' + s, a.v, ro) + `<span class="tf-lbl">¿Se ofreció?</span>${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="amp:${s}" placeholder="Comentario (opcional)" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}`}</div>`;
+      }).join('')}</div>` : ''}
+    </section>`;
   }
-  function tabIng(){
-    const {A, r, ro, cl} = F, pm = PM_SE(cl[8]);
-    if (!A.ing.length) return `<div class="tf-aviso"><b>¡Excelente!</b> Ya compra todas las categorías foco.</div>`;
-    return `<p class="tf-intro">Marcas foco que este cliente todavía no compra. Cada producto trae su código de barras y la cantidad sugerida para la góndola.</p>` + A.ing.map(x => {
-      const ab = F.abierto === x.cat.id, cont = x.skus.filter(s => (r.ing[s] || {}).v).length, si = x.skus.filter(s => (r.ing[s] || {}).v === 'si').length;
-      return `<section class="tf-cat ${si ? 'listo' : ''}">
-        <button type="button" class="tf-cat-h" data-abrir="${x.cat.id}" aria-expanded="${ab}">${logo(x.cat)}
-          <span class="tf-cat-i"><b>${esc(nombreCat(x.cat))}</b><small>${x.skus.length} productos para ingresar${si ? ' · ' + si + ' aceptados' : ''}</small></span>
-          <span class="tf-est ${si ? 'ok' : ''}">${cont ? cont + '/' + x.skus.length : 'Nuevo'}</span></button>
-        ${ab ? `<div class="tf-cat-b"><details class="tf-crit"><summary>Dónde va en la góndola</summary><p><b>Ubicación:</b> ${esc(x.cat.ubic || '—')}\n<b>Espacio:</b> ${esc(x.cat.part || '—')}</p></details>${x.skus.map(s => {
-          const k = MF.sku[s], a = r.ing[s] || {}, g = (k.g || {})[pm];
-          return `<div class="tf-prod"><span class="tf-fotop" style="--bc:${BC[x.cat.m] || '#2E5BFF'}">${esc(x.cat.m.toUpperCase())}</span>
-            <div class="tf-prod-i"><b>${esc(k.d)}</b><small>Cód. ${s}${k.b ? ' · Barras ' + k.b : ''}</small>${g ? `<span class="tf-gond">Góndola sugerida: ${g} unid.</span>` : ''}
-              <div class="tf-pre"><span class="tf-lbl">¿Lo aceptó?</span>${sino('ing:' + s, a.v, ro)}</div>
-              ${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="ing:${s}" placeholder="${a.v === 'no' ? '¿Por qué no? (precio, espacio, trabaja otra marca…)' : 'Comentario (opcional)'}" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}</div></div>`;
-        }).join('')}</div>` : ''}
-      </section>`;
-    }).join('');
+  function secIng(x){
+    const {r, ro, cl} = F, pm = PM_SE(cl[8]), ab = F.abierto === x.cat.id, cont = x.skus.filter(s => (r.ing[s] || {}).v).length, si = x.skus.filter(s => (r.ing[s] || {}).v === 'si').length;
+    return `<section class="tf-cat ${si ? 'listo' : ''}" data-sec="${x.cat.id}">
+      ${cabCat(x, `<small>${x.skus.length} productos para ingresar${si ? ' · ' + si + ' aceptados' : ''}</small>`, cont ? cont + '/' + x.skus.length : 'Nuevo', si)}
+      ${ab ? `<div class="tf-cat-b"><details class="tf-crit"><summary>Dónde va en la góndola</summary><p><b>Ubicación:</b> ${esc(x.cat.ubic || '—')}\n<b>Espacio:</b> ${esc(x.cat.part || '—')}</p></details>${x.skus.map(s => {
+        const k = MF.sku[s], a = r.ing[s] || {}, g = (k.g || {})[pm];
+        return `<div class="tf-prod">${fotoProd(s, x.cat)}
+          <div class="tf-prod-i"><b>${esc(k.d)}</b><small>Cód. ${s}${k.b ? ' · Barras ' + k.b : ''}</small>${g ? `<span class="tf-gond">Góndola sugerida: ${g} unid.</span>` : ''}
+            <div class="tf-pre"><span class="tf-lbl">¿Lo aceptó?</span>${sino('ing:' + s, a.v, ro)}</div>
+            ${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="ing:${s}" placeholder="${a.v === 'no' ? '¿Por qué no? (precio, espacio, trabaja otra marca…)' : 'Comentario (opcional)'}" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}</div></div>`;
+      }).join('')}</div>` : ''}
+    </section>`;
   }
   const listoRep = q => !!(q.foto && q.ubic && q.part && (q.ubic === 'si' && q.part === 'si' || (q.tenemos !== undefined && q.tenemos !== '' && q.faltan !== undefined && q.faltan !== '')));
-  function tabRep(){
-    const {A, r, ro} = F;
-    if (!A.rep.length) return `<div class="tf-aviso"><b>Todavía no compra marcas foco.</b> La reposición aparece cuando la marca ya está ingresada. Empezá por Ingreso.</div>`;
-    return `<p class="tf-intro">Para cada marca que el cliente ya trabaja: primero la foto de la góndola, después dos preguntas. Si alguna es <b>No</b>, anotá cuántas caras tenemos y cuántas faltan.</p>` + A.rep.map(x => {
-      const id = x.cat.id, ab = F.abierto === id, q = r.rep[id] || {}, ok = !!q.ok;
-      return `<section class="tf-cat ${ok ? 'listo' : ''}">
-        <button type="button" class="tf-cat-h" data-abrir="${id}" aria-expanded="${ab}">${logo(x.cat)}
-          <span class="tf-cat-i"><b>${esc(nombreCat(x.cat))}</b><small>${ok ? (q.ubic === 'si' && q.part === 'si' ? 'Bien ubicada y con su espacio' : `Falta corregir${q.faltan ? ' · faltan ' + q.faltan + ' caras' : ''}`) : esc(x.cat.ubic || '')}</small></span>
-          <span class="tf-est ${ok ? 'ok' : ''}">${ok ? '✓ Listo' : 'Pendiente'}</span></button>
-        ${ab ? `<div class="tf-cat-b">
-          <div class="tf-paso ${q.foto ? 'ok' : ''}"><i>${q.foto ? '✓' : '1'}</i>Foto de la góndola</div>
-          ${q.foto ? `<div class="tf-fotook"><img src="${esc(q.foto.url || q.foto)}" alt="Foto de la góndola">${ro ? '' : `<button type="button" data-foto="${id}">Sacar otra</button>`}</div>` : ro ? '<p class="tf-intro">Sin foto.</p>' : `<button type="button" class="tf-btnfoto" data-foto="${id}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Sacar foto</button>`}
-          <div class="tf-paso ${q.ubic && q.part ? 'ok' : ''}"><i>${q.ubic && q.part ? '✓' : '2'}</i>Control</div>
-          <div class="tf-preg"><span class="tf-preg-t">Ubicación</span><span class="tf-preg-q">${esc(x.cat.ubic || 'Según direccionamiento')}</span>${sino('ubic:' + id, q.ubic, ro)}</div>
-          <div class="tf-preg"><span class="tf-preg-t">Participación (espacio)</span><span class="tf-preg-q">${esc(x.cat.part || 'Según direccionamiento')}</span>${sino('part:' + id, q.part, ro)}</div>
-          ${q.ubic === 'no' || q.part === 'no' ? `<div class="tf-caras">
-            ${['tenemos', 'faltan'].map(k => `<div class="tf-num"><label for="tf-${k}-${id}">Caras que ${k}</label><div class="tf-step">${ro ? '' : `<button type="button" data-paso="${k}:${id}:-1" aria-label="Menos">−</button>`}<input id="tf-${k}-${id}" type="number" inputmode="numeric" min="0" data-numero="${k}:${id}" value="${q[k] ?? ''}" placeholder="0" ${ro ? 'readonly' : ''}>${ro ? '' : `<button type="button" data-paso="${k}:${id}:1" aria-label="Más">+</button>`}</div></div>`).join('')}
-          </div>` : ''}
-          <details class="tf-crit"><summary>Ver criterio de exhibición</summary><p>${esc(x.cat.crit || '—')}${x.cat.extra && !/no participa/i.test(x.cat.extra) ? '\n\nEspacio extra: ' + esc(x.cat.extra) : ''}</p></details>
-          ${ro ? '' : `<button type="button" class="tf-btn" data-listo="${id}" ${listoRep(q) ? '' : 'disabled'}>Guardar control</button>`}
+  function secRep(x){
+    const {r, ro} = F, id = x.cat.id, ab = F.abierto === id, q = r.rep[id] || {}, ok = !!q.ok;
+    return `<section class="tf-cat ${ok ? 'listo' : ''}" data-sec="${id}">
+      ${cabCat(x, `<small>${ok ? (q.ubic === 'si' && q.part === 'si' ? 'Bien ubicada y con su espacio' : `Falta corregir${q.faltan ? ' · faltan ' + q.faltan + ' caras' : ''}`) : esc(x.cat.ubic || '')}</small>`, ok ? '✓ Listo' : q.foto ? 'Con foto' : 'Sin foto', ok)}
+      ${ab ? `<div class="tf-cat-b">
+        <div class="tf-paso ${q.foto ? 'ok' : ''}"><i>${q.foto ? '✓' : '1'}</i>Foto de la góndola (obligatoria)</div>
+        ${q.foto ? `<div class="tf-fotook"><img src="${esc(q.foto.url || q.foto)}" alt="Foto de la góndola">${ro ? '' : `<button type="button" data-foto="${id}">Sacar otra</button>`}</div>` : ro ? '<p class="tf-intro">Sin foto.</p>' : `<button type="button" class="tf-btnfoto" data-foto="${id}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Sacar foto</button>`}
+        <div class="tf-paso ${q.ubic && q.part ? 'ok' : ''}"><i>${q.ubic && q.part ? '✓' : '2'}</i>Control</div>
+        <div class="tf-preg"><span class="tf-preg-t">Ubicación</span><span class="tf-preg-q">${esc(x.cat.ubic || 'Según direccionamiento')}</span>${sino('ubic:' + id, q.ubic, ro)}</div>
+        <div class="tf-preg"><span class="tf-preg-t">Participación (espacio)</span><span class="tf-preg-q">${esc(x.cat.part || 'Según direccionamiento')}</span>${sino('part:' + id, q.part, ro)}</div>
+        ${q.ubic === 'no' || q.part === 'no' ? `<div class="tf-caras">
+          ${['tenemos', 'faltan'].map(k => `<div class="tf-num"><label for="tf-${k}-${id}">Caras que ${k}</label><div class="tf-step">${ro ? '' : `<button type="button" data-paso="${k}:${id}:-1" aria-label="Menos">−</button>`}<input id="tf-${k}-${id}" type="number" inputmode="numeric" min="0" data-numero="${k}:${id}" value="${q[k] ?? ''}" placeholder="0" ${ro ? 'readonly' : ''}>${ro ? '' : `<button type="button" data-paso="${k}:${id}:1" aria-label="Más">+</button>`}</div></div>`).join('')}
         </div>` : ''}
-      </section>`;
-    }).join('');
+        <details class="tf-crit"><summary>Ver criterio de exhibición</summary><p>${esc(x.cat.crit || '—')}${x.cat.extra && !/no participa/i.test(x.cat.extra) ? '\n\nEspacio extra: ' + esc(x.cat.extra) : ''}</p></details>
+        ${ro ? '' : `<button type="button" class="tf-btn" data-listo="${id}" ${listoRep(q) ? '' : 'disabled'}>Guardar control</button>`}
+      </div>` : ''}
+    </section>`;
   }
 
-  function enlazar(){
-    const capa = $('tfCapa'), r = F.r, cod = F.cl[6];
-    $('tfX').onclick = cerrar;
-    capa.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { F.tab = b.dataset.tab; F.abierto = ''; pintar(); hoja().scrollTop = 0; });
-    capa.querySelectorAll('[data-abrir]').forEach(b => b.onclick = () => repintar(() => { F.abierto = F.abierto === b.dataset.abrir ? '' : b.dataset.abrir; }));
-    if (F.ro) return;
-    capa.querySelectorAll('.tf-sino button').forEach(b => b.onclick = () => repintar(() => {
-      const [t, id] = b.dataset.k.split(':'), v = b.dataset.v;
-      if (t === 'amp' || t === 'ing'){ const o = r[t][id] || (r[t][id] = {}); o.v = o.v === v ? '' : v; }
-      else { const o = r.rep[id] || (r.rep[id] = {}); o[t] = v; o.ok = false; }
-      guardar(cod, r);
-    }));
-    capa.querySelectorAll('[data-com]').forEach(i => i.oninput = () => { const [t, id] = i.dataset.com.split(':'); (r[t][id] || (r[t][id] = {})).com = i.value; guardar(cod, r); });
-    capa.querySelectorAll('[data-numero]').forEach(i => i.oninput = () => { const [k, id] = i.dataset.numero.split(':'), o = r.rep[id] || (r.rep[id] = {}); o[k] = i.value === '' ? '' : Math.max(0, +i.value); o.ok = false; guardar(cod, r); const btn = capa.querySelector(`[data-listo="${id}"]`); if (btn) btn.disabled = !listoRep(o); });
-    capa.querySelectorAll('[data-paso]').forEach(b => b.onclick = () => repintar(() => { const [k, id, d] = b.dataset.paso.split(':'), o = r.rep[id] || (r.rep[id] = {}); o[k] = Math.max(0, (+o[k] || 0) + +d); o.ok = false; guardar(cod, r); }));
-    capa.querySelectorAll('[data-listo]').forEach(b => b.onclick = () => repintar(() => { r.rep[b.dataset.listo].ok = true; F.abierto = ''; guardar(cod, r); toast('Control guardado'); }));
-    capa.querySelectorAll('[data-foto]').forEach(b => b.onclick = async () => {
-      const id = b.dataset.foto, cat = CAT[id], f = F;
-      if (!window.Fotos || !window.Fotos.tomarFoto) return;
-      const v = R_().vendedor;
-      const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [f.cl[2] + (f.cl[9] ? ' (' + f.cl[9] + ')' : ''), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, (v ? v.vc + ' ' + nom(v.vn).split(' ').slice(0, 2).join(' ') : '') + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
-      if (!fo || F !== f) return;
-      (fotosMem[cod] || (fotosMem[cod] = {}))[id] = fo;
-      const o = r.rep[id] || (r.rep[id] = {}); o.foto = fo; o.ok = false;
-      repintar();
+  // Un solo manejador para toda la ficha (no se vuelve a enlazar en cada toque)
+  function enlazarCapa(capa){
+    capa.addEventListener('click', async e => {
+      if (!F) return;
+      const t = e.target.closest('button'); if (!t || t.disabled) return;
+      const r = F.r, cod = F.cl[6], sec = t.closest('[data-sec]'), sid = sec && sec.dataset.sec;
+      if (t.hasAttribute('data-cerrar')) return cerrar();
+      if (t.dataset.tab){ F.tab = t.dataset.tab; F.abierto = ''; pintarTabs(); pintarCuerpo(); hoja().scrollTop = 0; return; }
+      if (t.dataset.abrir){
+        const antes = F.abierto; F.abierto = antes === t.dataset.abrir ? '' : t.dataset.abrir;
+        if (antes) pintarSec(antes); if (F.abierto) pintarSec(F.abierto); return;
+      }
+      if (t.hasAttribute('data-enviar')) return confirmarEnvio();
+      if (F.ro) return;
+      if (t.dataset.k){
+        const [k, id] = t.dataset.k.split(':'), v = t.dataset.v;
+        if (k === 'amp' || k === 'ing'){ const o = r[k][id] || (r[k][id] = {}); o.v = o.v === v ? '' : v; }
+        else { const o = r.rep[id] || (r.rep[id] = {}); o[k] = v; o.ok = false; }
+        guardar(cod, r); if (sid) pintarSec(sid); pintarTabs(); pintarPie(); return;
+      }
+      if (t.dataset.paso){
+        const [k, id, d] = t.dataset.paso.split(':'), o = r.rep[id] || (r.rep[id] = {});
+        o[k] = Math.max(0, (+o[k] || 0) + +d); o.ok = false; guardar(cod, r);
+        const inp = capa.querySelector(`[data-numero="${k}:${id}"]`); if (inp) inp.value = o[k];
+        const b = capa.querySelector(`[data-listo="${id}"]`); if (b) b.disabled = !listoRep(o);
+        return;
+      }
+      if (t.dataset.listo){ r.rep[t.dataset.listo].ok = true; F.abierto = ''; guardar(cod, r); pintarSec(t.dataset.listo); pintarTabs(); pintarPie(); toast('Control guardado'); return; }
+      if (t.dataset.foto){
+        const id = t.dataset.foto, cat = CAT[id], f = F, v = R_().vendedor;
+        if (!window.Fotos || !window.Fotos.tomarFoto) return;
+        const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [f.cl[2] + (f.cl[9] ? ' (' + f.cl[9] + ')' : ''), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, (v ? v.vc + ' ' + nom(v.vn).split(' ').slice(0, 2).join(' ') : '') + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
+        if (!fo || F !== f) return;
+        (fotosMem[cod] || (fotosMem[cod] = {}))[id] = fo;
+        const o = r.rep[id] || (r.rep[id] = {}); o.foto = fo; o.ok = false;
+        pintarSec(id); pintarTabs();
+      }
     });
-    const env = $('tfEnviar'); if (env) env.onclick = confirmarEnvio;
+    capa.addEventListener('input', e => {
+      if (!F || F.ro) return;
+      const i = e.target, r = F.r, cod = F.cl[6];
+      if (i.dataset.com){ const [k, id] = i.dataset.com.split(':'); (r[k][id] || (r[k][id] = {})).com = i.value; guardar(cod, r); }
+      if (i.dataset.numero){ const [k, id] = i.dataset.numero.split(':'), o = r.rep[id] || (r.rep[id] = {}); o[k] = i.value === '' ? '' : Math.max(0, +i.value); o.ok = false; guardar(cod, r); const b = capa.querySelector(`[data-listo="${id}"]`); if (b) b.disabled = !listoRep(o); }
+    });
   }
 
   function confirmarEnvio(){

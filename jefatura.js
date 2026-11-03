@@ -138,18 +138,31 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
   const ultimoDia = () => DATES[DATES.length - 1] || '';
   const HOY = (() => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); })();
 
+  // Barra del cruce: cuántas visitas coinciden con el vendedor, con diferencia de horario o en otro cliente
+  function barraCruce(cc){
+    if (!cc.base) return '';
+    const p = k => Math.round(cc[k] / cc.base * 100), dist = cc.dist + cc.nov;
+    return `<div class="jc-bar" role="img" aria-label="Cruce con vendedores"><i class="ok" style="width:${p('ok')}%"></i><i class="hora" style="width:${p('hora')}%"></i><i class="dist" style="width:${Math.round(dist / cc.base * 100)}%"></i></div>
+      <div class="jc-ley"><span class="ok">✓ ${cc.ok} coinciden</span><span class="hora">⏱ ${cc.hora} otro horario</span><span class="dist">✗ ${dist} otro cliente</span></div>`;
+  }
   function detalleDia(x){
     const xs = x.rs.slice().sort((a, b) => (a.ini ?? 0) - (b.ini ?? 0));
-    let h = `<div class="jf-linea">`;
+    const i0 = Math.min(...xs.map(r => r.ini ?? Infinity)), f0 = Math.max(...xs.map(r => r.fin ?? -Infinity)), jor = isFinite(i0) && isFinite(f0) ? f0 - i0 : 0;
+    const cc = cuentaCruce(xs);
+    let h = `<div class="jd-res">
+      <div><b>${isFinite(i0) ? hora(i0) + '–' + hora(f0) : '—'}</b><small>jornada${jor ? ' · ' + hm(jor) : ''}</small></div>
+      <div><b>${hm(x.enCli)}</b><small>en clientes${jor ? ' · ' + Math.round(x.enCli / jor * 100) + '%' : ''}</small></div>
+      <div><b>${xs.length}</b><small>${xs.length === 1 ? 'visita' : 'visitas'}</small></div>
+    </div>${cc.base ? `<div class="jd-cruce"><small>Cruce con el vendedor de cada cartera</small>${barraCruce(cc)}</div>` : ''}<div class="jd-lista">`;
     xs.forEach((r, i) => {
-      const corta = r.seg < VISITA_CORTA_MINUTOS * 60;
+      const corta = r.seg < VISITA_CORTA_MINUTOS * 60, c = cruce(r);
       const viaje = i && xs[i - 1].fin != null && r.ini != null ? r.ini - xs[i - 1].fin : null;
-      if (viaje && viaje > 60) h += `<div class="jf-viaje">${hm(viaje)} de traslado</div>`;
-      h += `<div class="jf-vis ${corta ? 'corta' : ''}">
-        <div class="jf-hora"><b>${r.ini != null ? hora(r.ini) : '—'}</b><small>${r.fin != null ? hora(r.fin) : ''}</small></div>
-        <div class="jf-punto"></div>
-        <div class="jf-info"><b>${esc(r.cli)}</b><small>${r.code ? esc(r.code) + ' · ' : ''}${esc(r.cartera)}${nombreCartera(r.cartera) ? ' (' + esc(nombreCartera(r.cartera)) + ')' : ''}${r.ciudad ? ' · ' + esc(r.ciudad) : ''}</small>${(() => { const c = cruce(r); return `<span class="jf-cruce c-${c.t}">${ICO_C[c.t]} ${esc(c.txt)}</span>`; })()}</div>
-        <div class="jf-dur ${corta ? 'corta' : ''}">${hm(r.seg)}</div>
+      if (viaje && viaje > 60) h += `<div class="jd-viaje">${hm(viaje)} de traslado</div>`;
+      h += `<div class="jd-vis c-${c.t}">
+        <div class="jd-h"><b>${r.ini != null ? hora(r.ini) : '—'}${r.fin != null ? '–' + hora(r.fin) : ''}</b><span class="jd-dur ${corta ? 'corta' : ''}">${hm(r.seg)}${corta ? ' · corta' : ''}</span></div>
+        <div class="jd-n">${esc(r.cli)}</div>
+        <div class="jd-s">${r.code ? esc(r.code) + ' · ' : ''}${esc(r.cartera)}${nombreCartera(r.cartera) ? ' ' + esc(nombreCartera(r.cartera)) : ''}${r.ciudad ? ' · ' + esc(r.ciudad) : ''}</div>
+        <div class="jd-c"><span class="jd-chip">${ICO_C[c.t]} ${esc(c.corto)}</span>${c.det ? `<span class="jd-det">${esc(c.det)}</span>` : ''}</div>
       </div>`;
     });
     return h + `</div>`;
@@ -158,18 +171,18 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
   const aSeg = h => { const m = String(h || '').match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 3600 + +m[2] * 60 : null; };
   function cruce(r){
     const V = window.Visitas;
-    if (!V || !V.tieneDia || !V.tieneDia(r.d)) return {t: 'sd', txt: 'Sin marcaciones de vendedores de ese día'};
+    if (!V || !V.tieneDia || !V.tieneDia(r.d)) return {t: 'sd', txt: 'Sin marcaciones de vendedores de ese día', corto: 'Sin datos del vendedor', det: 'Todavía no se subió el Excel de visitas de ese día'};
     const ms = V.marcasDe(r.cartera, r.d) || [];
-    if (!ms.length) return {t: 'nov', txt: 'El vendedor no marcó ningún cliente ese día'};
+    if (!ms.length) return {t: 'nov', txt: 'El vendedor no marcó ningún cliente ese día', corto: 'Vendedor sin marcar', det: 'El vendedor no marcó ningún cliente ese día'};
     const m = ms.find(x => x.code && x.code === r.code);
     if (m){
       const dv = aSeg(m.h1), dif = r.ini != null && dv != null ? Math.abs(dv - r.ini) : 0;
       const hv = (m.h1 || '') + (m.h2 && m.h2 !== m.h1 ? '–' + m.h2 : '');
-      return dif <= TOLERANCIA_MINUTOS * 60 ? {t: 'ok', txt: 'Coincide · el vendedor marcó ' + hv} : {t: 'hora', txt: `Diferencia de horario · el vendedor marcó ${hv} (${hm(dif)} de diferencia)`};
+      return dif <= TOLERANCIA_MINUTOS * 60 ? {t: 'ok', txt: 'Coincide · el vendedor marcó ' + hv, corto: 'Coincide', det: 'Vendedor: ' + hv} : {t: 'hora', txt: `Diferencia de horario · el vendedor marcó ${hv} (${hm(dif)} de diferencia)`, corto: hm(dif) + ' de diferencia', det: 'Vendedor: ' + hv};
     }
     let cerca = null;
     ms.forEach(x => { const s = aSeg(x.h1); if (s == null || r.ini == null) return; const dd = Math.abs(s - r.ini); if (!cerca || dd < cerca.dd) cerca = Object.assign({dd}, x); });
-    return {t: 'dist', txt: 'Cliente distinto · el vendedor no marcó este cliente' + (cerca ? ` · a esa hora estaba en ${cerca.nombre} (${cerca.h1})` : '')};
+    return {t: 'dist', txt: 'Cliente distinto · el vendedor no marcó este cliente' + (cerca ? ` · a esa hora estaba en ${cerca.nombre} (${cerca.h1})` : ''), corto: 'Otro cliente', det: cerca ? `El vendedor a esa hora estaba en ${cerca.nombre} (${cerca.h1})` : 'El vendedor no marcó este cliente'};
   }
   function cuentaCruce(rs){
     const c = {ok: 0, hora: 0, dist: 0, nov: 0, sd: 0}; rs.forEach(r => c[cruce(r).t]++);
@@ -187,7 +200,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     }).join('');
     const porCart = new Map(); x.rs.forEach(r => porCart.set(r.cartera, (porCart.get(r.cartera) || 0) + 1));
     const cm = cuentaCruce(x.rs);
-    if (cm.base) h += `<div class="jf-cruce-res"><b>Cruce con vendedores:</b> ${cm.ok} coinciden · ${cm.hora} con diferencia de horario · ${cm.dist + cm.nov} con cliente distinto <span>(${Math.round(cm.ok / cm.base * 100)}% coincide)</span></div>`;
+    if (cm.base) h += `<div class="jd-cruce"><small>Cruce con el vendedor de cada cartera</small>${barraCruce(cm)}</div>`;
     h += `<div class="vs-sec ot">Carteras que acompañó <b>${porCart.size}</b><small>Visitas</small></div>`;
     h += [...porCart.entries()].sort((a, b) => b[1] - a[1]).map(([vc, n]) => `<div class="vs-cli"><div class="vs-cli-n">${esc(vc)} <small>${esc(nombreCartera(vc))}</small></div><span class="vs-h">${n}</span></div>`).join('');
     return h;
@@ -236,18 +249,19 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
           <div><b>${hm(T.e)}</b><span>en clientes</span></div>
           <div><b>${T.v ? Math.round(T.e / T.v / 60) : 0} min</b><span>por visita</span></div>
         </div>
-        ${CT.base ? `<p class="jf-cruce-tot"><b>Cruce con vendedores:</b> <span class="c-ok">✓ ${CT.ok} coinciden</span> <span class="c-hora">⏱ ${CT.hora} diferencia de horario</span> <span class="c-dist">✗ ${CT.dist + CT.nov} cliente distinto</span></p>` : ''}
+        ${CT.base ? `<div class="jd-cruce"><small>Cruce con vendedores</small>${barraCruce(CT)}</div>` : ''}
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
-        const sub = (esDia ? (x.visitas ? `${x.visitas} visitas · ${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))} a ${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))}` : 'Sin marcaciones este día') : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`) + (cc.base ? ` · coincide con el vendedor ${cc.ok} de ${cc.base}` : '');
+        const sub = esDia ? (x.visitas ? `${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))}–${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))} · ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}` : 'Sin marcaciones este día') : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
+        const chipC = cc.base ? `<span class="jf-cc ${cc.ok / cc.base >= .7 ? 'ok' : cc.ok / cc.base >= .4 ? 'mid' : 'bad'}">✓ ${cc.ok}/${cc.base} coinciden</span>` : '';
         return `<article class="vs-v jf-v ${abierto ? 'open' : ''} ${x.visitas ? '' : 'vacio'}" data-sup="${esc(f.s.k)}">
           <button type="button" class="vs-v-head" aria-expanded="${abierto}">
             <span class="vs-v-info">
               <span class="vs-v-n">${esc(lbl(f.s.k))} · ${esc(f.s.n.split(' ').length > 3 ? f.s.n.split(' ').slice(0, 1).concat(f.s.n.split(' ').slice(-2, -1)).join(' ') : f.s.n)}</span>
-              <span class="vs-v-s">${esc(sub)}</span>
+              <span class="vs-v-s">${esc(sub)} ${chipC}</span>
               <span class="vs-bar"><i class="good" style="width:${Math.round(x.enCli / maxE * 100)}%"></i></span>
             </span>
             <span class="jf-der"><b>${hm(x.enCli)}</b><small>en clientes</small>${x.cortas ? `<em>${x.cortas} cortas</em>` : ''}</span>

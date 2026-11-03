@@ -31,6 +31,10 @@ const CLAVE_JEFATURA = 'jefatura2026';
 // =====================================================================
 const PM_TOP = ["13.1", "13.2", "13.5", "21.1", "12.1", "12.2"];
 
+// Vendedores mixtos (marcan por Trentino y por Apolo): sus visitas por Apolo se suman
+// a su cartera TR. Si se agrega uno nuevo, sumalo a la lista.
+const MIXTOS = ["TR1621", "TR1737", "TR1821", "TR1933", "TR1934"];
+
 // Clientes que NO son top aunque tengan uno de esos PM (código del subcliente)
 const TOP_EXCLUIR = [
   "3136-30",   // COOPERATIVA CHORTITZER LTDA - ITA
@@ -46,3 +50,8 @@ const TOP_EXCLUIR = [
 // =====================================================================
 const FOTOS_URL = "https://script.google.com/macros/s/AKfycbwD4J2ho6VOFvZ2TAgkJYiM4ZZIusm7xXcmj3kJNp_JWjVHCNnj3ERJ5mTDxL7HAmxLPw/exec";
 const FOTOS_CLAVE = "trentino-fotos-2026";
+
+// Carpeta de Google Drive con las imágenes de las marcas y productos (ficha TOP).
+// Logos: un archivo con el nombre de la marca (ej. "Menoyo.png").
+// Productos: el nombre empieza con el código del artículo (ej. "5033.jpg").
+const MARCAS_CARPETA = "1mGNL79KR9Mpu_MEDXRj5Dtx6xCuQIAZG";

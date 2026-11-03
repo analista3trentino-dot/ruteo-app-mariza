@@ -655,7 +655,14 @@
     };
     const s = $('poSeguir'); if (s) s.onclick = cerrar;
     rol = '';
-    box.querySelectorAll('.po-btn').forEach(b => b.onclick = () => {
+    const opcHTML = box.querySelector('.po-opc').innerHTML;
+    // volver de la lista de equipos a las tres opciones (botón "‹ Volver" o el "atrás" del celular)
+    volverOpc = () => {
+      const o = box.querySelector('.po-opc'); if (!o) return;
+      o.innerHTML = opcHTML; $('poClave').hidden = true; rol = '';
+      enlazarOpc();
+    };
+    const enlazarOpc = () => box.querySelectorAll('.po-opc .po-btn').forEach(b => b.onclick = () => {
       rol = b.dataset.rol;
       box.querySelectorAll('.po-btn').forEach(x => x.classList.toggle('on', x === b));
       if (rol === 'vend'){ $('poClave').hidden = true; elegirCartera(); return; }
@@ -664,6 +671,7 @@
       $('poClaveLbl').textContent = 'Clave de jefatura';
       $('poErr').hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
     });
+    enlazarOpc();
     $('poClave').onsubmit = e => {
       e.preventDefault();
       const clave = rol === 'jef' ? CLAVE_J : claveSup(rol);
@@ -677,11 +685,15 @@
     };
   }
   // El supervisor elige su equipo (así recibe solo sus avisos)
+  let volverOpc = null;
   function elegirEquipo(){
     const box = $('portada'); if (!box) return;
     $('poClave').hidden = true;
     const opc = box.querySelector('.po-opc');
-    opc.innerHTML = `<p class="po-o" style="margin-top:0">¿Cuál es tu equipo?</p>` + sups.map(s => `<button type="button" class="po-btn" data-sup="${esc(s.k)}"><span class="po-ic" style="color:${supColor[s.k]}">${ICO_P.sup}</span><span><b>${esc(s.p)}</b><small>${esc(NOMBRE_SUP(s.k) || 'Supervisor')}</small></span></button>`).join('');
+    const atras = () => { if (tope() === 'portada-eq') volver(); else if (volverOpc) volverOpc(); };
+    if (tope() !== 'portada-eq') apilar('', () => { if (volverOpc) volverOpc(); }, true, 'portada-eq');
+    opc.innerHTML = `<button type="button" class="po-volver" id="poVolver"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Volver</button><p class="po-o" style="margin-top:0">¿Cuál es tu equipo?</p>` + sups.map(s => `<button type="button" class="po-btn" data-sup="${esc(s.k)}"><span class="po-ic" style="color:${supColor[s.k]}">${ICO_P.sup}</span><span><b>${esc(s.p)}</b><small>${esc(NOMBRE_SUP(s.k) || 'Supervisor')}</small></span></button>`).join('');
+    $('poVolver').onclick = atras;
     opc.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => {
       const k = b.dataset.sup;
       opc.querySelectorAll('[data-sup]').forEach(x => x.classList.toggle('on', x === b));

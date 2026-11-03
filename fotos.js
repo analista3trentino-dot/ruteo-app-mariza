@@ -630,5 +630,6 @@
     return j;
   }
 
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe};
+  const compeSemana = () => { const desde = lunes(new Date()); return compe().filter(r => r.Fecha >= desde); };
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe, compeSemana};
 })();
