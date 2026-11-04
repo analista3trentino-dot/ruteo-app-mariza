@@ -348,7 +348,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <button type="button" class="vs-v-head" aria-expanded="${abierto}">
           <span class="vs-v-info">
             <span class="vs-v-n ${vac ? 'vac' : ''}">${esc(vac ? 'Cartera vacante' : f.c.vn)}</span>
-            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}${esDia && f.x.horas && f.x.horas.jornada ? ` · ${hmin(f.x.horas.jornada)} trabajadas` : ''}${esDia && f.x.horas && f.x.horas.apolo ? ` · ${f.x.horas.apolo} por Apolo` : ''}${isMix(f.c) ? ' · ⇄ mixto' : ''}</span>
+            <span class="vs-v-s">${esc(f.c.vc)}${spv === 'TODOS' ? ' · ' + esc(RU.supLabel[f.c.sup] || '') : ''} · ${esDia ? `${f.a} de ${f.b} clientes` : `${f.va} de ${f.vb} visitas`}${esDia && f.x.horas && f.x.horas.jornada ? ` · ${hmin(f.x.horas.jornada)} trabajadas` : ''}${esDia && f.x.horas && f.x.horas.apolo ? ` · ${f.x.horas.apolo} por Apolo` : ''}${isMix(f.c) ? ' · ⇄ mixto' : ''}</span>${esDia && window.Anomalias ? window.Anomalias.etiqueta(f.c.vc, ui.dia) : ''}
           </span>
           <b class="vs-v-p ${tono(q)}">${q === null ? '—' : q + '%'}</b>
         </button>
@@ -370,12 +370,11 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <div class="vs-bar big"><i class="${tono(P)}" style="width:${P || 0}%"></i></div>
         <p class="vs-linea">${linea}</p>
       </div>
-      ${(() => { const mx = carts.filter(isMix); return mx.length && !apoloMes.has(ui.mes) ? `<div class="vs-apolo-falta"><b>Faltan las marcaciones de Apolo de ${esc(mesNombre(ui.mes).toLowerCase())}</b> de los vendedores mixtos (${esc(mx.map(c => c.vc).join(', '))}). Por eso sus visitas por Apolo no se suman todavía. Para sumarlas, subí también el Excel de visitas de los vendedores mixtos de Apolo (AR1621, AR1737, AR1821, AR1933, AR1934), igual que el de octubre.</div>` : ''; })()}
+      ${yo ? '' : '<div id="anVis"></div>'}
       ${supHtml}
       ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
       ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : esSem ? 'esta semana' : 'este mes'}</b></div>`}`}
-      ${vacantes.length ? `<p class="tv-note">Solo se cuentan carteras con vendedor. No se incluyen ${vacantes.length} ${vacantes.length === 1 ? 'cartera vacante' : 'carteras vacantes'}: ${esc(vacantes.map(c => c.vc).join(', '))}.</p>` : ''}
     </div>`;
 
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abiertos.clear(); pintar(); });
@@ -388,12 +387,13 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       ui.abiertos.has(vc) ? ui.abiertos.delete(vc) : ui.abiertos.add(vc);
       pintar();
     });
+    if (window.Anomalias && $('anVis')) window.Anomalias.en($('anVis'));
     const chipOn = box.querySelector('.vs-dchip.on'); if (chipOn) chipOn.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 
   function barraArchivo(){
     const A = window.Archivos;
-    const vac = vacios.length ? `<span class="ar-vacio">⚠ ${vacios.length === 1 ? 'Un Excel subido' : vacios.length + ' Excel subidos'} después de este está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => A.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel en la computadora, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : '';
+    const vac = false ? `<span class="ar-vacio">⚠ ${vacios.length === 1 ? 'Un Excel subido' : vacios.length + ' Excel subidos'} después de este está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => A.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel en la computadora, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : '';
     return vac + `<p class="ar-info">${usado && A ? esc(A.etiqueta(usado)) : ''}${usadoApolo && A ? ' · Apolo: ' + esc(A.etiqueta(usadoApolo)) : ''}${A && A.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
   }
   document.addEventListener('click', e => {

@@ -97,7 +97,7 @@
 
   let promesa = null;
   const S = window.Stock = {
-    listo: false, error: '', actual: null, anterior: null, fecha: null, fechaAnt: null, archivo: '',
+    listo: false, error: '', minimo: typeof STOCK_MINIMO !== 'undefined' ? +STOCK_MINIMO : 1000, actual: null, anterior: null, fecha: null, fechaAnt: null, archivo: '',
     cargar(){
       if (!promesa) promesa = (async () => {
         const fs = await window.Archivos.buscar('stock', 2);
@@ -119,7 +119,8 @@
         if (!ok(c)) return;
         const a = (S.actual[c] || [0])[0], b = (S.anterior[c] || [0])[0];
         const desc = (S.actual[c] || S.anterior[c] || [0, ''])[1];
-        if (a > 0 && b <= 0) repo.push({c, desc, q: a});
+        // Reposición: recién cuando supera las 1000 unidades (antes tenía menos)
+        if (a >= S.minimo && b < S.minimo) repo.push({c, desc, q: a});
         if (a <= 0 && b > 0) sin.push({c, desc});
       });
       return {repo, sin};

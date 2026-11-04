@@ -269,7 +269,7 @@ const LISTAS_PRECIOS = [
     return `<article class="pv-item">
       <div class="pv-info">
         <div class="pv-desc">${resaltar(p.desc)}</div>
-        <div class="pv-meta">${(() => { const S = STK(); if (!S) return ''; const q = S.de(p.cod); return q > 0 ? `<span class="pv-stock ok">Stock ${Math.round(q).toLocaleString('es-PY')}</span>` : '<span class="pv-stock no">Sin stock</span>'; })()}<span class="pv-ref">${resaltar(p.ref)}</span><span class="pv-cod">${resaltar(p.cod)}</span>${p.pagina ? `<button type="button" class="pv-cat" data-p="${p.pagina}" aria-label="Ver ${esc(p.marca)} en el catálogo, página ${p.pagina}">${ICON_LIBRO}<span>Catálogo</span></button>` : ''}</div>
+        <div class="pv-meta">${(() => { const S = STK(); if (!S) return ''; const q = S.de(p.cod); return q >= S.minimo ? `<span class="pv-stock ok">Stock ${Math.round(q).toLocaleString('es-PY')}</span>` : q > 0 ? `<span class="pv-stock no">Stock bajo · ${Math.round(q).toLocaleString('es-PY')}</span>` : '<span class="pv-stock no">Sin stock</span>'; })()}<span class="pv-ref">${resaltar(p.ref)}</span><span class="pv-cod">${resaltar(p.cod)}</span>${p.pagina ? `<button type="button" class="pv-cat" data-p="${p.pagina}" aria-label="Ver ${esc(p.marca)} en el catálogo, página ${p.pagina}">${ICON_LIBRO}<span>Catálogo</span></button>` : ''}</div>
       </div>
       ${precios}
     </article>`;

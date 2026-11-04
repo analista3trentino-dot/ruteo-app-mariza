@@ -31,6 +31,10 @@ const CLAVE_JEFATURA = 'jefatura2026';
 // =====================================================================
 const PM_TOP = ["13.1", "13.2", "13.5", "21.1", "12.1", "12.2"];
 
+// Stock: un producto cuenta como "reposición" recién cuando supera estas unidades.
+// Con menos, en la lista de precios aparece en rojo (stock bajo).
+const STOCK_MINIMO = 1000;
+
 // Vendedores mixtos (marcan por Trentino y por Apolo): sus visitas por Apolo se suman
 // a su cartera TR. Si se agrega uno nuevo, sumalo a la lista.
 const MIXTOS = ["TR1621", "TR1737", "TR1821", "TR1933", "TR1934"];

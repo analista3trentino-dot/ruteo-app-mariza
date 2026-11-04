@@ -10,7 +10,8 @@ const CLAVE_APP = 'trentino-fotos-2026';
 const CARPETA = 'Fotos Ruteo TR1';
 const MESES = ['01 Enero','02 Febrero','03 Marzo','04 Abril','05 Mayo','06 Junio','07 Julio','08 Agosto','09 Septiembre','10 Octubre','11 Noviembre','12 Diciembre'];
 const COL_FOTOS = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Tipo','Comentario','Enlace','ID'];
-const COL_GEST = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Acción','Marca','Categoría','Producto','Cód. artículo','Respuesta','Caras tenemos','Caras faltan','Comentario','Enlace foto','ID'];
+const COL_GEST = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Acción','Marca','Categoría','Producto','Cód. artículo','Respuesta','Caras tenemos','Caras faltan','Comentario','Enlace foto','ID','Cargado por'];
+const COL_ANOM = ['Fecha','Supervisor','Vendedor','Nombre vendedor','Anomalía','Motivo','Justificó','Comentario','Enlace adjunto','ID','Registrado','Actualizado','Cargado por'];
 const COL_COMPE = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Qué vio','Empresa/Marca','Producto','Precio Gs.','Cliente','Comentario','Enlace foto','ID'];
 
 // 1) Tocá ▶ Ejecutar con esta función elegida la primera vez: crea la carpeta y la planilla y pide los permisos.
@@ -41,11 +42,12 @@ function planilla() {
     h2.appendRow(COL_COMPE); h2.setFrozenRows(1); h2.getRange(1, 1, 1, COL_COMPE.length).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
     props.setProperty('PLANILLA', ss.getId());
   }
-  // hoja de la gestión de clientes TOP (ampliación, reposición, ingreso)
-  if (!ss.getSheetByName('Gestion TOP')){
-    const h3 = ss.insertSheet('Gestion TOP');
-    h3.appendRow(COL_GEST); h3.setFrozenRows(1); h3.getRange(1, 1, 1, COL_GEST.length).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
-  }
+  // hojas de la gestión de clientes TOP y de anomalías (se crean o se completan los títulos si faltan)
+  [['Gestion TOP', COL_GEST], ['Anomalias', COL_ANOM]].forEach(([nombre, cols]) => {
+    let h = ss.getSheetByName(nombre);
+    if (!h){ h = ss.insertSheet(nombre); h.setFrozenRows(1); }
+    if (h.getLastColumn() < cols.length || String(h.getRange(1, 1).getValue()) !== cols[0]) h.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
+  });
   return ss;
 }
 const json = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
@@ -58,10 +60,28 @@ function doPost(e) {
     const d = JSON.parse(e.postData.contents);
     if (d.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
     const f = new Date(d.fecha || Date.now());
+    // Anomalía de un vendedor (la carga el supervisor). Si trae id, se actualiza la misma fila.
+    if (d.anomalia){
+      const T3 = v => "'" + String(v == null ? '' : v), ahora = Utilities.formatDate(new Date(), tz(), 'yyyy-MM-dd HH:mm');
+      let enlace = d.enlaceAnterior || '';
+      if (d.imagen){
+        const fc = sub(sub(raiz(), 'Anomalias'), String(d.dia || '').slice(0, 7) || 'sin fecha');
+        const file = fc.createFile(Utilities.newBlob(Utilities.base64Decode(d.imagen), d.mime || 'image/jpeg', (d.dia || '') + '_' + d.vendedor + '_' + String(d.tipo || '').toLowerCase().replace(/[^a-z]/g, '') + (d.ext || '.jpg')));
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); enlace = file.getUrl();
+      }
+      const sh = planilla().getSheetByName('Anomalias');
+      let fila = 0;
+      if (d.id){ const ids = sh.getRange(1, 10, Math.max(1, sh.getLastRow()), 1).getDisplayValues(); for (let i = ids.length - 1; i >= 1; i--) if (ids[i][0] === d.id){ fila = i + 1; break; } }
+      const id = d.id || Utilities.getUuid().slice(0, 8);
+      const reg = fila ? sh.getRange(fila, 11).getDisplayValue() : ahora;
+      const vals = [[T3(d.dia), T3(d.sup), T3(d.vendedor), T3(d.nomVendedor), T3(d.tipo), T3(d.motivo), T3(d.justifico), T3(d.comentario), enlace, T3(id), T3(reg), T3(ahora), T3(d.cargadoPor)]];
+      if (fila) sh.getRange(fila, 1, 1, COL_ANOM.length).setValues(vals); else sh.getRange(sh.getLastRow() + 1, 1, 1, COL_ANOM.length).setValues(vals);
+      return json({ok: true, id: id, enlace: enlace});
+    }
     // Gestión de un cliente TOP: varias filas de una vez
     if (d.gestion){
       const T2 = v => "'" + String(v == null ? '' : v), dia2 = Utilities.formatDate(f, tz(), 'yyyy-MM-dd'), hora2 = Utilities.formatDate(f, tz(), 'HH:mm'), id2 = Utilities.getUuid().slice(0, 8);
-      const filas = (d.filas || []).map(x => [T2(dia2), T2(hora2), T2(d.sup), T2(d.vendedor), T2(d.nomVendedor), T2(d.cliente), T2(d.codigo), T2(d.pm), T2(x.accion), T2(x.marca), T2(x.categoria), T2(x.producto), T2(x.art), T2(x.resp), x.tenemos === '' || x.tenemos == null ? '' : +x.tenemos, x.faltan === '' || x.faltan == null ? '' : +x.faltan, T2(x.com), x.enlace || '', T2(id2)]);
+      const filas = (d.filas || []).map(x => [T2(dia2), T2(hora2), T2(d.sup), T2(d.vendedor), T2(d.nomVendedor), T2(d.cliente), T2(d.codigo), T2(d.pm), T2(x.accion), T2(x.marca), T2(x.categoria), T2(x.producto), T2(x.art), T2(x.resp), x.tenemos === '' || x.tenemos == null ? '' : +x.tenemos, x.faltan === '' || x.faltan == null ? '' : +x.faltan, T2(x.com), x.enlace || '', T2(id2), T2(d.cargadoPor)]);
       if (filas.length){ const sh = planilla().getSheetByName('Gestion TOP'); sh.getRange(sh.getLastRow() + 1, 1, filas.length, COL_GEST.length).setValues(filas); }
       return json({ok: true, id: id2, filas: filas.length});
     }
@@ -103,6 +123,11 @@ function doGet(e) {
   out.fotos = leer('Fotos', COL_FOTOS);
   out.compe = leer('Competencia', COL_COMPE);
   out.gestion = leer('Gestion TOP', COL_GEST);
+  // anomalías: los últimos 100 días (para el histórico del mes)
+  const desdeA = Utilities.formatDate(new Date(Date.now() - 100 * 864e5), tz(), 'yyyy-MM-dd');
+  const va = ss.getSheetByName('Anomalias').getDataRange().getValues(); va.shift();
+  out.anomalias = va.map(r => Object.fromEntries(COL_ANOM.map((c, i) => [c, r[i] instanceof Date ? Utilities.formatDate(r[i], tz(), 'yyyy-MM-dd') : String(r[i])])))
+    .filter(r => r.Fecha >= desdeA && (!q.sup || q.sup === 'TODOS' || r.Supervisor === q.sup) && (!q.vendedor || r.Vendedor === q.vendedor)).reverse();
   return json(out);
 }
 

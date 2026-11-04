@@ -60,15 +60,24 @@
         if (!j || !j.ok) throw new Error(j && j.error === 'clave' ? 'La clave de fotos no coincide (FOTOS_CLAVE)' : 'Respuesta inválida');
         datos = j; datosT = Date.now(); errorCarga = '';
         // lo que ya llegó a Drive deja de ser "local"
-        for (let i = locales.length - 1; i >= 0; i--){ const L = locales[i]; if (L.gest){ if ((j.gestion || []).some(r => r.ID === L.ID)) locales.splice(i, 1); continue; } if ((L.compe ? j.compe : j.fotos).some(r => idDe(r) && idDe(r) === L.ID)) locales.splice(i, 1); }
+        for (let i = locales.length - 1; i >= 0; i--){ const L = locales[i]; if (L.anom){ if ((j.anomalias || []).some(r => r.ID === L.ID && r.Actualizado >= L.Actualizado)) locales.splice(i, 1); continue; } if (L.gest){ if ((j.gestion || []).some(r => r.ID === L.ID)) locales.splice(i, 1); continue; } if ((L.compe ? j.compe : j.fotos).some(r => idDe(r) && idDe(r) === L.ID)) locales.splice(i, 1); }
         return j;
       })
       .catch(e => { errorCarga = e.message || String(e); throw e; })
       .finally(() => { pend = null; });
     return pend;
   }
-  const fotos = () => locales.filter(l => !l.compe && !l.gest).concat(datos ? datos.fotos : []);
+  const fotos = () => locales.filter(l => !l.compe && !l.gest && !l.anom).concat(datos ? datos.fotos : []);
   const compe = () => locales.filter(l => l.compe).concat(datos ? datos.compe : []);
+  // Anomalías (las carga el supervisor): lo de esta sesión reemplaza a lo de Drive con el mismo ID
+  const anomalias = () => { const loc = locales.filter(l => l.anom), ids = new Set(loc.map(l => l.ID)); return loc.concat((datos && datos.anomalias ? datos.anomalias : []).filter(r => !ids.has(r.ID))); };
+  async function enviarAnomalia(m){
+    const j = await enviar(Object.assign({anomalia: true}, m));
+    for (let i = locales.length - 1; i >= 0; i--) if (locales[i].anom && locales[i].ID === j.id) locales.splice(i, 1);
+    const ahora = new Date(), reg = iso(ahora) + ' ' + p2(ahora.getHours()) + ':' + p2(ahora.getMinutes());
+    locales.unshift({anom: true, ID: j.id, Fecha: m.dia, Supervisor: m.sup, Vendedor: m.vendedor, 'Nombre vendedor': m.nomVendedor, 'Anomalía': m.tipo, Motivo: m.motivo, 'Justificó': m.justifico, Comentario: m.comentario, 'Enlace adjunto': j.enlace || m.enlaceAnterior || '', _local: m._local || '', Registrado: m.registrado || reg, Actualizado: reg, 'Cargado por': m.cargadoPor});
+    return j;
+  }
   const gestion = () => locales.filter(l => l.gest).concat(datos && datos.gestion ? datos.gestion : []);
   // Fichas TOP enviadas esta semana (por vendedor|código): fecha de la última
   function fichasSemana(){
@@ -324,7 +333,9 @@
     const attrs = `data-fx-vc="${esc(c.vc)}" data-fx-cod="${esc(cl[6])}"`;
     const chips = rs ? `<span class="fx-fchips"><span class="fx-fc amp">${rs.amp} ampliar</span><span class="fx-fc rep">${rs.rep} reposición</span><span class="fx-fc ing">${rs.ing} ingresar</span></span>` : '';
     const est = f ? `<span class="fx-fok">${IC.ok}Ficha enviada ${diaC(f)}</span>` : f === '' ? `<span class="fx-fpend">Ficha pendiente esta semana</span>` : '';
-    if (R().modo === 'vendedor') return `<div class="fx-ficha" ${attrs}><button type="button" class="fx-fbtn${f ? ' hecho' : ''}" data-tf-abrir>${f ? IC.ok : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>'}<span>${f ? 'Ver ficha TOP' : 'Completar ficha TOP'}</span></button>${chips}${est}</div>`;
+    // La ficha la completa el supervisor; el vendedor no la ve
+    if (R().modo === 'vendedor') return '';
+    if (R().modo === 'supervisor') return `<div class="fx-ficha" ${attrs}><button type="button" class="fx-fbtn${f ? ' hecho' : ''}" data-tf-abrir>${f ? IC.ok : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.5L12 17.3l-5.9 3.2 1.3-6.5L2.5 9.4l6.6-.8z"/></svg>'}<span>${f ? 'Ficha enviada · abrir' : 'Completar ficha TOP'}</span></button>${chips}${est}</div>`;
     return `<div class="fx-ficha ver" ${attrs}>${est || chips}<button type="button" class="fx-vermb" data-tf-abrir>Ver ficha</button></div>`;
   }
 
@@ -333,7 +344,8 @@
   function bannerRuta(current, dia, hoy){
     if (!URL_F) return '';
     const r = R();
-    if (r.modo === 'vendedor'){
+    if (r.modo === 'vendedor') return '';   // las fichas TOP son del supervisor
+    if (r.modo === 'nunca'){
       const v = r.vendedor; if (!v) return '';
       const d = dia && dia !== 'S/Cal' ? dia : null;
       const tops = v.cl.filter(cl => cl._top && (!d || String(cl[3]).split(',').map(x => x.trim()).includes(d)));
@@ -356,8 +368,11 @@
     tiraLista = fs;
     const nHoy = fs.filter(x => x.Fecha === hoyIso).length;
     if (!datos) return `<section class="fx-tira"><div class="fx-t-top"><b>${IC.cam}Fotos del equipo</b><span class="fx-t-c"><span class="fx-spin"></span></span></div></section>`;
+    const topsEq = []; (current || []).forEach(x => x.c.cl.forEach(cl => { if (cl._top && !(r.isVacante && r.isVacante(x.c))) topsEq.push([x.c.vc, cl[6]]); }));
+    const nF = topsEq.filter(([vc, cod]) => fichaDe(vc, cod)).length;
     return `<section class="fx-tira">
-      <div class="fx-t-top"><b>${IC.cam}Fotos del equipo</b><span class="fx-t-c"><b>${nHoy}</b> hoy · <b>${fs.length}</b> esta semana</span></div>
+      <div class="fx-t-top"><b>${IC.cam}Fichas TOP</b><span class="fx-t-c"><b>${nF}</b> de <b>${topsEq.length}</b> esta semana · <b>${fs.length}</b> fotos</span></div>
+      ${topsEq.length ? `<div class="fx-m-bar fx-t-bar"><i style="width:${Math.round(nF / topsEq.length * 100)}%"></i></div>` : ''}
       ${fs.length ? `<div class="fx-t-fotos">${fs.slice(0, 12).map((x, k) => `<button type="button" class="fx-t-f" data-fx-tira="${k}">${miniatura(x, false)}<span>${esc(x.Vendedor)}</span></button>`).join('')}</div>` : '<p class="fx-t-vacio">Todavía no hay fotos esta semana.</p>'}
       <button type="button" class="fx-t-mas" data-fx-todas>Ver todas y cumplimiento ›</button>
     </section>`;
@@ -369,7 +384,7 @@
     root.querySelectorAll('[data-tf-abrir]').forEach(b => b.onclick = e => {
       e.stopPropagation();
       const w = b.closest('[data-fx-cod]'), c = vendDe(w.dataset.fxVc), cl = c && c.cl.find(x => x[6] === w.dataset.fxCod);
-      if (cl && window.TopFoco) window.TopFoco.abrir(c, cl, R().modo !== 'vendedor');
+      if (cl && window.TopFoco) window.TopFoco.abrir(c, cl, R().modo !== 'supervisor');
     });
     root.querySelectorAll('[data-fx-t]').forEach(b => b.onclick = e => {
       e.stopPropagation();
@@ -395,6 +410,7 @@
 
   // Vendedor, pestaña Top: avance de la semana
   function pintarVendedor(box){
+    box.innerHTML = ''; return;   // las fichas TOP son del supervisor
     const v = R().vendedor; if (!v) return;
     const tops = v.cl.filter(cl => cl._top);
     if (!tops.length){ box.innerHTML = ''; return; }
@@ -584,7 +600,7 @@
     if (top){
       let n = 0;
       const v = R().vendedor, hoy = R().hoy;
-      if (R().modo === 'vendedor' && v && datos && hoy){
+      if (false && R().modo === 'vendedor' && v && datos && hoy){
         n = v.cl.filter(cl => cl._top && String(cl[3]).split(',').map(x => x.trim()).includes(hoy) && !fichaDe(v.vc, cl[6])).length;
       }
       let b = top.querySelector('.fx-badge'); if (!b && n){ b = document.createElement('span'); b.className = 'fx-badge'; top.appendChild(b); }
@@ -631,5 +647,5 @@
   }
 
   const compeSemana = () => { const desde = lunes(new Date()); return compe().filter(r => r.Fecha >= desde); };
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe, compeSemana};
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe, compeSemana, anomalias, enviarAnomalia, base64: aBase64, listo: () => !!datos};
 })();

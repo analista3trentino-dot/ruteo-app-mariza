@@ -411,7 +411,7 @@
         const activos = vs.filter(v => !isVacante(v.c)).length, nom = NOMBRE_SUP(s.k);
         return `<button type="button" class="jf-grupo" data-grupo="${esc(s.k)}" style="--c:${supColor[s.k]}; animation-delay:${k * 40}ms">
           <span class="jf-g-av">${esc(s.k)}</span>
-          <span class="jf-g-info"><b>${esc(s.p)}</b><small>${nom ? esc(nom) : 'Supervisor vacante'} · ${activos} ${activos === 1 ? 'vendedor' : 'vendedores'}${vs.length > activos ? ` (+${vs.length - activos} ${vs.length - activos === 1 ? "vacante" : "vacantes"})` : ''}</small>
+          <span class="jf-g-info"><b>${esc(s.p)}</b><small>${nom ? esc(nom) + ' · ' : ''}${activos} ${activos === 1 ? 'vendedor' : 'vendedores'}</small>
             ${a !== null ? `<span class="cpot-head"><span class="cpot-bar"><i class="${a >= 90 ? 'good' : a >= 60 ? 'mid' : 'bad'}" style="width:${Math.min(100, a)}%"></i></span><span>${a}% de ${mill(sp.pot)}</span></span>` : ''}</span>
           <span class="jf-g-n"><b>${cl.size.toLocaleString('es-PY')}</b><small>clientes</small></span>${ICON.chev}
         </button>`;

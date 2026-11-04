@@ -112,11 +112,14 @@
   const sino = (k, v, ro) => `<div class="tf-sino" role="group"><button type="button" data-k="${k}" data-v="si" aria-pressed="${v === 'si'}" ${ro ? 'disabled' : ''}>Sí</button><button type="button" data-k="${k}" data-v="no" aria-pressed="${v === 'no'}" ${ro ? 'disabled' : ''}>No</button></div>`;
   function toast(t){ const el = document.createElement('div'); el.className = 'tf-toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
 
+  // Quién completa la ficha: el supervisor (nombre de vendedores.js) o su código
+  const quienCarga = () => { const R = R_(), k = R.miSup || ''; const n = R.nombreSup ? R.nombreSup(k) : ''; return 'Sup. ' + (n ? n.split(' ').slice(0, 2).join(' ') : k); };
   // ================= FICHA =================
   // La hoja se arma una sola vez; cada toque actualiza solo la parte que cambió (más rápido).
   let F = null;   // {c, cl, tab, abierto, ro, r, A}
   function abrir(c, cl, soloVer){
-    const ro = soloVer || R_().modo !== 'vendedor';
+    // La ficha la completa el SUPERVISOR (de su equipo). Jefatura y vendedores solo la ven.
+    const ro = soloVer || R_().modo !== 'supervisor';
     F = {c, cl, tab: 'amp', abierto: '', ro, A: analizar(cl), r: ro ? desdeGestion(cl) : borrador(cl[6])};
     if (!F.A.amp.length) F.tab = F.A.rep.length ? 'rep' : 'ing';
     let box = $('tfCapa'); if (!box){ box = document.createElement('div'); box.id = 'tfCapa'; document.body.appendChild(box); enlazarCapa(box); }
@@ -152,8 +155,7 @@
       ing: 'Marcas foco que este cliente todavía no compra. Cada producto trae su código de barras y la cantidad sugerida para la góndola.'};
     const VACIO = {amp: '<b>Sin ampliación pendiente.</b> En las marcas que ya compra tiene todo el surtido.', rep: '<b>Todavía no compra marcas foco.</b> La reposición aparece cuando la marca ya está ingresada. Empezá por Ingreso.', ing: '<b>¡Excelente!</b> Ya compra todas las categorías foco.'};
     $('tfCuerpo').innerHTML =
-      (ro ? `<div class="tf-aviso">${r.fecha ? `Última ficha enviada por <b>${esc(nom(c.vn))}</b> el <b>${esc(r.fecha.split('-').reverse().join('/'))}</b>. Se muestra lo que respondió.` : `<b>${esc(nom(c.vn))}</b> todavía no envió la ficha de este cliente en las últimas semanas.`}</div>` : '') +
-      (A.d.sv ? `<div class="tf-aviso"><b>Sin compras registradas</b> de ${esc(MF.fecha)} con este código: todas las marcas foco aparecen para ingresar.</div>` : '') +
+      (ro ? `<div class="tf-aviso">${r.fecha ? `Última ficha de este cliente el <b>${esc(r.fecha.split('-').reverse().join('/'))}</b>. Se muestra lo que respondió.` : `Todavía no hay ficha de este cliente en las últimas semanas.`}</div>` : '') +
       (xs.length ? `<p class="tf-intro">${INTRO[F.tab]}</p>` + xs.map(secHtml).join('') : `<div class="tf-aviso">${VACIO[F.tab]}</div>`);
   }
   function pintarSec(id){
@@ -163,7 +165,7 @@
   function pintarPie(){
     if (F.ro || !$('tfPie')) return;
     const n = cuenta(), A = F.A, falta = A.rep.length && !n.rep;
-    $('tfPie').innerHTML = `<div class="tf-pie-t"><b>${n.n} ${n.n === 1 ? 'respuesta' : 'respuestas'}</b>${falta ? 'Falta al menos una reposición con foto' : n.rep + ' ' + (n.rep === 1 ? 'reposición con foto' : 'reposiciones con foto')}</div><button type="button" class="tf-btn" id="tfEnviar" data-enviar ${n.n && !falta ? '' : 'disabled'}>Enviar al supervisor</button>`;
+    $('tfPie').innerHTML = `<div class="tf-pie-t"><b>${n.n} ${n.n === 1 ? 'respuesta' : 'respuestas'}</b>${falta ? 'Falta al menos una reposición con foto' : n.rep + ' ' + (n.rep === 1 ? 'reposición con foto' : 'reposiciones con foto')}</div><button type="button" class="tf-btn" id="tfEnviar" data-enviar ${n.n && !falta ? '' : 'disabled'}>Enviar ficha</button>`;
   }
   function cuenta(){
     const r = F.r;
@@ -246,9 +248,9 @@
       }
       if (t.dataset.listo){ r.rep[t.dataset.listo].ok = true; F.abierto = ''; guardar(cod, r); pintarSec(t.dataset.listo); pintarTabs(); pintarPie(); toast('Control guardado'); return; }
       if (t.dataset.foto){
-        const id = t.dataset.foto, cat = CAT[id], f = F, v = R_().vendedor;
+        const id = t.dataset.foto, cat = CAT[id], f = F, quien = quienCarga();
         if (!window.Fotos || !window.Fotos.tomarFoto) return;
-        const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [f.cl[2] + (f.cl[9] ? ' (' + f.cl[9] + ')' : ''), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, (v ? v.vc + ' ' + nom(v.vn).split(' ').slice(0, 2).join(' ') : '') + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
+        const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [f.cl[2] + (f.cl[9] ? ' (' + f.cl[9] + ')' : ''), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, quien + '  ·  ' + f.c.vc + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
         if (!fo || F !== f) return;
         (fotosMem[cod] || (fotosMem[cod] = {}))[id] = fo;
         const o = r.rep[id] || (r.rep[id] = {}); o.foto = fo; o.ok = false;
@@ -267,7 +269,7 @@
     const r = F.r, amp = Object.values(r.amp).filter(x => x.v), ing = Object.values(r.ing).filter(x => x.v), rep = Object.values(r.rep).filter(x => x.ok);
     const caras = rep.reduce((t, x) => t + (+x.faltan || 0), 0);
     const v = document.createElement('div'); v.className = 'tf-velo';
-    v.innerHTML = `<div class="tf-dlg" role="dialog" aria-modal="true" aria-labelledby="tfDT"><h3 id="tfDT">¿Enviar al supervisor?</h3>
+    v.innerHTML = `<div class="tf-dlg" role="dialog" aria-modal="true" aria-labelledby="tfDT"><h3 id="tfDT">¿Enviar la ficha?</h3>
       <ul><li><b>Ampliación:</b> ${amp.filter(x => x.v === 'si').length} ofrecidos · ${amp.filter(x => x.v === 'no').length} no ofrecidos</li>
       <li><b>Ingreso:</b> ${ing.filter(x => x.v === 'si').length} aceptados · ${ing.filter(x => x.v === 'no').length} no aceptados</li>
       <li><b>Reposición:</b> ${rep.length} ${rep.length === 1 ? 'marca controlada' : 'marcas controladas'}${caras ? ' · faltan ' + caras + ' caras' : ''}</li></ul>
@@ -277,9 +279,9 @@
     v.querySelector('#tfSi').onclick = () => { v.remove(); enviar(); };
   }
   async function enviar(){
-    const f = F, {cl, r} = f, Fo = window.Fotos, btn = $('tfEnviar'), v = R_().vendedor;
+    const f = F, {cl, r, c} = f, Fo = window.Fotos, btn = $('tfEnviar');
     if (!Fo || !Fo.enviarGestion){ toast('Falta configurar Google Drive (config.js)'); return; }
-    const meta = {sup: v.sup, vendedor: v.vc, nomVendedor: nom(v.vn).split(' ').slice(0, 2).join(' '), cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), codigo: cl[6], pm: cl[8]};
+    const meta = {sup: c.sup, vendedor: c.vc, nomVendedor: nom(c.vn).split(' ').slice(0, 2).join(' '), cargadoPor: quienCarga(), cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), codigo: cl[6], pm: cl[8]};
     const fila = (accion, cat, extra) => Object.assign({accion, marca: cat.m, categoria: cat.n}, extra);
     const filas = [];
     f.A.amp.forEach(x => x.falta.forEach(s => { const a = r.amp[s]; if (a && a.v) filas.push(fila('Ampliación', x.cat, {producto: MF.sku[s].d, art: s, resp: a.v === 'si' ? 'Se ofreció' : 'No se ofreció', com: a.com || ''})); }));
@@ -297,10 +299,10 @@
       await Fo.enviarGestion(meta, filas);
       try { localStorage.removeItem(KB(cl[6])); } catch(e){}
       delete fotosMem[cl[6]];
-      toast('Ficha enviada. Tu supervisor ya la puede ver.');
+      toast('Ficha enviada. Jefatura ya la puede ver.');
       if (F === f) cerrar();
     } catch(e){
-      if (btn){ btn.disabled = false; btn.textContent = 'Enviar al supervisor'; }
+      if (btn){ btn.disabled = false; btn.textContent = 'Enviar ficha'; }
       toast('No se pudo enviar. Revisá la señal y probá de nuevo; lo cargado no se pierde.');
     }
   }

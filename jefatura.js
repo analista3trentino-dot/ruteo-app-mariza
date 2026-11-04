@@ -236,7 +236,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       : `${mesN(ui.mes)}, hasta el ${+finMes.slice(8)}`;
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p>${vacios.length ? `<span class="ar-vacio">⚠ Hay ${vacios.length === 1 ? 'un Excel subido' : vacios.length + ' Excel subidos'} después de este que está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => window.Archivos.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : ''}<p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
+        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p>${false ? `<span class="ar-vacio">⚠ Hay ${vacios.length === 1 ? 'un Excel subido' : vacios.length + ' Excel subidos'} después de este que está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => window.Archivos.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : ''}<p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
       ${MS.length > 1 ? `<div class="vs-meses">${MS.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesN(m)}</button>`).join('')}</div>` : ''}
@@ -252,6 +252,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
         ${CT.base ? `<div class="jd-cruce"><small>Cruce con vendedores</small>${barraCruce(CT)}</div>` : ''}
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
+      <div id="anJef"></div>
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
@@ -268,7 +269,6 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
           </button>
           <div class="vs-v-body">${abierto && x.visitas ? (esDia ? detalleDia(x) : detalleMes(x)) : abierto ? '<p class="vs-nada">Sin marcaciones.</p>' : ''}</div>
         </article>`; }).join('')}
-      ${VACANTES.length ? `<p class="tv-note">Solo se cuentan supervisores activos. No se incluyen ${VACANTES.length === 1 ? 'el vacante' : 'los vacantes'}: ${esc(VACANTES.join(', '))} (se cambia en vendedores.js).</p>` : ''}
       <p class="tv-note">Tiempo en clientes = desde que el supervisor marca la entrada hasta la salida de cada cliente. Las visitas de menos de ${VISITA_CORTA_MINUTOS} minutos se marcan como cortas.</p>
     </div>`;
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abierto = ''; pintar(); });
@@ -277,6 +277,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes)); ui.dia = ds[ds.length - 1] || ui.dia; ui.sem = ''; ui.abierto = ''; pintar(); });
     box.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { ui.modo = 'dia'; ui.dia = b.dataset.ir; pintar(); window.scrollTo({top: 0, behavior: 'smooth'}); });
     box.querySelectorAll('.jf-v .vs-v-head').forEach(b => b.onclick = () => { const k = b.closest('.jf-v').dataset.sup; ui.abierto = ui.abierto === k ? '' : k; pintar(); });
+    if (window.Anomalias && $('anJef')) window.Anomalias.en($('anJef'));
     const on = box.querySelector('.vs-dchip.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 
