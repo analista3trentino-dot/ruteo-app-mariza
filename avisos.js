@@ -136,7 +136,7 @@ const AVISOS = [
     if (al.quien !== 'jefatura') return E.yaRespondio() ? [] : [{id: 'enc-' + ENCUESTA.id, tipo: 'enc', titulo: 'Encuesta de la app', linea: 'Contanos qué te parece la app. Son 2 minutos.', ir: ['encuesta', 'Responder encuesta']}];
     const xs = await E.cargar(); const r = E.resumen(xs);
     return [{id: 'enc-' + ENCUESTA.id + '-' + xs.length, tipo: 'enc', titulo: 'Encuesta de la app', valor: r.nota !== null ? r.nota.toFixed(1) : String(xs.length), tono: r.nota === null ? '' : r.nota >= 4 ? 'good' : r.nota >= 3 ? 'mid' : 'bad',
-      linea: `<b>${xs.length}</b> respuestas · faltan <b>${r.faltan}</b> vendedores`, ir: ['jefatura', 'Ver resultados']}];
+      linea: `<b>${xs.length}</b> respuestas · faltan <b>${r.faltan}</b> vendedores`, ir: [window.Control ? 'control' : 'jefatura', 'Ver resultados']}];
   }
   function anomalias(al){
     const A = window.Anomalias; if (!A || al.quien === 'vendedor') return [];
@@ -177,8 +177,24 @@ const AVISOS = [
       ${a.ir ? `<button type="button" class="av2-ir" data-ir="${a.ir[0]}">${a.ir[1]} ›</button>` : ''}
     </article>`;
   }
+  // Jefatura: la campanita muestra lo mismo que "Para revisar" de la pantalla Control, más los mensajes y la encuesta
+  const esJef = () => window.RUTEO && window.RUTEO.modo === 'jefatura' && window.Control;
+  function panelJefatura(p){
+    const C = window.Control, its = C.items(), L = leidos();
+    const extra = ['msg', 'enc'].flatMap(k => (FUENTES[k] && FUENTES[k].items) || []);
+    p.querySelector('.av-cuerpo').innerHTML =
+      `<div class="avj-t">${its.length ? 'Para revisar' : C.cargandoAhora() ? 'Revisando…' : 'Todo en orden'}</div>` +
+      its.map(x => `<button type="button" class="avj ${x.t}" data-ctgo="${esc(x.go)}"><span class="avj-n">${esc(x.n)}</span><span class="avj-tx"><b>${esc(x.b)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ''}</span><span class="avj-f">›</span></button>`).join('') +
+      (!its.length && C.cargandoAhora() ? '<div class="av2 esq"><span class="av2-ic"></span><div><b>Buscando pendientes</b><span>Cargando…</span></div></div>' : '') +
+      (!its.length && !C.cargandoAhora() ? '<p class="av-vacio">No hay anomalías pendientes, todos los supervisores marcaron y las rutas van bien.</p>' : '') +
+      extra.map(a => tarjeta(a, L)).join('') +
+      `<button type="button" class="avj-ctl" data-ctgo="control">Ver la pantalla Control completa ›</button>`;
+    p.querySelectorAll('[data-ctgo]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ctgo === 'control') window.RUTEO.setSeccion('control'); else C.ir(b.dataset.ctgo); });
+    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
+  }
   function pintarPanel(){
     const p = $('avPanel'); if (!p || !p.classList.contains('abierto')) return;
+    if (esJef()) return panelJefatura(p);
     const L = leidos(), xs = todos(), cargando = ORDEN.filter(k => FUENTES[k] && FUENTES[k].estado === 'cargando');
     p.querySelector('.av-cuerpo').innerHTML = xs.map(a => tarjeta(a, L)).join('') +
       cargando.map(k => `<div class="av2 esq"><span class="av2-ic"></span><div><b>${TITULOS[k] || ''}</b><span>Cargando…</span></div></div>`).join('') +
@@ -187,8 +203,7 @@ const AVISOS = [
   }
   function cerrar(){ const p = $('avPanel'); if (!p) return; p.classList.remove('abierto'); document.documentElement.classList.remove('cat-abierto'); }
   function abrir(){
-    // Jefatura: la campanita lleva a la pantalla Control (ahí está todo lo que hay que revisar)
-    if (window.RUTEO && window.RUTEO.modo === 'jefatura' && window.Control){ window.RUTEO.setSeccion('control'); return; }
+    if (esJef() && !window.Control.items().length && !window.Control.cargandoAhora()) window.Control.cargar();
     let p = $('avPanel');
     if (!p){ p = document.createElement('div'); p.id = 'avPanel'; p.className = 'av-panel'; document.body.appendChild(p);
       p.innerHTML = `<div class="av-caja" role="dialog" aria-modal="true" aria-label="Avisos"><div class="av-cab"><b>Avisos</b><button type="button" class="av-x" aria-label="Cerrar">✕</button></div><div class="av-cuerpo"></div></div>`;
@@ -208,6 +223,7 @@ const AVISOS = [
     if (!window.RUTEO) return;
     const al = alcance();
     FUENTES.msg = {estado: 'ok', items: mensajes()};
+    if (al.quien === 'jefatura' && window.Control){ if (window.Encuesta) fuente('enc', null, () => encuesta(al)); pintarBoton(); return; }
     if (window.Visitas && window.Visitas.asegurar) fuente('vis', window.Visitas.asegurar(), () => visitas(al));
     if (window.Potencial) fuente('pot', window.Potencial.cargar(), () => potencial(al));
     if (window.Fotos && window.Fotos.cargar) fuente('top', window.Fotos.cargar(), () => fichas(al).concat(competencia(al)));

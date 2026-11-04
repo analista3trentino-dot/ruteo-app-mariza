@@ -223,6 +223,9 @@
     mostrar(){ if (!M) cargar(); pintar(); },
     cargar,
     pendientes: () => M ? pendientes(M).length : 0,
+    items: () => M ? pendientes(M) : [],
+    cargandoAhora: () => !!cargando,
+    ir: go => ir(go),
     _modelo: () => M, _pintarCon: m => { M = m; pintar(); }   // para la prueba piloto
   };
 })();
