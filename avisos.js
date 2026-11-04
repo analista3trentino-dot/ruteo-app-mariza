@@ -165,7 +165,7 @@ const AVISOS = [
       b = document.createElement('button'); b.type = 'button'; b.id = 'btnAvisos'; b.className = 'av-btn'; b.setAttribute('aria-label', 'Avisos');
       cont.insertBefore(b, cont.firstChild); b.onclick = abrir;
     }
-    const L = leidos(), n = todos().filter(a => !L.has(a.id)).length;
+    const L = leidos(), n = window.RUTEO && window.RUTEO.modo === 'jefatura' && window.Control ? window.Control.pendientes() : todos().filter(a => !L.has(a.id)).length;
     b.innerHTML = svg('campana') + (n ? `<span class="av-n">${n}</span>` : '');
     b.classList.toggle('nuevo', n > 0);
   }
@@ -187,6 +187,8 @@ const AVISOS = [
   }
   function cerrar(){ const p = $('avPanel'); if (!p) return; p.classList.remove('abierto'); document.documentElement.classList.remove('cat-abierto'); }
   function abrir(){
+    // Jefatura: la campanita lleva a la pantalla Control (ahí está todo lo que hay que revisar)
+    if (window.RUTEO && window.RUTEO.modo === 'jefatura' && window.Control){ window.RUTEO.setSeccion('control'); return; }
     let p = $('avPanel');
     if (!p){ p = document.createElement('div'); p.id = 'avPanel'; p.className = 'av-panel'; document.body.appendChild(p);
       p.innerHTML = `<div class="av-caja" role="dialog" aria-modal="true" aria-label="Avisos"><div class="av-cab"><b>Avisos</b><button type="button" class="av-x" aria-label="Cerrar">✕</button></div><div class="av-cuerpo"></div></div>`;

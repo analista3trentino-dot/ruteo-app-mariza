@@ -153,11 +153,12 @@ const ENCUESTA_PREGUNTAS = [
       try {
         const r = await fetch(URL_F, {method: 'POST', body: JSON.stringify({clave: CLAVE_F, encuesta: true, id: CFG.id, rol: S.rol === 'sup' ? 'Supervisor' : 'Vendedor', codigo: S.codigo, nombre: S.nombre, sup: S.sup, respuestas: resp}), redirect: 'follow'});
         const j = await r.json(); if (!j.ok) throw new Error(j.error);
-        try { localStorage.setItem(K(), HOY); } catch(e){}
+        try { localStorage.setItem(K(), JSON.stringify({c: S.codigo, r: S.rol === 'sup' ? 'Supervisor' : 'Vendedor', f: HOY})); } catch(e){}
+        if (datos) datos = datos.filter(r => !(r['Código'] === S.codigo && r.Rol === (S.rol === 'sup' ? 'Supervisor' : 'Vendedor'))).concat([{'Código': S.codigo, Rol: S.rol === 'sup' ? 'Supervisor' : 'Vendedor', Nombre: S.nombre}]);
         if (window.Avisos) window.Avisos.armar();
         marco(`<span class="en-ico-g">🙌</span><h2 class="en-q">¡Gracias!</h2><p class="en-sub">Tus respuestas llegaron. Con tu opinión vamos a mejorar la app.</p>`, `<button type="button" class="tf-btn" data-fin>Volver a la app</button>`);
         $('enCapa').querySelector('[data-fin]').onclick = cerrar;
-      } catch(e){ b.disabled = false; b.textContent = 'Enviar'; const er = $('enErr'); er.textContent = 'No se pudo enviar. Revisá la señal y probá de nuevo.'; er.hidden = false; }
+      } catch(e){ b.disabled = false; b.textContent = 'Enviar'; const er = $('enErr'); er.textContent = /clave/i.test(e.message || '') ? 'No se pudo enviar (clave de Google incorrecta). Avisale a jefatura.' : navigator.onLine === false ? 'No hay señal. Probá de nuevo cuando tengas conexión.' : 'No se pudo enviar. Probá de nuevo en un rato; si sigue, avisale a jefatura.'; er.hidden = false; }
     };
   }
 
@@ -222,5 +223,23 @@ const ENCUESTA_PREGUNTAS = [
     const esc_ = PREG().filter(q => q.tipo === 'escala');
     return {nota: prom(xs.flatMap(r => esc_.map(q => ({v: r[q.k]}))), 'v'), faltan: cs.filter(c => !resp.has(c.vc)).length};
   }
+  // Si el celular dice "ya respondí" pero la respuesta no está en la planilla (por ejemplo, se envió
+  // cuando el Apps Script todavía no tenía la encuesta), se vuelve a mostrar el botón para responder.
+  function verificar(){
+    if (!activa() || !yaRespondio() || R().modo === 'jefatura') return;
+    let yo = null; try { yo = JSON.parse(localStorage.getItem(K())); } catch(e){}
+    const r = R(), quienes = [];
+    if (yo && yo.c) quienes.push([yo.c, yo.r]);
+    if (r.modo === 'vendedor' && r.vendedor) quienes.push([r.vendedor.vc, 'Vendedor']);
+    if (r.modo === 'supervisor' && r.miSup) quienes.push([r.miSup, 'Supervisor']);
+    if (!quienes.length) return;
+    cargar(true).then(xs => {
+      if (!quienes.some(([c, rol]) => xs.some(x => x['Código'] === c && x.Rol === rol))){
+        try { localStorage.removeItem(K()); } catch(e){}
+        if (r.refrescar) r.refrescar(); if (window.Avisos && window.Avisos.armar) window.Avisos.armar();
+      }
+    }).catch(() => {});
+  }
+  window.addEventListener('load', () => setTimeout(verificar, 2500));
   window.Encuesta = {banner, enlazar, abrir, tarjeta, activa, yaRespondio, cargar, resumen: totales};
 })();

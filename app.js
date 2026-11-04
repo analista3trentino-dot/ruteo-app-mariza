@@ -755,6 +755,8 @@
     $('visitasView').hidden = s !== 'visitas';
     if ($('ventasView')) $('ventasView').hidden = s !== 'ventas';
     if ($('jefaturaView')) $('jefaturaView').hidden = s !== 'jefatura';
+    if ($('controlView')) $('controlView').hidden = s !== 'control';
+    if (s === 'control' && window.Control) window.Control.mostrar();
     if ($('compeView')) $('compeView').hidden = s !== 'compe';
     if (s === 'compe' && window.Fotos) window.Fotos.mostrarCompe();
     if (s === 'visitas' && window.Visitas) window.Visitas.mostrar();
@@ -851,7 +853,7 @@
   }
   if ($('btnVolver')) $('btnVolver').onclick = volver;
   cargarTop();
-  setSeccion('ruta');
+  setSeccion(MODO_JEFATURA && $('controlView') && window.Control ? 'control' : 'ruta');
   refresh(false);
   if (window.Fotos) window.Fotos.iniciar();
   // Si la app estuvo más de 20 minutos en segundo plano, al volver se recarga (trae lo último subido)

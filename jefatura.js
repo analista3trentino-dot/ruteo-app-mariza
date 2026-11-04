@@ -135,6 +135,11 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
   const semNum = d => { const x = fromISO(d); x.setDate(x.getDate() + 3 - ((x.getDay() + 6) % 7)); const e = new Date(x.getFullYear(), 0, 4); return 1 + Math.round(((x - e) / 864e5 - 3 + ((e.getDay() + 6) % 7)) / 7); };
   const MESES_J = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
   const mesN = m => { const n = MESES_J[+m.slice(5, 7) - 1] || ''; return n.charAt(0).toUpperCase() + n.slice(1); };
+
+  // Semana completa de lunes a sábado (aunque todavía no haya datos de todos los días)
+  const finSemC = l => { const x = fromISO(l); x.setDate(x.getDate() + 5); return isoJ(x); };
+  const dmC = s => +s.slice(8) + '/' + +s.slice(5, 7);
+  const rangoSemC = l => { const a = fromISO(l), b = fromISO(finSemC(l)); return a.getMonth() === b.getMonth() ? `lunes ${a.getDate()} al sábado ${b.getDate()} de ${MESES[b.getMonth()]}` : `lunes ${a.getDate()} de ${MESES[a.getMonth()]} al sábado ${b.getDate()} de ${MESES[b.getMonth()]}`; };
   const ultimoDia = () => DATES[DATES.length - 1] || '';
   const HOY = (() => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); })();
 
@@ -216,12 +221,12 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     if (!ui.dia) ui.dia = ultimoDia();
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
     const esDia = ui.modo === 'dia', esSem = ui.modo === 'semana';
-    const SEMS = [...new Set(DATES.filter(d => d.startsWith(ui.mes)).map(lunesDe))];
+    const SEMS = [...new Set(DATES.map(lunesDe))].slice(-10);   // todas las semanas (de lunes a sábado), sin cortar por mes
     if (!SEMS.includes(ui.sem)) ui.sem = SEMS.includes(lunesDe(ui.dia)) ? lunesDe(ui.dia) : SEMS[SEMS.length - 1] || '';
     const DSEM = DATES.filter(d => lunesDe(d) === ui.sem);
     const dias = new Set(esDia ? [ui.dia] : esSem ? DSEM : DATES.filter(d => d.startsWith(ui.mes)));
     const MS = [...new Set(DATES.map(d => d.slice(0, 7)))];
-    const chipsSem = SEMS.slice().reverse().map(l => { const ds = DATES.filter(d => lunesDe(d) === l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>Semana ${semNum(l)}</small><b>${+ds[0].slice(8)}–${+ds[ds.length - 1].slice(8)}</b></button>`; }).join('');
+    const chipsSem = SEMS.slice().reverse().map(l => { const ds = DATES.filter(d => lunesDe(d) === l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>${l === lunesDe(HOY) ? 'Esta semana' : 'Semana'}</small><b>${dmC(l)} – ${dmC(finSemC(l))}</b></button>`; }).join('');
     const primera = x => x.rs.length ? Math.min(...x.rs.map(r => r.ini ?? Infinity)) : Infinity;
     const filas = SUPS.map(s => ({s, x: resumen(s.k, dias)})).sort((a, b) => (b.x.visitas ? 1 : 0) - (a.x.visitas ? 1 : 0) || (esDia ? primera(a.x) - primera(b.x) : 0));   // los que no marcaron, al final; en el día, del más temprano al más tarde
     const CT = cuentaCruce([].concat(...filas.map(f => f.x.rs)));
@@ -232,14 +237,14 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const chips = DATES.filter(d => d.startsWith(ui.mes)).slice().reverse().map(d => `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''}" data-dia="${d}"><small>${d === HOY ? 'Hoy' : DIAS_C[fromISO(d).getDay()]}</small><b>${+d.slice(8)}</b></button>`).join('');
     const finMes = DATES.filter(d => d.startsWith(ui.mes)).pop() || ultimoDia();
     const titulo_ = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (ui.dia === HOY ? ' (en curso)' : '')
-      : esSem ? `Semana ${semNum(ui.sem)} · del ${+DSEM[0].slice(8)}/${DSEM[0].slice(5, 7)} al ${+DSEM[DSEM.length - 1].slice(8)}/${DSEM[DSEM.length - 1].slice(5, 7)}`
+      : esSem ? (() => { const u = DSEM[DSEM.length - 1]; return `Semana del ${rangoSemC(ui.sem)}` + (u && u < finSemC(ui.sem) ? ` · datos hasta el ${DIAS[fromISO(u).getDay()]} ${+u.slice(8)}` : ''); })()
       : `${mesN(ui.mes)}, hasta el ${+finMes.slice(8)}`;
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p>${false ? `<span class="ar-vacio">⚠ Hay ${vacios.length === 1 ? 'un Excel subido' : vacios.length + ' Excel subidos'} después de este que está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => window.Archivos.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : ''}<p class="ar-info">${usado ? esc(window.Archivos.etiqueta(usado)) : ''}${window.Archivos.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
+        <div><h2>Supervisores</h2><p>Marcaciones al ${esc(largo(ultimoDia()))}</p>${false ? `<span class="ar-vacio">⚠ Hay ${vacios.length === 1 ? 'un Excel subido' : vacios.length + ' Excel subidos'} después de este que está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => window.Archivos.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : ''}<p class="ar-info">${window.Archivos.fallo() ? '<span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p></div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
-      ${MS.length > 1 ? `<div class="vs-meses">${MS.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesN(m)}</button>`).join('')}</div>` : ''}
+      ${MS.length > 1 && !esSem ? `<div class="vs-meses">${MS.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesN(m)}</button>`).join('')}</div>` : ''}
       ${esDia ? `<div class="vs-dias">${chips}</div>` : ''}
       ${esSem ? `<div class="vs-dias">${chipsSem}</div>` : ''}
       <div class="vs-res jf-res">
@@ -252,8 +257,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
         ${CT.base ? `<div class="jd-cruce"><small>Cruce con vendedores</small>${barraCruce(CT)}</div>` : ''}
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
-      <div id="anJef"></div>
-      <div id="enJef"></div>
+      ${window.Control ? '' : '<div id="anJef"></div><div id="enJef"></div>'}
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
@@ -274,7 +278,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     </div>`;
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abierto = ''; pintar(); });
     box.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => { ui.dia = b.dataset.dia; pintar(); });
-    box.querySelectorAll('[data-sem]').forEach(b => b.onclick = () => { ui.sem = b.dataset.sem; ui.abierto = ''; pintar(); });
+    box.querySelectorAll('[data-sem]').forEach(b => b.onclick = () => { ui.sem = b.dataset.sem; ui.mes = (DATES.filter(d => lunesDe(d) === ui.sem).pop() || ui.mes).slice(0, 7); ui.abierto = ''; pintar(); });
     box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes)); ui.dia = ds[ds.length - 1] || ui.dia; ui.sem = ''; ui.abierto = ''; pintar(); });
     box.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { ui.modo = 'dia'; ui.dia = b.dataset.ir; pintar(); window.scrollTo({top: 0, behavior: 'smooth'}); });
     box.querySelectorAll('.jf-v .vs-v-head').forEach(b => b.onclick = () => { const k = b.closest('.jf-v').dataset.sup; ui.abierto = ui.abierto === k ? '' : k; pintar(); });
@@ -300,8 +304,12 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       if (estado !== 'ok'){ if (!cargaJ) cargaJ = cargarDatos().then(() => { estado = 'ok'; }); await cargaJ; }
       // último día completo (el de hoy cuenta recién después de las 17 h)
       const ds = DATES.filter(x => x !== HOY || new Date().getHours() >= 17); const d = ds[ds.length - 1]; if (!d) return null;
-      return {dia: d, largo: largo(d), filas: SUPS.map(s => ({k: s.k, n: s.n, x: resumen(s.k, new Set([d]))}))};
+      return {dia: d, largo: largo(d), filas: SUPS.map(s => { const x = resumen(s.k, new Set([d])), i = Math.min(...x.rs.map(r => r.ini ?? Infinity)), f = Math.max(...x.rs.map(r => r.fin ?? -Infinity));
+        return {k: s.k, n: s.n, x, cc: cuentaCruce(x.rs), ini: isFinite(i) ? hora(i) : '', fin: isFinite(f) ? hora(f) : ''}; })};
     },
+    // Abre la pestaña Supervisores con el recorrido de un supervisor en un día
+    abrir(k, d){ ui.modo = 'dia'; if (d) { ui.dia = d; ui.mes = d.slice(0, 7); } ui.abierto = k || ''; if (window.RUTEO) window.RUTEO.setSeccion('jefatura');
+      setTimeout(() => { const el = document.querySelector('#jefaturaView .jf-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 200); },
     hm
   };
 })();

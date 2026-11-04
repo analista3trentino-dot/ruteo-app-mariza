@@ -41,6 +41,11 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   const lunesDe = d => { const x = fromISO(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return toISO(x); };
   const semNum = d => { const x = fromISO(d); x.setDate(x.getDate() + 3 - ((x.getDay() + 6) % 7)); const e = new Date(x.getFullYear(), 0, 4); return 1 + Math.round(((x - e) / 864e5 - 3 + ((e.getDay() + 6) % 7)) / 7); };
   const diasSem = l => DATES.filter(d => lunesDe(d) === l);
+
+  // Semana completa de lunes a sábado (aunque todavía no haya datos de todos los días)
+  const finSemC = l => { const x = fromISO(l); x.setDate(x.getDate() + 5); return toISO(x); };
+  const dmC = s => +s.slice(8) + '/' + +s.slice(5, 7);
+  const rangoSemC = l => { const a = fromISO(l), b = fromISO(finSemC(l)); return a.getMonth() === b.getMonth() ? `lunes ${a.getDate()} al sábado ${b.getDate()} de ${MESES[b.getMonth()]}` : `lunes ${a.getDate()} de ${MESES[a.getMonth()]} al sábado ${b.getDate()} de ${MESES[b.getMonth()]}`; };
   const rangoSem = l => { const ds = diasSem(l); if (!ds.length) return ''; const a = fromISO(ds[0]), b = fromISO(ds[ds.length - 1]); return a.getMonth() === b.getMonth() ? `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]}` : `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]}`; };
   const mesNombre = m => { const n = MESES[+m.slice(5, 7) - 1]; return n.charAt(0).toUpperCase() + n.slice(1); };
 
@@ -288,7 +293,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     if (!ui.dia){ const ult = DATES[DATES.length - 1], ds = DATES.filter(d => d.startsWith(ult.slice(0, 7)) && !enCurso(d)); ui.dia = ds.length ? ds[ds.length - 1] : ult; }
     if (!ui.mes) ui.mes = ui.dia.slice(0, 7);
     // semanas del mes elegido (una semana que cruza de mes aparece en los dos)
-    const SEMS = [...new Set(DATES.filter(d => d.startsWith(ui.mes)).map(lunesDe))];
+    const SEMS = [...new Set(DATES.map(lunesDe))].slice(-10);   // todas las semanas (de lunes a sábado), sin cortar por mes
     if (!SEMS.includes(ui.sem)) ui.sem = SEMS.includes(lunesDe(ui.dia)) ? lunesDe(ui.dia) : SEMS[SEMS.length - 1] || '';
     const esSem = ui.modo === 'semana';
     const DSEM = esSem ? diasSem(ui.sem) : [];
@@ -322,9 +327,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const chipsDias = DATES.filter(d => d.startsWith(ui.mes)).slice().reverse().map(d => `<button type="button" class="vs-dchip ${d === ui.dia ? 'on' : ''} ${enCurso(d) ? 'curso' : ''}" data-dia="${d}"><small>${enCurso(d) ? 'en curso' : DIAS_C[wday(d)]}</small><b>${+d.slice(8)}</b></button>`).join('');
     const ms = meses();
 
-    const chipsSem = SEMS.slice().reverse().map(l => { const ds = diasSem(l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>Semana ${semNum(l)}</small><b>${+ds[0].slice(8)}–${+ds[ds.length - 1].slice(8)}</b></button>`; }).join('');
+    const chipsSem = SEMS.slice().reverse().map(l => { const ds = diasSem(l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>${l === lunesDe(TODAY) ? 'Esta semana' : 'Semana'}</small><b>${dmC(l)} – ${dmC(finSemC(l))}</b></button>`; }).join('');
     const titulo = esDia ? largo(ui.dia).replace(/^./, s => s.toUpperCase()) + (enCurso(ui.dia) ? ' (en curso)' : '')
-      : esSem ? `Semana ${semNum(ui.sem)} · del ${rangoSem(ui.sem)}${DSEM.some(enCurso) || (DSEM.length && DSEM[DSEM.length - 1] === DATES[DATES.length - 1] && wday(DSEM[DSEM.length - 1]) < 6) ? ' (en curso)' : ''}`
+      : esSem ? (() => { const ok = DSEM.filter(d => !enCurso(d)), u = ok[ok.length - 1]; return `Semana del ${rangoSemC(ui.sem)}` + (u && u < finSemC(ui.sem) ? ` · datos hasta el ${DIAS[wday(u)]} ${+u.slice(8)}` : ''); })()
       : `${mesNombre(ui.mes)}, hasta el ${corto(diasMes[diasMes.length - 1] || ui.dia)}`;
     const VA = filas.reduce((t, f) => t + (f.va || 0), 0), VB = filas.reduce((t, f) => t + (f.vb || 0), 0);
     const linea = esDia ? `${fmt(A)} de ${fmt(B)} clientes visitados` : `${fmt(VA)} de ${fmt(VB)} visitas hechas · ${fmt(A)} de ${fmt(B)} clientes visitados`;
@@ -358,10 +363,10 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Actualizado al ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
+        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Datos hasta el ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
-      ${ms.length > 1 ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
+      ${ms.length > 1 && !esSem ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
       ${esDia ? `<div class="vs-dias">${chipsDias}</div>` : ''}
       ${esSem ? `<div class="vs-dias">${chipsSem}</div>` : ''}
       <div class="vs-res">
@@ -370,7 +375,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <div class="vs-bar big"><i class="${tono(P)}" style="width:${P || 0}%"></i></div>
         <p class="vs-linea">${linea}</p>
       </div>
-      ${yo ? '' : '<div id="anVis"></div>'}
+      ${yo || (RU.modo === 'jefatura' && window.Control) ? '' : '<div id="anVis"></div>'}
       ${supHtml}
       ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
@@ -379,7 +384,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abiertos.clear(); pintar(); });
     box.querySelectorAll('[data-dia]').forEach(b => b.onclick = () => { ui.dia = b.dataset.dia; ui.abiertos.clear(); pintar(); });
-    box.querySelectorAll('[data-sem]').forEach(b => b.onclick = () => { ui.sem = b.dataset.sem; ui.abiertos.clear(); pintar(); });
+    box.querySelectorAll('[data-sem]').forEach(b => b.onclick = () => { ui.sem = b.dataset.sem; ui.mes = (DATES.filter(d => lunesDe(d) === ui.sem).pop() || ui.mes).slice(0, 7); ui.abiertos.clear(); pintar(); });
     box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes) && !enCurso(d)); ui.dia = ds[ds.length - 1] || ui.dia; ui.sem = ''; ui.abiertos.clear(); pintar(); });
     box.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => RU.setSpv(b.dataset.sup));
     box.querySelectorAll('.vs-v-head').forEach(b => b.onclick = () => {
@@ -394,7 +399,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   function barraArchivo(){
     const A = window.Archivos;
     const vac = false ? `<span class="ar-vacio">⚠ ${vacios.length === 1 ? 'Un Excel subido' : vacios.length + ' Excel subidos'} después de este está${vacios.length === 1 ? '' : 'n'} <b>vacío${vacios.length === 1 ? '' : 's'}</b> (${esc(vacios.map(f => A.etiqueta(f)).join(', '))}): se exportó de Power BI con "conexión dinámica". Abrilo en Excel en la computadora, esperá que carguen los datos, guardalo y subilo de nuevo.</span>` : '';
-    return vac + `<p class="ar-info">${usado && A ? esc(A.etiqueta(usado)) : ''}${usadoApolo && A ? ' · Apolo: ' + esc(A.etiqueta(usadoApolo)) : ''}${A && A.fallo() ? ' · <span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
+    return vac + `<p class="ar-info">${A && A.fallo() ? '<span class="ar-aviso">sin conexión con GitHub, se muestra lo último guardado</span>' : ''} <button type="button" class="ar-act" data-actualizar>↻ Actualizar</button></p>`;
   }
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#visitasView [data-actualizar]')) return;
@@ -413,6 +418,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   window.Visitas = {
     // Para los avisos: carga los datos sin abrir la pestaña
     asegurar(){ return cargar() || Promise.resolve(); },
+    // Abre la pestaña Visitas con un vendedor desplegado
+    abrirVendedor(vc, d){ ui.modo = 'dia'; if (d) { ui.dia = d; ui.mes = d.slice(0, 7); } ui.abiertos = new Set(vc ? [vc] : []); if (window.RUTEO) window.RUTEO.setSeccion('visitas');
+      setTimeout(() => { const el = document.querySelector('#visitasView .vs-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 200); },
     // Último día completo y, por cartera, a quién no visitó
     // Marcaciones de una cartera en un día: [{code, nombre, h1, h2}] ordenadas por hora (para cruzar con supervisores)
     marcasDe(vc, d){
@@ -426,7 +434,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     resumenUltimoDia(carts){
       if (estado !== 'ok' || !DATES.length) return null;
       const d = diaPorDefecto();
-      const filas = carts.filter(c => !window.RUTEO.isVacante(c)).map(c => { const x = delDia(c, d); return {c, si: x.si.length, toca: x.toca, no: x.no.map(o => o.cl[2])}; }).filter(f => f.toca);
+      const filas = carts.filter(c => !window.RUTEO.isVacante(c) && (marcasCartera.get(c.vc) || new Map()).get(d.slice(0, 7))).map(c => { const x = delDia(c, d); return {c, si: x.si.length, toca: x.toca, no: x.no.map(o => o.cl[2])}; }).filter(f => f.toca);
       return {dia: d, largo: largo(d), filas};
     },
     mostrar(){ cargar(); pintar(); },

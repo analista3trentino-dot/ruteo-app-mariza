@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" />
 <title>Ruteo por Carteras TR1 | Trentino</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-<link rel="stylesheet" href="styles.css?v=20261104c" />
+<link rel="stylesheet" href="styles.css?v=20261104d" />
 <style>
 #splash{position:fixed;inset:0;z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(120% 80% at 50% 0%,#1B3A6B 0%,#0C1A2E 60%);transition:opacity .5s ease,visibility .5s;}
 #splash.fuera{opacity:0;visibility:hidden;}
@@ -82,6 +82,9 @@
     <div id="leafletMap"></div>
   </div>
 
+  <!-- Jefatura: pantalla de control -->
+  <section id="controlView" hidden></section>
+
   <!-- Clientes top: visitas por día -->
   <section id="topView" hidden></section>
 
@@ -102,6 +105,10 @@
 
 <!-- Barra de navegación inferior -->
 <nav class="tabbar" aria-label="Secciones">
+  <button type="button" class="tabbar-btn tab-control" data-sec="control">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    <span>Control</span>
+  </button>
   <button type="button" class="tabbar-btn active" data-sec="ruta">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>
     <span>Ruta</span>
@@ -132,41 +139,42 @@
 <!-- Mapa -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <!-- Ruteo de respaldo (la app usa el Excel de ruteo más nuevo de GitHub) -->
-<script src="data.js?v=20261104c"></script>
+<script src="data.js?v=20261104d"></script>
 <!-- Clave de supervisores -->
-<script src="config.js?v=20261104c"></script>
+<script src="config.js?v=20261104d"></script>
 <!-- Nombres de vendedores (opcional) -->
-<script src="vendedores.js?v=20261104c"></script>
+<script src="vendedores.js?v=20261104d"></script>
 <!-- Lector de Excel -->
-<script src="excel.js?v=20261104c"></script>
+<script src="excel.js?v=20261104d"></script>
 <!-- Reconoce los Excel subidos (ruteo, GPS, padrón, visitas, ventas, precios, potencial) -->
-<script src="archivos.js?v=20261104c"></script>
+<script src="archivos.js?v=20261104d"></script>
 <!-- Ruteo desde el Excel del sistema -->
-<script src="ruteo.js?v=20261104c"></script>
+<script src="ruteo.js?v=20261104d"></script>
 <!-- Catálogo de productos -->
-<script src="catalogo.js?v=20261104c"></script>
+<script src="catalogo.js?v=20261104d"></script>
 <!-- Visitas -->
-<script src="visitas.js?v=20261104c"></script>
+<script src="visitas.js?v=20261104d"></script>
 <!-- Lista de precios de cada cliente (botón LP) -->
-<script src="precios.js?v=20261104c"></script>
+<script src="precios.js?v=20261104d"></script>
 <!-- Potencial de cada cliente (se ve en Ruta) -->
-<script src="potencial.js?v=20261104c"></script>
+<script src="potencial.js?v=20261104d"></script>
 <!-- Jefatura: control de supervisores -->
-<script src="jefatura.js?v=20261104c"></script>
+<script src="jefatura.js?v=20261104d"></script>
 <!-- Stock (reporte PDF o Excel) -->
-<script src="stock.js?v=20261104c"></script>
+<script src="stock.js?v=20261104d"></script>
 <!-- Marcas foco y ficha de clientes TOP (ampliación, reposición, ingreso) -->
-<script src="marcasfoco.js?v=20261104c"></script>
-<script src="top.js?v=20261104c"></script>
+<script src="marcasfoco.js?v=20261104d"></script>
+<script src="top.js?v=20261104d"></script>
 <!-- Fotos de clientes top y competencia (Google Drive) -->
-<script src="fotos.js?v=20261104c"></script>
+<script src="fotos.js?v=20261104d"></script>
 <!-- Anomalías de vendedores (las carga el supervisor) -->
-<script src="anomalias.js?v=20261104c"></script>
+<script src="anomalias.js?v=20261104d"></script>
 <!-- Avisos (campanita) -->
-<script src="encuesta.js?v=20261104c"></script>
-<script src="avisos.js?v=20261104c"></script>
+<script src="encuesta.js?v=20261104d"></script>
+<script src="control.js?v=20261104d"></script>
+<script src="avisos.js?v=20261104d"></script>
 <!-- Lógica de la aplicación -->
-<script src="app.js?v=20261104c"></script>
+<script src="app.js?v=20261104d"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
