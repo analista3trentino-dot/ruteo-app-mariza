@@ -253,6 +253,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
       <div id="anJef"></div>
+      <div id="enJef"></div>
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
@@ -278,6 +279,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     box.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { ui.modo = 'dia'; ui.dia = b.dataset.ir; pintar(); window.scrollTo({top: 0, behavior: 'smooth'}); });
     box.querySelectorAll('.jf-v .vs-v-head').forEach(b => b.onclick = () => { const k = b.closest('.jf-v').dataset.sup; ui.abierto = ui.abierto === k ? '' : k; pintar(); });
     if (window.Anomalias && $('anJef')) window.Anomalias.en($('anJef'));
+    if (window.Encuesta && $('enJef')) window.Encuesta.tarjeta($('enJef'));
     const on = box.querySelector('.vs-dchip.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 

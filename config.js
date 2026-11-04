@@ -59,3 +59,11 @@ const FOTOS_CLAVE = "trentino-fotos-2026";
 // Logos: un archivo con el nombre de la marca (ej. "Menoyo.png").
 // Productos: el nombre empieza con el código del artículo (ej. "5033.jpg").
 const MARCAS_CARPETA = "1mGNL79KR9Mpu_MEDXRj5Dtx6xCuQIAZG";
+
+// Encuesta de la app: mientras esté activa, a cada vendedor y supervisor le aparece
+// el botón "Responder" arriba de la ruta. Las respuestas llegan a tu planilla (hoja
+// "Encuesta") y el resumen se ve en Jefatura > Supervisores.
+// Plazo: "hasta" es día y hora de cierre ("AAAA-MM-DD HH:MM"). Después de esa hora el botón
+// desaparece solo y no se aceptan más respuestas; vos seguís viendo los resultados.
+// Para cerrarla antes poné activa: false. Para una encuesta nueva, cambiá el id (ej. "app-dic-2026").
+const ENCUESTA = { id: "app-nov-2026", activa: true, hasta: "2026-11-06 17:00" };

@@ -60,6 +60,22 @@ function doPost(e) {
     const d = JSON.parse(e.postData.contents);
     if (d.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
     const f = new Date(d.fecha || Date.now());
+    // Respuesta de la encuesta de la app: una fila por persona y encuesta (si vuelve a responder, se reemplaza)
+    if (d.encuesta){
+      const T4 = v => "'" + String(v == null ? '' : v), ss2 = planilla();
+      let sh = ss2.getSheetByName('Encuesta'); if (!sh){ sh = ss2.insertSheet('Encuesta'); sh.setFrozenRows(1); }
+      const base = ['Fecha', 'Hora', 'Encuesta', 'Rol', 'Código', 'Nombre', 'Supervisor'];
+      let cols = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].filter(String) : [];
+      if (!cols.length) cols = base.slice();
+      Object.keys(d.respuestas || {}).forEach(k => { if (!cols.includes(k)) cols.push(k); });
+      sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
+      const ahora = new Date(), fila = cols.map(c => c === 'Fecha' ? T4(Utilities.formatDate(ahora, tz(), 'yyyy-MM-dd')) : c === 'Hora' ? T4(Utilities.formatDate(ahora, tz(), 'HH:mm')) : c === 'Encuesta' ? T4(d.id) : c === 'Rol' ? T4(d.rol) : c === 'Código' ? T4(d.codigo) : c === 'Nombre' ? T4(d.nombre) : c === 'Supervisor' ? T4(d.sup) : T4((d.respuestas || {})[c]));
+      let n = 0; const vals = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, cols.length).getDisplayValues() : [];
+      const iE = cols.indexOf('Encuesta'), iC = cols.indexOf('Código'), iR = cols.indexOf('Rol');
+      for (let i = vals.length - 1; i >= 0; i--) if (vals[i][iE] === String(d.id) && vals[i][iC] === String(d.codigo) && vals[i][iR] === String(d.rol)){ n = i + 2; break; }
+      sh.getRange(n || sh.getLastRow() + 1, 1, 1, cols.length).setValues([fila]);
+      return json({ok: true});
+    }
     // Anomalía de un vendedor (la carga el supervisor). Si trae id, se actualiza la misma fila.
     if (d.anomalia){
       const T3 = v => "'" + String(v == null ? '' : v), ahora = Utilities.formatDate(new Date(), tz(), 'yyyy-MM-dd HH:mm');
@@ -111,6 +127,11 @@ function doGet(e) {
   const q = e.parameter || {};
   if (q.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
   if (q.accion === 'marcas') return json(imagenesMarcas(q.carpeta));
+  if (q.accion === 'encuesta'){
+    const sh = planilla().getSheetByName('Encuesta'); if (!sh || sh.getLastRow() < 2) return json({ok: true, respuestas: []});
+    const v = sh.getDataRange().getDisplayValues(), cols = v.shift();
+    return json({ok: true, respuestas: v.map(r => Object.fromEntries(cols.map((c, i) => [c, r[i]]))).filter(r => !q.id || r.Encuesta === q.id)});
+  }
   const dias = +q.dias || 14, desde = Utilities.formatDate(new Date(Date.now() - dias * 864e5), tz(), 'yyyy-MM-dd');
   const ss = planilla(), out = {ok: true, fotos: [], compe: []};
   const leer = (hoja, cols) => {

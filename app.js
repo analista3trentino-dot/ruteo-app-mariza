@@ -382,7 +382,7 @@
   }
 
   // Fotos de clientes top: aviso arriba de la ruta (vendedor: sus fotos de hoy; supervisor: las del equipo)
-  const bannerFotos = () => (window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '';
+  const bannerFotos = () => ((window.Encuesta && !state.query) ? window.Encuesta.banner() : '') + ((window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '');
   function renderList(){
     current = visibleCarteras();
     renderKPIs(current);
@@ -417,12 +417,12 @@
         </button>`;
       }).join('');
       main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => { apilar('Todos los supervisores', () => window.RUTEO.setSpv('TODOS'), false, 'sup'); window.RUTEO.setSpv(b.dataset.grupo); });
-      if (window.Fotos) window.Fotos.enlazar(main);
+      if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main);
       return;
     }
     const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
     main.innerHTML = volver + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
-    if (window.Fotos) window.Fotos.enlazar(main);
+    if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main);
     if (volver) $('jfVolver').onclick = () => { if (PILA.some(p => p.clave === 'sup')){ while (tope() && tope() !== 'sup') PILA.pop(); volver(); } else window.RUTEO.setSpv('TODOS'); };
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');

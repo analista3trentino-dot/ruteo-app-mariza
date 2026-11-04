@@ -45,6 +45,7 @@ const AVISOS = [
     stock: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
     msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     sup: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
+    enc: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
     anom: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
     compe: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
     campana: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
@@ -62,8 +63,8 @@ const AVISOS = [
 
   // Cada fuente arma sus tarjetas; se pintan apenas están listas
   const FUENTES = {};      // nombre -> {estado: 'cargando'|'ok', items: []}
-  const ORDEN = ['msg', 'anom', 'vis', 'pot', 'top', 'compe', 'stock', 'sup'];
-  const TITULOS = {anom: 'Anomalías', vis: 'Visitas', pot: 'Potencial de hoy', top: 'Fichas TOP', compe: 'Competencia', stock: 'Stock', sup: 'Supervisores'};
+  const ORDEN = ['msg', 'enc', 'anom', 'vis', 'pot', 'top', 'compe', 'stock', 'sup'];
+  const TITULOS = {enc: 'Encuesta', anom: 'Anomalías', vis: 'Visitas', pot: 'Potencial de hoy', top: 'Fichas TOP', compe: 'Competencia', stock: 'Stock', sup: 'Supervisores'};
 
   function mensajes(){
     const RU = window.RUTEO, out = [];
@@ -130,6 +131,13 @@ const AVISOS = [
       linea: `<b>${ch.sin.length}</b> sin stock${ch.repo.length ? ` · <b>${ch.repo.length}</b> en reposición (más de ${S.minimo.toLocaleString('es-PY')} u.)` : ''}`,
       chips: ch.sin.slice(0, 6).map(x => ['sin', nombre(x)]).concat(ch.repo.slice(0, 4).map(x => ['repo', nombre(x) + ' · ' + Math.round(x.q).toLocaleString('es-PY') + ' u.']))}];
   }
+  async function encuesta(al){
+    const E = window.Encuesta; if (!E || !E.activa()) return [];
+    if (al.quien !== 'jefatura') return E.yaRespondio() ? [] : [{id: 'enc-' + ENCUESTA.id, tipo: 'enc', titulo: 'Encuesta de la app', linea: 'Contanos qué te parece la app. Son 2 minutos.', ir: ['encuesta', 'Responder encuesta']}];
+    const xs = await E.cargar(); const r = E.resumen(xs);
+    return [{id: 'enc-' + ENCUESTA.id + '-' + xs.length, tipo: 'enc', titulo: 'Encuesta de la app', valor: r.nota !== null ? r.nota.toFixed(1) : String(xs.length), tono: r.nota === null ? '' : r.nota >= 4 ? 'good' : r.nota >= 3 ? 'mid' : 'bad',
+      linea: `<b>${xs.length}</b> respuestas · faltan <b>${r.faltan}</b> vendedores`, ir: ['jefatura', 'Ver resultados']}];
+  }
   function anomalias(al){
     const A = window.Anomalias; if (!A || al.quien === 'vendedor') return [];
     const r = A.resumen(new Set(al.carts.map(c => c.vc))); if (!r || (!r.semana.length && !r.pendientes.length)) return [];
@@ -175,7 +183,7 @@ const AVISOS = [
     p.querySelector('.av-cuerpo').innerHTML = xs.map(a => tarjeta(a, L)).join('') +
       cargando.map(k => `<div class="av2 esq"><span class="av2-ic"></span><div><b>${TITULOS[k] || ''}</b><span>Cargando…</span></div></div>`).join('') +
       (!xs.length && !cargando.length ? '<p class="av-vacio">No hay avisos por ahora.</p>' : '');
-    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); window.RUTEO.setSeccion(b.dataset.ir); });
+    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
   }
   function cerrar(){ const p = $('avPanel'); if (!p) return; p.classList.remove('abierto'); document.documentElement.classList.remove('cat-abierto'); }
   function abrir(){
@@ -203,6 +211,7 @@ const AVISOS = [
     if (window.Fotos && window.Fotos.cargar) fuente('top', window.Fotos.cargar(), () => fichas(al).concat(competencia(al)));
     if (window.Fotos && window.Fotos.cargar && al.quien !== 'vendedor') fuente('anom', window.Fotos.cargar(), () => anomalias(al));
     if (window.Stock) fuente('stock', Promise.all([window.Stock.cargar(), window.Precios && window.Precios.asegurar ? window.Precios.asegurar() : null]), () => stock());
+    if (window.Encuesta) fuente('enc', null, () => encuesta(al));
     if (al.quien === 'jefatura') fuente('sup', null, () => supervisores(al));
     pintarBoton();
   }
