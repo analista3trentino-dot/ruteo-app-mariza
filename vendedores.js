@@ -47,7 +47,7 @@ const VENDEDORES = {
   // ---------- TR15 Itauguá ----------
   "TR1531": "ERIK YEGRS",                           // RV. VILLETA-GUARAMBARE
   "TR1532": "SERGIO BENITEZ",                       // RV. YPANE
-  "TR1533": "ROCIO MEDINA",                      // VD. ZONAL J.A SALDIVAR
+  "TR1533": "VACANTE",                      // VD. ZONAL J.A SALDIVAR
   "TR1534": "FRANCISCO LEIVA",                      // RV. ITA
   "TR1535": "VACANTE",                      // VD. YPACARAI
   "TR1536": "MARIA ROMERO",                         // VD. ITAUGUA
