@@ -1,21 +1,4 @@
-// =====================================================================
-//  NOMBRES DE SUPERVISORES Y VENDEDORES
-// ---------------------------------------------------------------------
-//  Solo cambiá el nombre que está entre comillas:
-//   - Si queda vacante:   "VACANTE"
-//   - Si entra alguien:   escribí su nombre, ej. "JUAN PEREZ"
-//  Y listo: la app lo toma sola al confirmar los cambios.
-//
-//  Las carteras y supervisores VACANTES no se cuentan en Visitas ni en el
-//  control de Jefatura (solo cuentan los activos).
-//
-//  Reglas para no romper nada:
-//   - No borres las comillas " " ni la coma , del final de cada línea.
-//   - No cambies el código de la izquierda (TR13, TR1338, etc.).
-//   - Lo que está después de // es solo una nota.
-// =====================================================================
 
-// ---------- SUPERVISORES ----------
 const SUPERVISORES = {
   "TR12": "VACANTE",                    // ST. MAY. AYGAS
   "TR13": "FELIX SEGOVIA",              // ST. GAS CENTRO
@@ -70,7 +53,7 @@ const VENDEDORES = {
   "TR1733": "VACANTE",                      // RV. EMBOSCADA
   "TR1734": "JOSEFINA ACOSTA",                      // RV. ARROYOS ESTEROS
   "TR1735": "ALEJANDRO RAMIREZ",                    // RV. VILLA HAYES/REMAN.
-  "TR1737": "INGRID CASTRO",                        // RV. BENJAMIN ACEVAL
+  "TR1737": "VACANTE",                        // RV. BENJAMIN ACEVAL
 
   // ---------- TR18-19 Paraguarí ----------
   "TR1821": "LORENZO VAZQUEZ",                      // PV. SUPER PARAGUARI
