@@ -144,7 +144,12 @@
   // Si GitHub no responde (o limitó las consultas), se pide la lista a jsDelivr (copia pública de GitHub).
   async function listarTodo(R){
     try {
-      const j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/git/trees/HEAD?recursive=1`);
+      let j = null;
+      for (const ref of ['HEAD', 'main', 'master']){
+        try { j = await api(`https://api.github.com/repos/${R.owner}/${R.repo}/git/trees/${ref}?recursive=1`); break; }
+        catch(e){ if (/limitado|403|429/.test(e.message)) throw e; }
+      }
+      if (!j) throw new Error('GitHub sin lista');
       return {via: 'github', items: (j.tree || []).filter(f => f.type === 'blob').map(f => ({path: f.path, sha: f.sha}))};
     } catch(e){
       for (const rama of ['main', 'master']){
@@ -264,7 +269,9 @@
     let lista = [];
     try { lista = await window.Archivos.ultimos(''); } catch(e){ return []; }
     const out = [];
-    for (const f of lista.slice(0, 40)){
+    // Se revisan TODOS los archivos (antes solo los 40 más nuevos: al subir muchos archivos,
+    // el padrón, la base de ventas y el ruteo quedaban afuera y desaparecían los clientes top y el LP)
+    for (const f of lista){
       if (await tipoDe(f) === tipo) out.push(f);
       if (out.length >= n) break;
     }

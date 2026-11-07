@@ -149,6 +149,7 @@ const NOMBRES_SUPERVISORES = {
     if (!ru) return;
     const [gp] = await global.Archivos.buscar('gps', 1);
     const [pa] = await global.Archivos.buscar('padron', 1);
+    if (!pa) return;   // sin padrón no se rearma (se perderían el LP y los clientes top)
     const firma = [ru, gp, pa].map(f => f ? f.sha : '-').join('|');
     if (guardado && guardado.firma === firma) return;
     // si data.js ya trae un ruteo igual o más nuevo que estos Excel, no hace falta rearmarlo
