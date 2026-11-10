@@ -1,6 +1,6 @@
 
 const SUPERVISORES = {
-  "TR12": "VACANTE",                    // ST. MAY. AYGAS
+  "TR12": "OSMAR BENITEZ",                    // ST. MAY. AYGAS
   "TR13": "FELIX SEGOVIA",              // ST. GAS CENTRO
   "TR15": "ANGEL MARTINEZ",                    // ST. GAS ITAUGUA/ITA
   "TR16": "DIEGO GARCIA",               // ST. CAACUPE
@@ -52,7 +52,7 @@ const VENDEDORES = {
   "TR1732": "KEVIN MONGES",                         // RV.  LIMPIO
   "TR1733": "VACANTE",                      // RV. EMBOSCADA
   "TR1734": "JOSEFINA ACOSTA",                      // RV. ARROYOS ESTEROS
-  "TR1735": "ALEJANDRO RAMIREZ",                    // RV. VILLA HAYES/REMAN.
+  "TR1735": "VACANTE",                    // RV. VILLA HAYES/REMAN.
   "TR1737": "VACANTE",                        // RV. BENJAMIN ACEVAL
 
   // ---------- TR18-19 Paraguarí ----------
@@ -64,6 +64,6 @@ const VENDEDORES = {
   "TR1931": "NERY PINTOS",                          // RV. CARAPEGUA
   "TR1932": "ADAN SOSA",                            // VD. QUINDY
   "TR1933": "LUIS GALEANO",                         // VD. YBYCUI/ACAHAY
-  "TR1934": "MAICKOL DAVID BRITEZ MORALES",         // VD. LA COLMENA
+  "TR1934": "DAVID MORALES",         // VD. LA COLMENA
 
 };
