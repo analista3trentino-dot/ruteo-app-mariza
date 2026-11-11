@@ -285,7 +285,7 @@
 
   // Recuerda datos de cada archivo (por ejemplo, qué listas trae o qué meses)
   const tipo = {
-    leer: (sha, t) => { const k = 'ruteoTR1_es_' + t + '_' + sha; try { const v = localStorage.getItem(k); if (v !== null) return v; } catch(e){} return ES_SEMILLA[t + '_' + sha] ?? null; },
+    leer: (sha, t) => { const k = 'ruteoTR1_es_' + t + '_' + sha; try { const v = localStorage.getItem(k); if (v !== null) return v; } catch(e){} return __nz(ES_SEMILLA[t + '_' + sha], null); },
     guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, typeof si === 'string' ? si : (si ? '1' : '0')); } catch(e){} }
   };
   // Vuelve a consultar GitHub (botón "Actualizar")

@@ -11,7 +11,7 @@
   const nomCli = cl => String(cl[2] || '') + (cl[9] && !String(cl[2] || '').includes('(' + cl[9] + ')') ? ' (' + cl[9] + ')' : '');
   const URL_F = (typeof FOTOS_URL !== 'undefined' ? String(FOTOS_URL) : '').trim();
   const CLAVE_F = typeof FOTOS_CLAVE !== 'undefined' ? String(FOTOS_CLAVE) : '';
-  const MAX_LADO = 1600, CALIDAD = .82, MIN_VIEJA = 10;   // foto de hace más de 10 min = de la galería
+  const MAX_LADO = 1280, CALIDAD = .75, MIN_VIEJA = 10;   // fotos más livianas (se ven bien y gastan menos datos al enviar)   // foto de hace más de 10 min = de la galería
   const TIPOS = ['Ampliación', 'Reposición'];
   const TIPOS_C = ['Precio', 'Promoción', 'Producto nuevo', 'Exhibición', 'Otro'];
   const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -46,7 +46,7 @@
   let datos = null, datosT = 0, pend = null, errorCarga = '';
   const locales = [];   // lo subido en esta sesión (se ve al instante)
   function parametros(){
-    const r = R(), q = new URLSearchParams({clave: CLAVE_F, dias: '42'});
+    const r = R(), q = new URLSearchParams({clave: CLAVE_F, dias: r.modo === 'vendedor' ? '14' : '42'});   // el vendedor solo necesita lo reciente
     if (r.modo === 'vendedor' && r.vendedor) q.set('vendedor', r.vendedor.vc);
     else if (r.modo === 'supervisor' && r.miSup) q.set('sup', r.miSup);
     else q.set('sup', 'TODOS');
@@ -643,7 +643,7 @@
     const d = new Date();
     const j = await enviar(Object.assign({gestion: true, fecha: d.toISOString(), filas}, m));
     filas.forEach(x => locales.unshift({gest: true, ID: j.id, Fecha: iso(d), Hora: p2(d.getHours()) + ':' + p2(d.getMinutes()), Supervisor: m.sup, Vendedor: m.vendedor, 'Nombre vendedor': m.nomVendedor, Cliente: m.cliente, 'Código': m.codigo, PM: m.pm,
-      'Acción': x.accion, Marca: x.marca, 'Categoría': x.categoria, Producto: x.producto || '', 'Cód. artículo': x.art || '', Respuesta: x.resp, 'Caras tenemos': x.tenemos ?? '', 'Caras faltan': x.faltan ?? '', Comentario: x.com || '', 'Enlace foto': x.enlace || ''}));
+      'Acción': x.accion, Marca: x.marca, 'Categoría': x.categoria, Producto: x.producto || '', 'Cód. artículo': x.art || '', Respuesta: x.resp, 'Caras tenemos': __nz(x.tenemos, ''), 'Caras faltan': __nz(x.faltan, ''), Comentario: x.com || '', 'Enlace foto': x.enlace || ''}));
     punto();
     return j;
   }

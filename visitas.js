@@ -390,7 +390,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     // Vendedores, de menor a mayor cumplimiento
     const pv = f => esDia ? pct(f.a, f.b) : pct(f.va, f.vb);
-    const ord = filas.slice().sort((x, y) => (pv(x) ?? 101) - (pv(y) ?? 101) || x.c.vc.localeCompare(y.c.vc));
+    const ord = filas.slice().sort((x, y) => (__nz(pv(x), 101)) - (__nz(pv(y), 101)) || x.c.vc.localeCompare(y.c.vc));
     const vend = ord.map(f => {
       const q = pv(f), abierto = ui.abiertos.has(f.c.vc), vac = RU.isVacante(f.c);
       return `<article class="vs-v ${abierto ? 'open' : ''}" data-vc="${esc(f.c.vc)}">

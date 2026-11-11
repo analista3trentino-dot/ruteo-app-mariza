@@ -149,7 +149,7 @@ const ENCUESTA_PREGUNTAS = [
     c.querySelector('[data-env]').onclick = async () => {
       if (!abierta()){ const er = $('enErr'); er.textContent = 'La encuesta ya cerró (era hasta el ' + plazo() + ').'; er.hidden = false; return; }
       const b = c.querySelector('[data-env]'); b.disabled = true; b.textContent = 'Enviando…';
-      const resp = {}; preguntas().forEach(q => { const v = S.resp[q.k]; resp[q.k] = Array.isArray(v) ? v.join(', ') : (v ?? ''); });
+      const resp = {}; preguntas().forEach(q => { const v = S.resp[q.k]; resp[q.k] = Array.isArray(v) ? v.join(', ') : (__nz(v, '')); });
       try {
         const r = await fetch(URL_F, {method: 'POST', body: JSON.stringify({clave: CLAVE_F, encuesta: true, id: CFG.id, rol: S.rol === 'sup' ? 'Supervisor' : 'Vendedor', codigo: S.codigo, nombre: S.nombre, sup: S.sup, respuestas: resp}), redirect: 'follow'});
         const j = await r.json(); if (!j.ok) throw new Error(j.error);

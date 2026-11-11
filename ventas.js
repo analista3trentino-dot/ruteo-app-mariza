@@ -123,7 +123,7 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
         const r = await fetch(f.url, {cache: 'no-cache'}); if (!r.ok) continue;
         const H = hojas(XLSX, await r.arrayBuffer());
         let es = false;
-        if (!ventas){ const x = leerVentas(H, validas); if (x){ ventas = {...x, fecha: f.fecha, archivo: f.nombre}; es = true; } }
+        if (!ventas){ const x = leerVentas(H, validas); if (x){ ventas = Object.assign({}, x, {fecha: f.fecha, archivo: f.nombre}); es = true; } }
         // Excel de Power BI bajado con "conexión dinámica" y sin abrir: no trae datos
         if (!es && !vacio && H.some(rows => rows.slice(0, 5).some(r => r && r.some(x => /connected to power bi|conectad[oa]s? a power bi/i.test(String(x || '')))))) vacio = f.nombre;
         if (!es && !cuotas){ const x = leerCuotas(H, validas); if (x){ cuotas = x; es = true; } }
@@ -285,7 +285,7 @@ const CARPETA_VENTAS = '';   // '' = página principal del repositorio
       }
       const pv = f => pct(f.x.total, f.x.cuota);
       const vacN = f => RU.isVacante(f.c) ? 1 : 0;   // las carteras vacantes van al final
-      const ord = filas.slice().sort((a, b) => vacN(a) - vacN(b) || (pv(a) ?? 999) - (pv(b) ?? 999) || a.c.vc.localeCompare(b.c.vc));
+      const ord = filas.slice().sort((a, b) => vacN(a) - vacN(b) || (__nz(pv(a), 999)) - (__nz(pv(b), 999)) || a.c.vc.localeCompare(b.c.vc));
       const vend = ord.map(f => {
         const q = pv(f), ton = tonoVs(q, cal.esperado), abierto = ui.abiertos.has(f.c.vc), vac = RU.isVacante(f.c);
         return `<article class="vs-v ${abierto ? 'open' : ''}" data-vc="${esc(f.c.vc)}">

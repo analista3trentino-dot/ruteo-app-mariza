@@ -69,20 +69,27 @@ const MARCAS_CARPETA = "1mGNL79KR9Mpu_MEDXRj5Dtx6xCuQIAZG";
 const ENCUESTA = { id: "app-nov-2026", activa: true, hasta: "2026-11-06 17:00" };
 
 // ---------------------------------------------------------------------
-// PRODUCTOS FOCO DEL MES: aparecen arriba de todo en la pantalla de Avisos.
-// Cada mes cambiá el mes y la lista de marcas (en el orden que quieras).
-// Las imágenes salen de la carpeta "Marcas" de Google Drive (MARCAS_CARPETA):
-// basta con que el archivo se llame como la marca, por ejemplo "Saadet.png" o "7 Colinas.jpg".
+// PRODUCTOS FOCO DEL MES: franja arriba de la Ruta y del Catálogo (no en Avisos).
+// Cada mes cambiá el mes y las marcas. Por cada marca podés poner:
+//   producto:    el producto foco (texto corto)
+//   logo:        imagen del logo (archivo subido a GitHub)
+//   foto:        foto del producto foco
+//   referencias: imágenes de referencia (folletos)
+//   paginas:     páginas del catálogo a mostrar (si no, se buscan solas por la marca)
 // ---------------------------------------------------------------------
 const PRODUCTOS_FOCO = {
   mes: "Noviembre",
-  marcas: ["Mesa", "Saadet", "Copacol", "Urca", "7 Colinas", "Casaredo", "My Bit", "Menoyo"],
-  mensaje: "¡A empujar estas marcas en cada visita!",
-  // Imágenes de referencia (opcional): marca -> nombre del archivo de imagen subido a GitHub.
-  // Las marcas sin referencia muestran sus páginas del catálogo.
-  referencias: {
-    "7 Colinas": "foco-7-colinas.jpg",
-    "Saadet": "foco-saadet.jpg"
-  }
+  mensaje: "¡Vamos Trentino! A empujar estas marcas en cada visita.",
+  marcas: [
+    { marca: "Mesa", logo: "foco-logo-mesa.webp" },
+    { marca: "Saadet", logo: "foco-logo-saadet.webp",
+      referencias: [{ src: "foco-saadet.jpg", w: 756, h: 540 }] },
+    { marca: "Copacol", logo: "foco-logo-copacol.webp" },
+    { marca: "Urca", producto: "Jabón en polvo", logo: "foco-logo-urca.webp",
+      foto: { src: "foco-urca-jabon.webp", w: 283, h: 265 } },
+    { marca: "7 Colinas", producto: "660 Choop", logo: "foco-logo-7-colinas.webp",
+      referencias: [{ src: "foco-7-colinas.jpg", w: 1088, h: 1100 }] },
+    { marca: "Casaredo", producto: "Wafer 43 g", logo: "foco-logo-casaredo.webp", paginas: [45, 44] },
+    { marca: "Menoyo", producto: "Display de 60 g", logo: "foco-logo-menoyo.webp" }
+  ]
 };
-// (Los productos foco se ven arriba de la Ruta y del Catálogo, no en Avisos)

@@ -151,7 +151,7 @@ const LISTAS_PRECIOS = [
         let p = map.get(cod);
         if (!p) {
           const desc = f['desc articulo'] || '';
-          p = { cod, desc, ref: f['referencia'] || '', barra: String(f['cod barra'] || '').replace(/[^\d]/g, ''), precios: {}, ...clasificar(desc) };
+          p = Object.assign({}, {cod, desc, ref: f['referencia'] || '', barra: String(f['cod barra'] || '').replace(/[^\d]/g, ''), precios: {}}, clasificar(desc));
           p.busca = norm(p.desc + ' ' + p.ref + ' ' + p.cod + ' ' + p.barra + ' ' + (p.marca || ''));
           map.set(cod, p);
         }

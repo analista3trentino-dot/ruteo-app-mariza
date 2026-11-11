@@ -68,10 +68,11 @@ const NOMBRES_SUPERVISORES = {
     if (!R || !R.length) throw new Error('El Excel de ruteo no tiene las columnas Vendedor, Desc vendedor, Desc visita, Ciudad y Subcliente');
     // GPS
     const gps = new Map();
-    if (libros.gps){
-      const G = tabla(XLSX, libros.gps, {sub: h => h.includes('subcliente'), lat: h => h === 'latitud', lon: h => h === 'longitud'}) || [];
+    // varios Excel de GPS (el más nuevo primero): si uno viene filtrado (por ejemplo solo lunes), los demás completan
+    [].concat(libros.gps || []).filter(Boolean).forEach(libro => {
+      const G = tabla(XLSX, libro, {sub: h => h.includes('subcliente'), lat: h => h === 'latitud', lon: h => h === 'longitud'}) || [];
       G.forEach(g => { const c = codigo(g.sub), la = +g.lat, lo = +g.lon; if (c && la && lo && !gps.has(c) && Math.abs(la) <= 90 && Math.abs(lo) <= 180) gps.set(c, [la, lo]); });
-    }
+    });
     if (base && base.carteras) base.carteras.forEach(c => c.cl.forEach(cl => { if (cl[6] && typeof cl[4] === 'number' && !gps.has(cl[6])) gps.set(cl[6], [cl[4], cl[5]]); }));
     // Padrón: PM, LP y supervisor
     const pad_ = new Map(), supDeVend = new Map();
@@ -147,17 +148,17 @@ const NOMBRES_SUPERVISORES = {
     if (!global.Archivos || !global.cargarExcelLib) return;
     const [ru] = await global.Archivos.buscar('ruteo', 1);
     if (!ru) return;
-    const [gp] = await global.Archivos.buscar('gps', 1);
+    const gps = await global.Archivos.buscar('gps', 3), gp = gps[0];
     const [pa] = await global.Archivos.buscar('padron', 1);
     if (!pa) return;   // sin padrón no se rearma (se perderían el LP y los clientes top)
-    const firma = [ru, gp, pa].map(f => f ? f.sha : '-').join('|');
+    const firma = [ru, gp, pa].map(f => f ? f.sha : '-').join('|') + (gps.length > 1 ? '|' + gps.slice(1).map(f => f.sha).join('+') : '');
     if (guardado && guardado.firma === firma) return;
     // si data.js ya trae un ruteo igual o más nuevo que estos Excel, no hace falta rearmarlo
     const fechaEx = Math.max(...[ru, gp, pa].filter(Boolean).map(f => f.fecha ? f.fecha.getTime() : 0));
     if (!guardado && baseTs >= fechaEx) return;
     const XLSX = await global.cargarExcelLib();
     const abrir = async f => f ? global.abrirLibro(XLSX, await global.Archivos.bajar(f)) : null;
-    const libros = {ruteo: await abrir(ru), gps: await abrir(gp), padron: await abrir(pa)};
+    const libros = {ruteo: await abrir(ru), gps: await Promise.all(gps.map(abrir)), padron: await abrir(pa)};
     const datos = construir(XLSX, libros, global.APP_DATA, ru.fecha);
     try { localStorage.setItem(CLAVE, JSON.stringify({firma, datos})); } catch(e){}
     const cambio = JSON.stringify(nombres(JSON.parse(JSON.stringify(datos))).carteras) !== JSON.stringify(global.APP_DATA.carteras);

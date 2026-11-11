@@ -131,7 +131,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const porDia = new Map();
     rs.forEach(r => { if (!porDia.has(r.d)) porDia.set(r.d, []); porDia.get(r.d).push(r); });
     let jornada = 0;
-    porDia.forEach(xs => { const i = Math.min(...xs.map(x => x.ini ?? Infinity)), f = Math.max(...xs.map(x => x.fin ?? -Infinity)); if (isFinite(i) && isFinite(f) && f > i) jornada += f - i; });
+    porDia.forEach(xs => { const i = Math.min(...xs.map(x => __nz(x.ini, Infinity))), f = Math.max(...xs.map(x => __nz(x.fin, -Infinity))); if (isFinite(i) && isFinite(f) && f > i) jornada += f - i; });
     const enCli = rs.reduce((t, r) => t + r.seg, 0);
     return {rs, porDia, visitas: rs.length, clientes: new Set(rs.map(r => r.code || r.cli)).size, enCli, jornada, dias: porDia.size,
       cortas: rs.filter(r => r.seg < VISITA_CORTA_MINUTOS * 60).length, prom: rs.length ? enCli / rs.length : 0};
@@ -161,8 +161,8 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       <div class="jc-ley"><span class="ok">✓ ${cc.ok} coinciden</span><span class="hora">⏱ ${cc.hora} otro horario</span><span class="dist">✗ ${dist} otro cliente</span></div>`;
   }
   function detalleDia(x){
-    const xs = x.rs.slice().sort((a, b) => (a.ini ?? 0) - (b.ini ?? 0));
-    const i0 = Math.min(...xs.map(r => r.ini ?? Infinity)), f0 = Math.max(...xs.map(r => r.fin ?? -Infinity)), jor = isFinite(i0) && isFinite(f0) ? f0 - i0 : 0;
+    const xs = x.rs.slice().sort((a, b) => (__nz(a.ini, 0)) - (__nz(b.ini, 0)));
+    const i0 = Math.min(...xs.map(r => __nz(r.ini, Infinity))), f0 = Math.max(...xs.map(r => __nz(r.fin, -Infinity))), jor = isFinite(i0) && isFinite(f0) ? f0 - i0 : 0;
     const cc = cuentaCruce(xs);
     let h = `<div class="jd-res">
       <div><b>${isFinite(i0) ? hora(i0) + '–' + hora(f0) : '—'}</b><small>jornada${jor ? ' · ' + hm(jor) : ''}</small></div>
@@ -210,7 +210,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     let h = `<div class="vs-sec si">Por día <b>${dias.length}</b><small>Visitas · en clientes · jornada</small></div>`;
     h += dias.map(d => {
       const rs = x.porDia.get(d), en = rs.reduce((t, r) => t + r.seg, 0);
-      const i = Math.min(...rs.map(r => r.ini ?? Infinity)), f = Math.max(...rs.map(r => r.fin ?? -Infinity));
+      const i = Math.min(...rs.map(r => __nz(r.ini, Infinity))), f = Math.max(...rs.map(r => __nz(r.fin, -Infinity)));
       return `<button type="button" class="jf-dia" data-ir="${d}"><span><b>${DIAS_C[fromISO(d).getDay()]} ${+d.slice(8)}</b><small>${isFinite(i) ? hora(i) + ' a ' + hora(f) : ''}</small></span><span>${rs.length} visitas</span><span><b>${hm(en)}</b></span></button>`;
     }).join('');
     const porCart = new Map(); x.rs.forEach(r => porCart.set(r.cartera, (porCart.get(r.cartera) || 0) + 1));
@@ -237,7 +237,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const dias = new Set(esDia ? [ui.dia] : esSem ? DSEM : DATES.filter(d => d.startsWith(ui.mes)));
     const MS = [...new Set(DATES.map(d => d.slice(0, 7)))];
     const chipsSem = SEMS.slice().reverse().map(l => { const ds = DATES.filter(d => lunesDe(d) === l); return `<button type="button" class="vs-dchip vs-schip ${l === ui.sem ? 'on' : ''}" data-sem="${l}"><small>${l === lunesDe(HOY) ? 'Esta semana' : 'Semana'}</small><b>${dmC(l)} – ${dmC(finSemC(l))}</b></button>`; }).join('');
-    const primera = x => x.rs.length ? Math.min(...x.rs.map(r => r.ini ?? Infinity)) : Infinity;
+    const primera = x => x.rs.length ? Math.min(...x.rs.map(r => __nz(r.ini, Infinity))) : Infinity;
     const filas = SUPS.map(s => ({s, x: resumen(s.k, dias)})).sort((a, b) => (b.x.visitas ? 1 : 0) - (a.x.visitas ? 1 : 0) || (esDia ? primera(a.x) - primera(b.x) : 0));   // los que no marcaron, al final; en el día, del más temprano al más tarde
     const CT = cuentaCruce([].concat(...filas.map(f => f.x.rs)));
     const T = filas.reduce((t, f) => ({v: t.v + f.x.visitas, e: t.e + f.x.enCli, j: t.j + f.x.jornada}), {v: 0, e: 0, j: 0});
@@ -271,7 +271,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
-        const sub = esDia ? (x.visitas ? `${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))}–${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))} · ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}` : (esNuevo(f.s.k, ui.dia) ? (inicioSup(f.s.k) > ultimoDia() ? 'Supervisor nuevo · todavía sin marcaciones' : 'Supervisor nuevo · empezó después de este día') : 'Sin marcaciones este día')) : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
+        const sub = esDia ? (x.visitas ? `${hora(Math.min(...x.rs.map(r => __nz(r.ini, Infinity))))}–${hora(Math.max(...x.rs.map(r => __nz(r.fin, -Infinity))))} · ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}` : (esNuevo(f.s.k, ui.dia) ? (inicioSup(f.s.k) > ultimoDia() ? 'Supervisor nuevo · todavía sin marcaciones' : 'Supervisor nuevo · empezó después de este día') : 'Sin marcaciones este día')) : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
         const chipC = cc.base ? `<span class="jf-cc ${cc.ok / cc.base >= .7 ? 'ok' : cc.ok / cc.base >= .4 ? 'mid' : 'bad'}">✓ ${cc.ok}/${cc.base} coinciden</span>` : '';
         return `<article class="vs-v jf-v ${abierto ? 'open' : ''} ${x.visitas ? '' : 'vacio'}" data-sup="${esc(f.s.k)}">
           <button type="button" class="vs-v-head" aria-expanded="${abierto}">
@@ -314,7 +314,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       if (estado !== 'ok'){ if (!cargaJ) cargaJ = cargarDatos().then(() => { estado = 'ok'; }); await cargaJ; }
       // último día completo (el de hoy cuenta recién después de las 17 h)
       const ds = DATES.filter(x => x !== HOY || new Date().getHours() >= 17); const d = ds[ds.length - 1]; if (!d) return null;
-      return {dia: d, largo: largo(d), filas: SUPS.map(s => { const x = resumen(s.k, new Set([d])), i = Math.min(...x.rs.map(r => r.ini ?? Infinity)), f = Math.max(...x.rs.map(r => r.fin ?? -Infinity));
+      return {dia: d, largo: largo(d), filas: SUPS.map(s => { const x = resumen(s.k, new Set([d])), i = Math.min(...x.rs.map(r => __nz(r.ini, Infinity))), f = Math.max(...x.rs.map(r => __nz(r.fin, -Infinity)));
         return {k: s.k, n: s.n, x, cc: cuentaCruce(x.rs), nuevo: esNuevo(s.k, d), ini: isFinite(i) ? hora(i) : '', fin: isFinite(f) ? hora(f) : ''}; })};
     },
     // Abre la pestaña Supervisores con el recorrido de un supervisor en un día
