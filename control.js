@@ -50,7 +50,7 @@
     const M = {hoy: HOY, sups: [], sup: null, vis: null, anom: null, top: null, stock: null, compe: null};
 
     // Supervisores: último día con marcaciones
-    if (rj) M.sup = {dia: rj.dia, filas: rj.filas.map(f => ({k: f.k, eq: RU.supLabel[f.k] || f.k, n: nom2(f.n), visitas: f.x.visitas, enCli: f.x.enCli, jornada: f.x.jornada, cortas: f.x.cortas, ini: f.ini, fin: f.fin, ok: f.cc ? f.cc.ok : 0, base: f.cc ? f.cc.base : 0}))};
+    if (rj) M.sup = {dia: rj.dia, filas: rj.filas.map(f => ({k: f.k, eq: RU.supLabel[f.k] || f.k, n: nom2(f.n), visitas: f.x.visitas, enCli: f.x.enCli, jornada: f.x.jornada, cortas: f.x.cortas, ini: f.ini, fin: f.fin, nuevo: !!f.nuevo, ok: f.cc ? f.cc.ok : 0, base: f.cc ? f.cc.base : 0}))};
 
     // Visitas de vendedores: último día completo
     const rv = V && V.resumenUltimoDia ? V.resumenUltimoDia(carts) : null;
@@ -58,7 +58,7 @@
       const fs = rv.filas;
       M.vis = {dia: rv.dia, si: fs.reduce((t, f) => t + f.si, 0), toca: fs.reduce((t, f) => t + f.toca, 0),
         porSup: RU.sups.map(s => { const xs = fs.filter(f => f.c.sup === s.k); return {k: s.k, eq: s.p, si: xs.reduce((t, f) => t + f.si, 0), toca: xs.reduce((t, f) => t + f.toca, 0)}; }).filter(x => x.toca),
-        bajos: fs.map(f => ({vc: f.c.vc, n: nom2(f.c.vn), eq: RU.supLabel[f.c.sup] || '', si: f.si, toca: f.toca, q: pct(f.si, f.toca)})).sort((a, b) => a.q - b.q)};
+        bajos: fs.filter(f => f.toca).map(f => ({vc: f.c.vc, n: nom2(f.c.vn), eq: RU.supLabel[f.c.sup] || '', si: f.si, toca: f.toca, q: pct(f.si, f.toca)})).sort((a, b) => a.q - b.q)};
     }
 
     // Anomalías (esta semana y anteriores, las más nuevas primero)
@@ -102,7 +102,7 @@
     const hoyNP = M.anom ? M.anom.hoy.filter(a => a.jus !== 'Pendiente') : [];
     if (hoyNP.length) out.push({t: 'mid', n: hoyNP.length, b: hoyNP.length === 1 ? 'anomalía informada hoy' : 'anomalías informadas hoy', s: hoyNP.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
     if (M.sup){
-      const sin = M.sup.filas.filter(f => !f.visitas);
+      const sin = M.sup.filas.filter(f => !f.visitas && !f.nuevo);   // un supervisor nuevo no cuenta como "no marcó"
       if (sin.length) out.push({t: 'bad', n: sin.length, b: (sin.length === 1 ? 'supervisor no marcó' : 'supervisores no marcaron') + ' visitas el ' + corto(M.sup.dia), s: sin.map(f => `${f.eq} · ${f.n}`).join(' · '), go: 'sup:' + sin[0].k});
       M.sup.filas.filter(f => f.base >= 3 && f.ok / f.base < .4).forEach(f => out.push({t: 'mid', n: `${f.ok}/${f.base}`, b: `${f.n}: pocas visitas junto al vendedor`, s: `${f.eq} · ${corto(M.sup.dia)} · ${f.ok} de ${f.base} visitas coinciden`, go: 'sup:' + f.k}));
     }
@@ -141,15 +141,27 @@
         : '<p class="ct-vacio">Todavía no hay anomalías. Las cargan los supervisores desde la pestaña Visitas.</p>'}
     </section>`; })() : '';
 
-    // 3. Supervisores
-    const sup = S ? `<section class="ct-card">
-      ${head('sup', 'sup', 'Supervisores en la calle', `Último día con marcaciones: <b>${esc(largo(S.dia))}</b>`, ['sups', 'Ver detalle'])}
-      <div class="ct-lista">
-        ${S.filas.slice().sort((a, b) => (a.visitas ? 1 : 0) - (b.visitas ? 1 : 0) || b.enCli - a.enCli).map(f => { const q = pct(f.ok, f.base);
-          return `<button type="button" class="ct-sp ${f.visitas ? '' : 'sin'}" data-go="sup:${esc(f.k)}">
-            <span class="ct-sp-n"><b>${esc(f.n)}</b><small>${esc(f.eq)}</small><span class="ct-r-f">›</span></span>
-            ${f.visitas ? `<span class="ct-sp-st"><span><b>${esc(f.ini)}–${esc(f.fin)}</b>horario</span><span><b>${f.visitas}</b>visitas</span><span><b>${hm(f.enCli)}</b>en clientes</span><span><b class="ct-q ${tono(q)}">${q === null ? '—' : q + '%'}</b>con vendedor</span></span>`
-              : '<span class="ct-sinm">No marcó visitas este día</span>'}</button>`; }).join('')}
+    // 3. Supervisores: una tarjeta grande por supervisor
+    const ini2 = n => String(n || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const colorSup = k => (window.RUTEO && window.RUTEO.supColor && window.RUTEO.supColor[k]) || '#2E5BFF';
+    const sup = S ? `<section class="ct-card ct-sups">
+      ${head('sup', 'sup', 'Supervisores en la calle', `Último día con marcaciones: <b>${esc(largo(S.dia))}</b> · tocá uno para ver su recorrido`, ['sups', 'Ver detalle'])}
+      <div class="sp2-grid">
+        ${S.filas.slice().sort((a, b) => (b.visitas ? 2 : b.nuevo ? 0 : 1) - (a.visitas ? 2 : a.nuevo ? 0 : 1) || b.enCli - a.enCli).map(f => {
+          const q = pct(f.ok, f.base), uso = f.jornada ? Math.min(100, Math.round(f.enCli / f.jornada * 100)) : null;
+          const estado = f.visitas ? `<span class="sp2-est ok">${esc(f.ini)} a ${esc(f.fin)}</span>` : f.nuevo ? '<span class="sp2-est nuevo">Nuevo</span>' : '<span class="sp2-est bad">No marcó</span>';
+          return `<button type="button" class="sp2 ${f.visitas ? '' : f.nuevo ? 'es-nuevo' : 'sin'}" data-go="sup:${esc(f.k)}" style="--sc:${esc(colorSup(f.k))}">
+            <span class="sp2-top"><span class="sp2-av">${esc(ini2(f.n))}</span><span class="sp2-nom"><b>${esc(f.n)}</b><small>${esc(f.eq)}</small></span></span>
+            <span class="sp2-linea">${estado}${f.visitas && f.jornada ? `<small>jornada de ${hm(f.jornada)}</small>` : ''}</span>
+            ${f.visitas ? `<span class="sp2-kpis">
+                <span><b>${f.visitas}</b><small>visitas</small></span>
+                <span><b>${hm(f.enCli)}</b><small>en clientes</small></span>
+                <span><b class="ct-q ${tono(q)}">${q === null ? '—' : q + '%'}</b><small>con vendedor</small></span>
+              </span>
+              ${uso !== null ? `<span class="sp2-uso"><i class="ct-b"><i class="${uso >= 60 ? 'good' : uso >= 40 ? 'mid' : 'bad'}" style="width:${uso}%"></i></i><small><b>${uso}%</b> de la jornada dentro de clientes</small></span>` : ''}`
+            : `<span class="sp2-vacio">${f.nuevo ? 'Todavía no tiene marcaciones. Va a aparecer cuando empiece a marcar.' : 'No hay marcaciones de este supervisor ese día.'}</span>`}
+            <span class="sp2-ver">Ver recorrido ›</span>
+          </button>`; }).join('')}
       </div>
       <p class="ct-nota"><b>Con vendedor</b>: de las visitas del supervisor, qué parte fue a clientes que el vendedor también visitó ese día (acompañamiento).</p>
     </section>` : '';

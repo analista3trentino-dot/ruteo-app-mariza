@@ -4,11 +4,13 @@
 const CACHE = 'ruteo-tr1-v2';
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  // ('ruteo-archivos…' es donde la app guarda los Excel/PDF ya bajados: no se borra)
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && !k.startsWith('ruteo-archivos')).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  if (/\.(xlsx?|pdf)$/i.test(new URL(req.url).pathname)) return;   // los Excel y PDF los guarda la app por su cuenta
   const red = req.mode === 'navigate' ? fetch(req.url, {cache: 'no-cache', credentials: 'same-origin'}) : fetch(req, {cache: 'no-cache'});
   e.respondWith(
     red.then(res => {

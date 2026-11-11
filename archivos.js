@@ -9,7 +9,7 @@
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
-  const MIN_CACHE = 5;    // minutos que se recuerda la lista de archivos
+  const MIN_CACHE = 1;    // minutos que se recuerda la lista de archivos (corto: lo que subís aparece enseguida)
   let falloGitHub = false; // true si no se pudo consultar GitHub (se usa la última lista guardada)
   // Archivos con nombre fijo de versiones anteriores: se usan solo si no hay otros más nuevos
   const VIEJOS = ['visitas.xlsx', 'lista_precios_25.xlsx', 'lista_precios_35.xlsx'];
@@ -65,70 +65,12 @@
     return r.json();
   }
   // Fechas de subida ya conocidas (así una compu nueva no tiene que preguntarle a GitHub por cada archivo)
-  const SEMILLA = {"d43c87adc2ae614f7b5a712f832ccbed9422fa23":"2026-10-27T12:12:35-03:00",
-"016eb58061f54e4a478940e3dc387e085ff8e034":"2026-10-21T10:53:59-03:00",
-"beb033e73f978d9766a7aa06f75beeac7e2f4203":"2026-10-21T10:53:59-03:00",
-"04ea125f23aa5fe213360613eaf57c6b57bccb63":"2026-10-21T11:21:26-03:00",
-"43015e0c3ac315eafd34569f930b5663bf661908":"2026-10-21T11:21:26-03:00",
-"7ebbb9f58a4be1f96d0e41d15eb1a5e02b25fcda":"2026-11-05T12:04:03-03:00",
-"c6bd1e73cac2d8dd538f481871c0dcf80293f594":"2026-10-23T17:31:05-03:00",
-"c722a8f57f5a1daf17b170598f4f19453a6e58a1":"2026-10-23T17:31:05-03:00",
-"d42a22844ac7a30d7ee6917d79ac70c57cb4947c":"2026-10-23T17:31:05-03:00",
-"43cf3bdd3df6883c9d10ff6febc36a86e0a1597d":"2026-10-27T12:12:35-03:00",
-"1b0db2b370fd753b3ca3986e453bcd267e71f185":"2026-10-30T10:05:11-03:00",
-"2ea41936774fe2e156d19d3c0c716c433c07c943":"2026-10-30T21:42:21-03:00",
-"3536dbeb7b13507a61f6365476e532acfd964760":"2026-11-02T09:48:17-03:00",
-"073ea240ec2160097e91427b0ebca80185e23c7b":"2026-11-03T10:52:41-03:00",
-"a184e9a22699dd4022d0e2c833ad9ccb071079a0":"2026-11-05T07:32:00-03:00",
-"dd745810949c044a73762834ee77a901cea809dc":"2026-11-06T07:54:12-03:00",
-"b3e4029bfb671a14eac58d488fbc7ac31cd8d459":"2026-10-29T12:40:48-03:00",
-"f5380507e1e5ff11602ca05a9b62656cfb0919d2":"2026-10-30T21:42:21-03:00",
-"f47a9ff06d82459c654a86b588c28098b42877e2":"2026-10-27T12:12:35-03:00",
-"f3f6af50c511edb24bfe2ae237e395d59eb79d64":"2026-10-15T10:26:47-03:00",
-"47070194f0d7ff751e55702ba66edec309508902":"2026-10-22T07:07:45-03:00",
-"d81f4aee2ef0d8c779e168ff7efc54c5faf21188":"2026-10-23T09:23:42-03:00",
-"a72a5367ef974f141d60bb29429754e1df35bcf6":"2026-10-24T08:31:22-03:00",
-"f9fa77326b6718057a104b0856ca0c5cad26022a":"2026-10-24T08:33:47-03:00",
-"fe055e1646870bcb01aafb5374d41bfea5351487":"2026-10-26T08:31:49-03:00",
-"938b45bd36707ad00a1aecd630b17b8912057ec3":"2026-10-27T08:05:35-03:00",
-"b3955e6ad0b9f3ec6297b64c79aecb0c93a65dd1":"2026-10-27T11:20:20-03:00",
-"481f421b43451ce87045a1907ac7b2a464ca7ada":"2026-10-27T18:27:08-03:00",
-"73b17fb5bdf167ced12b937501c2ec04fbc9e221":"2026-10-27T18:28:12-03:00",
-"3b079a790a66d93bcbd42bba28e5337c8821d4ec":"2026-10-28T07:26:12-03:00",
-"7cc38a4cd426f00397241b7fc3ffefcaee28a22f":"2026-10-28T09:18:14-03:00",
-"62dff5848330765eed5d6844e62fbee116c958be":"2026-10-29T08:17:41-03:00",
-"f1f5afbe663c49a2089ca08caaf72c23b39ccbca":"2026-10-29T08:17:41-03:00",
-"8f45daad359dfef129774c80f6923c8985e91df8":"2026-10-30T09:20:51-03:00",
-"7b8ddf7682663a77acb62aeec5da07c460c7933b":"2026-10-30T09:24:52-03:00",
-"9ab45c6c492dff2ad497561a24ec67fbe76e19b5":"2026-11-02T09:26:57-03:00",
-"80d12cd4f2a22a72c2146468cdcc4b01eab57656":"2026-11-02T09:26:57-03:00",
-"2dd551a7319f3e6766f9719bbf3f883d373d1cf7":"2026-11-03T09:27:59-03:00",
-"04a64cd4cf2a1c1e5774086c58dc08f3482b806d":"2026-11-03T09:27:59-03:00",
-"94a568ed7c43d2b0d9e719ee4871ff8d10fac0bf":"2026-11-04T08:07:55-03:00",
-"bfba5f9f8a12292e0bc2943092e9e7ebca053b51":"2026-11-04T08:07:55-03:00",
-"2a67b43da592ea60985a9faee1b62e4b73ac6182":"2026-11-04T08:34:19-03:00",
-"e1f5bc62412e8f3f71e8f37b54c6cf49b0d8e4da":"2026-11-05T07:08:23-03:00",
-"532b7cd9e8e44d1bf21ebd31479e2f4f63a8c07e":"2026-11-05T07:09:13-03:00",
-"2e44d774e306908e71a2f0f8ea2dc7cbb372321b":"2026-11-05T07:10:54-03:00",
-"57d9decaab16dd957ee3c00a7165239845b8bf34":"2026-11-05T11:57:31-03:00",
-"a03cc37743d956de377eac935f36b0bb21f8de21":"2026-11-05T11:58:31-03:00",
-"652f689c409412faa96362e9e9695d022bcdfe9d":"2026-11-05T11:59:59-03:00",
-"222be8a50639da6e26c08838acfa2cbba51b7ff6":"2026-11-06T07:25:23-03:00",
-"8f83ac6f9094ffd92de487ab2a22b86a54ba9045":"2026-11-06T07:26:36-03:00",
-"d69583f5a417e76dc16e7fd3bb51dd72b838644f":"2026-11-06T07:31:15-03:00",
-"7e0aee77b9049fc800e0d41a6a6c464eadac4194":"2026-11-06T07:38:41-03:00",
-"3a083b7bfdec4eb224c47bf8f56b862476fa53be":"2026-10-21T10:53:59-03:00",
-"2fcfea390260f4215cacf8365b2bd9ed095ac10d":"2026-10-23T17:31:05-03:00",
-"cbae70128dd08aa5c8c7253c1abf20a64a663a98":"2026-10-27T12:12:35-03:00",
-"d2846669c945d5a112999def5c868f02083ac6bc":"2026-10-27T13:29:42-03:00",
-"5e3e99623f50fbecaeb28ee140ac30d462ab4b42":"2026-10-29T12:40:48-03:00",
-"796b9402239db62345139ca1646fe35741cdaccb":"2026-11-02T09:48:17-03:00",
-"beb033e73f978d9766a7aa06f75beeac7e2f4203":"2026-10-15T10:26:47-03:00",
-"016eb58061f54e4a478940e3dc387e085ff8e034":"2026-10-15T10:26:47-03:00",
-"4c3484116ad826d2c3146e9758b47c134bb76d40":"2026-11-05T12:00:31-03:00",
-"3a083b7bfdec4eb224c47bf8f56b862476fa53be":"2026-10-21T10:41:02-03:00"};
+  const SEMILLA = {"d43c87adc2ae614f7b5a712f832ccbed9422fa23":"2026-10-27T12:12:35-03:00","016eb58061f54e4a478940e3dc387e085ff8e034":"2026-10-15T10:26:47-03:00","beb033e73f978d9766a7aa06f75beeac7e2f4203":"2026-10-15T10:26:47-03:00","04ea125f23aa5fe213360613eaf57c6b57bccb63":"2026-10-21T11:21:26-03:00","72c49ef782ec280455eb4877d384e1f27e758e77":"2026-11-10T10:40:12-03:00","03465e7f181f868bac615a7a0370186ce87dc8ec":"2026-11-10T10:41:55-03:00","43015e0c3ac315eafd34569f930b5663bf661908":"2026-10-21T11:21:26-03:00","7ebbb9f58a4be1f96d0e41d15eb1a5e02b25fcda":"2026-11-05T12:04:03-03:00","c6bd1e73cac2d8dd538f481871c0dcf80293f594":"2026-10-23T17:31:05-03:00","c722a8f57f5a1daf17b170598f4f19453a6e58a1":"2026-10-23T17:31:05-03:00","d42a22844ac7a30d7ee6917d79ac70c57cb4947c":"2026-10-23T17:31:05-03:00","ffe723990ee5673bfa563a34f6b3a33e5b8ef3b6":"2026-11-11T09:06:07-03:00","43cf3bdd3df6883c9d10ff6febc36a86e0a1597d":"2026-10-27T12:12:35-03:00","1b0db2b370fd753b3ca3986e453bcd267e71f185":"2026-10-30T10:05:11-03:00","2ea41936774fe2e156d19d3c0c716c433c07c943":"2026-10-30T21:42:21-03:00","3536dbeb7b13507a61f6365476e532acfd964760":"2026-11-02T09:48:17-03:00","073ea240ec2160097e91427b0ebca80185e23c7b":"2026-11-03T10:52:41-03:00","a184e9a22699dd4022d0e2c833ad9ccb071079a0":"2026-11-05T07:32:00-03:00","dd745810949c044a73762834ee77a901cea809dc":"2026-11-06T07:54:12-03:00","049bce9e44d8d6694a706e1151a48764c5154173":"2026-11-09T10:19:43-03:00","4baa9859e6cc97c144136dea3f4f9e07aae3e4bf":"2026-11-10T15:44:45-03:00","b3e4029bfb671a14eac58d488fbc7ac31cd8d459":"2026-10-29T12:40:48-03:00","f5380507e1e5ff11602ca05a9b62656cfb0919d2":"2026-10-30T21:42:21-03:00","f47a9ff06d82459c654a86b588c28098b42877e2":"2026-10-27T12:12:35-03:00","f3f6af50c511edb24bfe2ae237e395d59eb79d64":"2026-10-15T10:26:47-03:00","47070194f0d7ff751e55702ba66edec309508902":"2026-10-22T07:07:45-03:00","d81f4aee2ef0d8c779e168ff7efc54c5faf21188":"2026-10-23T09:23:42-03:00","a72a5367ef974f141d60bb29429754e1df35bcf6":"2026-10-24T08:31:22-03:00","f9fa77326b6718057a104b0856ca0c5cad26022a":"2026-10-24T08:33:47-03:00","fe055e1646870bcb01aafb5374d41bfea5351487":"2026-10-26T08:31:49-03:00","938b45bd36707ad00a1aecd630b17b8912057ec3":"2026-10-27T08:05:35-03:00","b3955e6ad0b9f3ec6297b64c79aecb0c93a65dd1":"2026-10-27T11:20:20-03:00","481f421b43451ce87045a1907ac7b2a464ca7ada":"2026-10-27T18:27:08-03:00","73b17fb5bdf167ced12b937501c2ec04fbc9e221":"2026-10-27T18:28:12-03:00","3b079a790a66d93bcbd42bba28e5337c8821d4ec":"2026-10-28T07:26:12-03:00","7cc38a4cd426f00397241b7fc3ffefcaee28a22f":"2026-10-28T09:18:14-03:00","62dff5848330765eed5d6844e62fbee116c958be":"2026-10-29T08:17:41-03:00","f1f5afbe663c49a2089ca08caaf72c23b39ccbca":"2026-10-29T08:17:41-03:00","8f45daad359dfef129774c80f6923c8985e91df8":"2026-10-30T09:20:51-03:00","7b8ddf7682663a77acb62aeec5da07c460c7933b":"2026-10-30T09:24:52-03:00","9ab45c6c492dff2ad497561a24ec67fbe76e19b5":"2026-11-02T09:26:57-03:00","80d12cd4f2a22a72c2146468cdcc4b01eab57656":"2026-11-02T09:26:57-03:00","2dd551a7319f3e6766f9719bbf3f883d373d1cf7":"2026-11-03T09:27:59-03:00","04a64cd4cf2a1c1e5774086c58dc08f3482b806d":"2026-11-03T09:27:59-03:00","94a568ed7c43d2b0d9e719ee4871ff8d10fac0bf":"2026-11-04T08:07:55-03:00","bfba5f9f8a12292e0bc2943092e9e7ebca053b51":"2026-11-04T08:07:55-03:00","2a67b43da592ea60985a9faee1b62e4b73ac6182":"2026-11-04T08:34:19-03:00","e1f5bc62412e8f3f71e8f37b54c6cf49b0d8e4da":"2026-11-05T07:08:23-03:00","532b7cd9e8e44d1bf21ebd31479e2f4f63a8c07e":"2026-11-05T07:09:13-03:00","2e44d774e306908e71a2f0f8ea2dc7cbb372321b":"2026-11-05T07:10:54-03:00","57d9decaab16dd957ee3c00a7165239845b8bf34":"2026-11-05T11:57:31-03:00","a03cc37743d956de377eac935f36b0bb21f8de21":"2026-11-05T11:58:31-03:00","652f689c409412faa96362e9e9695d022bcdfe9d":"2026-11-05T11:59:59-03:00","222be8a50639da6e26c08838acfa2cbba51b7ff6":"2026-11-06T07:25:23-03:00","8f83ac6f9094ffd92de487ab2a22b86a54ba9045":"2026-11-06T07:26:36-03:00","d69583f5a417e76dc16e7fd3bb51dd72b838644f":"2026-11-06T07:31:15-03:00","7e0aee77b9049fc800e0d41a6a6c464eadac4194":"2026-11-06T07:38:41-03:00","699929de6e780c07a1377e2e63d3cb16355de309":"2026-11-09T08:07:19-03:00","f2deafabbb6627ed0be9c7e55827990cffe96c28":"2026-11-09T08:07:19-03:00","a11b9cc39f13dc29bcfe6f3b247582d8f8b03758":"2026-11-09T08:08:53-03:00","23685496c5b3ae714504ea0d72ac218ddf3bed56":"2026-11-10T08:21:47-03:00","25d6441cbfe2ddbec328a88b6789a1dd391a27dc":"2026-11-10T08:22:58-03:00","19314859df2ce010dbf80129e0b32d50cf10c24d":"2026-11-10T08:25:22-03:00","fdce9c1e5fbae8d56fa6b55a1e2033b923e3a5e4":"2026-11-10T09:01:58-03:00","9397c9276df7ec4a0c82b6703a493159de5d8f8d":"2026-11-10T09:14:02-03:00","684e4148faa97004a489036514c8469677cd94ff":"2026-11-11T08:37:56-03:00","b0012dee19aa75224302b14b76026f04b2580bb6":"2026-11-11T08:43:17-03:00","3a083b7bfdec4eb224c47bf8f56b862476fa53be":"2026-10-21T10:41:02-03:00","2fcfea390260f4215cacf8365b2bd9ed095ac10d":"2026-10-23T17:31:05-03:00","cbae70128dd08aa5c8c7253c1abf20a64a663a98":"2026-10-27T12:12:35-03:00","d2846669c945d5a112999def5c868f02083ac6bc":"2026-10-27T13:29:42-03:00","5e3e99623f50fbecaeb28ee140ac30d462ab4b42":"2026-10-29T12:40:48-03:00","796b9402239db62345139ca1646fe35741cdaccb":"2026-11-02T09:48:17-03:00","4c3484116ad826d2c3146e9758b47c134bb76d40":"2026-11-05T12:00:31-03:00"};
   // Lo mismo por nombre de archivo (se usa si la lista vino de jsDelivr)
-  const SEMILLA_R = {"Detalle_de_ruteo_por_cateras_15.xlsx": "2026-10-27T12:12:35-03:00", "LISTADO_35.xlsx": "2026-10-21T10:53:59-03:00", "LISTADO_DE_PRECCIO_25.xlsx": "2026-10-21T10:53:59-03:00", "LP 25 HOY.xls": "2026-10-21T11:21:26-03:00", "LP 35 hoy.xls": "2026-10-21T11:21:26-03:00", "LP35 5_11.xlsx": "2026-11-05T12:04:03-03:00", "LPP_255.xlsx": "2026-10-23T17:31:05-03:00", "LPP_355.xlsx": "2026-10-23T17:31:05-03:00", "Libro1.xlsx": "2026-10-23T17:31:05-03:00", "Potencial_de_Ruta_de_Venta_6.xlsx": "2026-10-27T12:12:35-03:00", "Potencial_de_Ruta_de_Venta_TR.xlsx": "2026-10-30T10:05:11-03:00", "Potencial_de_Ruta_de_Venta_TR_1.xlsx": "2026-10-30T21:42:21-03:00", "Stock_Asuncion_Noviembre_02.pdf": "2026-11-02T09:48:17-03:00", "Stock_Asuncion_Noviembre_03.pdf": "2026-11-03T10:52:41-03:00", "Stock_Asuncion_Noviembre_05.pdf": "2026-11-05T07:32:00-03:00", "Stock_Asuncion_Noviembre_06.pdf": "2026-11-06T07:54:12-03:00", "Stock_Asuncion_Octubre_29.pdf": "2026-10-29T12:40:48-03:00", "Stock_Consolidado_por_Articulo_Oct2026.pdf": "2026-10-30T21:42:21-03:00", "Subcliente_por_Visita_latitud_y_longitud_7.xlsx": "2026-10-27T12:12:35-03:00", "clientes_top.xlsx": "2026-10-15T10:26:47-03:00", "data - 2026-10-22T070724.556.xlsx": "2026-10-22T07:07:45-03:00", "data - 2026-10-23T092045.597.xlsx": "2026-10-23T09:23:42-03:00", "data - 2026-10-24T083048.215.xlsx": "2026-10-24T08:31:22-03:00", "data - 2026-10-24T083323.713.xlsx": "2026-10-24T08:33:47-03:00", "data - 2026-10-26T083135.883.xlsx": "2026-10-26T08:31:49-03:00", "data - 2026-10-27T080515.146.xlsx": "2026-10-27T08:05:35-03:00", "data - 2026-10-27T112005.773.xlsx": "2026-10-27T11:20:20-03:00", "data - 2026-10-27T182652.651.xlsx": "2026-10-27T18:27:08-03:00", "data - 2026-10-27T182801.595.xlsx": "2026-10-27T18:28:12-03:00", "data - 2026-10-28T072556.975.xlsx": "2026-10-28T07:26:12-03:00", "data - 2026-10-28T091736.976.xlsx": "2026-10-28T09:18:14-03:00", "data - 2026-10-28T180052.694.xlsx": "2026-10-29T08:17:41-03:00", "data - 2026-10-29T081616.606.xlsx": "2026-10-29T08:17:41-03:00", "data - 2026-10-30T091639.005.xlsx": "2026-10-30T09:20:51-03:00", "data - 2026-10-30T092439.436.xlsx": "2026-10-30T09:24:52-03:00", "data - 2026-11-02T092501.408.xlsx": "2026-11-02T09:26:57-03:00", "data - 2026-11-02T092650.179.xlsx": "2026-11-02T09:26:57-03:00", "data - 2026-11-03T092530.453.xlsx": "2026-11-03T09:27:59-03:00", "data - 2026-11-03T092750.056.xlsx": "2026-11-03T09:27:59-03:00", "data - 2026-11-04T080549.560.xlsx": "2026-11-04T08:07:55-03:00", "data - 2026-11-04T080714.213.xlsx": "2026-11-04T08:07:55-03:00", "data - 2026-11-04T083405.367.xlsx": "2026-11-04T08:34:19-03:00", "data - 2026-11-05T070812.243.xlsx": "2026-11-05T07:08:23-03:00", "data - 2026-11-05T070902.536.xlsx": "2026-11-05T07:09:13-03:00", "data - 2026-11-05T071043.185.xlsx": "2026-11-05T07:10:54-03:00", "data - 2026-11-05T115715.307.xlsx": "2026-11-05T11:57:31-03:00", "data - 2026-11-05T115819.280.xlsx": "2026-11-05T11:58:31-03:00", "data - 2026-11-05T115943.054.xlsx": "2026-11-05T11:59:59-03:00", "data - 2026-11-06T072510.200.xlsx": "2026-11-06T07:25:23-03:00", "data - 2026-11-06T072620.259.xlsx": "2026-11-06T07:26:36-03:00", "data - 2026-11-06T073053.843.xlsx": "2026-11-06T07:31:15-03:00", "data - 2026-11-06T073811.633.xlsx": "2026-11-06T07:38:41-03:00", "data_-_2026-10-21T102200.999.xlsx": "2026-10-21T10:53:59-03:00", "data_-_2026-10-23T172151.854.xlsx": "2026-10-23T17:31:05-03:00", "data_-_2026-10-27T114409.143.xlsx": "2026-10-27T12:12:35-03:00", "data_-_2026-10-27T131829.846.xlsx": "2026-10-27T13:29:42-03:00", "data_-_2026-10-29T123022.559.xlsx": "2026-10-29T12:40:48-03:00", "data_-_2026-11-02T093307.165.xlsx": "2026-11-02T09:48:17-03:00", "lista_precios_25.xlsx": "2026-10-15T10:26:47-03:00", "lista_precios_35.xlsx": "2026-10-15T10:26:47-03:00", "lp 25 nov_5_11.xlsx": "2026-11-05T12:00:31-03:00", "visitas.xlsx": "2026-10-21T10:41:02-03:00"};
+  const SEMILLA_R = {"Detalle_de_ruteo_por_cateras_15.xlsx":"2026-10-27T12:12:35-03:00","LISTADO_35.xlsx":"2026-10-21T10:53:59-03:00","LISTADO_DE_PRECCIO_25.xlsx":"2026-10-21T10:53:59-03:00","LP 25 HOY.xls":"2026-10-21T11:21:26-03:00","LP 25 NOV 9 11.xlsx":"2026-11-10T10:40:12-03:00","LP 35 9 11.xlsx":"2026-11-10T10:41:55-03:00","LP 35 hoy.xls":"2026-10-21T11:21:26-03:00","LP35 5_11.xlsx":"2026-11-05T12:04:03-03:00","LPP_255.xlsx":"2026-10-23T17:31:05-03:00","LPP_355.xlsx":"2026-10-23T17:31:05-03:00","Libro1.xlsx":"2026-10-23T17:31:05-03:00","POTENCIAL TR1 NOVIEMBRE.xlsx":"2026-11-11T09:06:07-03:00","Potencial_de_Ruta_de_Venta_6.xlsx":"2026-10-27T12:12:35-03:00","Potencial_de_Ruta_de_Venta_TR.xlsx":"2026-10-30T10:05:11-03:00","Potencial_de_Ruta_de_Venta_TR_1.xlsx":"2026-10-30T21:42:21-03:00","Stock_Asuncion_Noviembre_02.pdf":"2026-11-02T09:48:17-03:00","Stock_Asuncion_Noviembre_03.pdf":"2026-11-03T10:52:41-03:00","Stock_Asuncion_Noviembre_05.pdf":"2026-11-05T07:32:00-03:00","Stock_Asuncion_Noviembre_06.pdf":"2026-11-06T07:54:12-03:00","Stock_Asuncion_Noviembre_09.pdf":"2026-11-09T10:19:43-03:00","Stock_Asuncion_Noviembre_10.pdf":"2026-11-10T15:44:45-03:00","Stock_Asuncion_Octubre_29.pdf":"2026-10-29T12:40:48-03:00","Stock_Consolidado_por_Articulo_Oct2026.pdf":"2026-10-30T21:42:21-03:00","Subcliente_por_Visita_latitud_y_longitud_7.xlsx":"2026-10-27T12:12:35-03:00","clientes_top.xlsx":"2026-10-15T10:26:47-03:00","data - 2026-10-22T070724.556.xlsx":"2026-10-22T07:07:45-03:00","data - 2026-10-23T092045.597.xlsx":"2026-10-23T09:23:42-03:00","data - 2026-10-24T083048.215.xlsx":"2026-10-24T08:31:22-03:00","data - 2026-10-24T083323.713.xlsx":"2026-10-24T08:33:47-03:00","data - 2026-10-26T083135.883.xlsx":"2026-10-26T08:31:49-03:00","data - 2026-10-27T080515.146.xlsx":"2026-10-27T08:05:35-03:00","data - 2026-10-27T112005.773.xlsx":"2026-10-27T11:20:20-03:00","data - 2026-10-27T182652.651.xlsx":"2026-10-27T18:27:08-03:00","data - 2026-10-27T182801.595.xlsx":"2026-10-27T18:28:12-03:00","data - 2026-10-28T072556.975.xlsx":"2026-10-28T07:26:12-03:00","data - 2026-10-28T091736.976.xlsx":"2026-10-28T09:18:14-03:00","data - 2026-10-28T180052.694.xlsx":"2026-10-29T08:17:41-03:00","data - 2026-10-29T081616.606.xlsx":"2026-10-29T08:17:41-03:00","data - 2026-10-30T091639.005.xlsx":"2026-10-30T09:20:51-03:00","data - 2026-10-30T092439.436.xlsx":"2026-10-30T09:24:52-03:00","data - 2026-11-02T092501.408.xlsx":"2026-11-02T09:26:57-03:00","data - 2026-11-02T092650.179.xlsx":"2026-11-02T09:26:57-03:00","data - 2026-11-03T092530.453.xlsx":"2026-11-03T09:27:59-03:00","data - 2026-11-03T092750.056.xlsx":"2026-11-03T09:27:59-03:00","data - 2026-11-04T080549.560.xlsx":"2026-11-04T08:07:55-03:00","data - 2026-11-04T080714.213.xlsx":"2026-11-04T08:07:55-03:00","data - 2026-11-04T083405.367.xlsx":"2026-11-04T08:34:19-03:00","data - 2026-11-05T070812.243.xlsx":"2026-11-05T07:08:23-03:00","data - 2026-11-05T070902.536.xlsx":"2026-11-05T07:09:13-03:00","data - 2026-11-05T071043.185.xlsx":"2026-11-05T07:10:54-03:00","data - 2026-11-05T115715.307.xlsx":"2026-11-05T11:57:31-03:00","data - 2026-11-05T115819.280.xlsx":"2026-11-05T11:58:31-03:00","data - 2026-11-05T115943.054.xlsx":"2026-11-05T11:59:59-03:00","data - 2026-11-06T072510.200.xlsx":"2026-11-06T07:25:23-03:00","data - 2026-11-06T072620.259.xlsx":"2026-11-06T07:26:36-03:00","data - 2026-11-06T073053.843.xlsx":"2026-11-06T07:31:15-03:00","data - 2026-11-06T073811.633.xlsx":"2026-11-06T07:38:41-03:00","data - 2026-11-09T080023.791.xlsx":"2026-11-09T08:07:19-03:00","data - 2026-11-09T080657.876.xlsx":"2026-11-09T08:07:19-03:00","data - 2026-11-09T080802.940.xlsx":"2026-11-09T08:08:53-03:00","data - 2026-11-10T082108.543.xlsx":"2026-11-10T08:21:47-03:00","data - 2026-11-10T082244.712.xlsx":"2026-11-10T08:22:58-03:00","data - 2026-11-10T082447.735.xlsx":"2026-11-10T08:25:22-03:00","data - 2026-11-10T090131.496.xlsx":"2026-11-10T09:01:58-03:00","data - 2026-11-10T091319.250.xlsx":"2026-11-10T09:14:02-03:00","data - 2026-11-11T083743.930.xlsx":"2026-11-11T08:37:56-03:00","data - 2026-11-11T084307.370.xlsx":"2026-11-11T08:43:17-03:00","data_-_2026-10-21T102200.999.xlsx":"2026-10-21T10:53:59-03:00","data_-_2026-10-23T172151.854.xlsx":"2026-10-23T17:31:05-03:00","data_-_2026-10-27T114409.143.xlsx":"2026-10-27T12:12:35-03:00","data_-_2026-10-27T131829.846.xlsx":"2026-10-27T13:29:42-03:00","data_-_2026-10-29T123022.559.xlsx":"2026-10-29T12:40:48-03:00","data_-_2026-11-02T093307.165.xlsx":"2026-11-02T09:48:17-03:00","lista_precios_25.xlsx":"2026-10-15T10:26:47-03:00","lista_precios_35.xlsx":"2026-10-15T10:26:47-03:00","lp 25 nov_5_11.xlsx":"2026-11-05T12:00:31-03:00","visitas.xlsx":"2026-10-21T10:41:02-03:00"};
+  const ES_SEMILLA = {"meses_80d12cd4f2a22a72c2146468cdcc4b01eab57656":"2026-10","meses_a03cc37743d956de377eac935f36b0bb21f8de21":"2026-11","meses_684e4148faa97004a489036514c8469677cd94ff":"2026-11","meses_9ab45c6c492dff2ad497561a24ec67fbe76e19b5":"2026-10","meses_2a67b43da592ea60985a9faee1b62e4b73ac6182":"2026-11","precios_7ebbb9f58a4be1f96d0e41d15eb1a5e02b25fcda":"35","meses_7e0aee77b9049fc800e0d41a6a6c464eadac4194":"2026-11","precios_c6bd1e73cac2d8dd538f481871c0dcf80293f594":"25","precios_4c3484116ad826d2c3146e9758b47c134bb76d40":"25","meses_652f689c409412faa96362e9e9695d022bcdfe9d":"2026-11","precios_04ea125f23aa5fe213360613eaf57c6b57bccb63":"25","meses_d69583f5a417e76dc16e7fd3bb51dd72b838644f":"2026-11","precios_43015e0c3ac315eafd34569f930b5663bf661908":"35","precios_03465e7f181f868bac615a7a0370186ce87dc8ec":"35","precios_c722a8f57f5a1daf17b170598f4f19453a6e58a1":"35","meses_19314859df2ce010dbf80129e0b32d50cf10c24d":"2026-11","meses_04a64cd4cf2a1c1e5774086c58dc08f3482b806d":"2026-11","precios_016eb58061f54e4a478940e3dc387e085ff8e034":"35","meses_bfba5f9f8a12292e0bc2943092e9e7ebca053b51":"2026-11","precios_72c49ef782ec280455eb4877d384e1f27e758e77":"25","meses_94a568ed7c43d2b0d9e719ee4871ff8d10fac0bf":"2026-11","meses_2e44d774e306908e71a2f0f8ea2dc7cbb372321b":"2026-11","precios_beb033e73f978d9766a7aa06f75beeac7e2f4203":"25","meses_532b7cd9e8e44d1bf21ebd31479e2f4f63a8c07e":"2026-11","meses_796b9402239db62345139ca1646fe35741cdaccb":"2026-10","meses_8f83ac6f9094ffd92de487ab2a22b86a54ba9045":"2026-11","meses_e1f5bc62412e8f3f71e8f37b54c6cf49b0d8e4da":"2026-11","meses_2dd551a7319f3e6766f9719bbf3f883d373d1cf7":"2026-11","meses_b0012dee19aa75224302b14b76026f04b2580bb6":"2026-11","meses_57d9decaab16dd957ee3c00a7165239845b8bf34":"2026-11","meses_222be8a50639da6e26c08838acfa2cbba51b7ff6":"2026-11"};
+  // Tipo de cada archivo ya conocido (así no hay que bajarlo para saber qué es)
+  const TIPOS_SEMILLA = {"ffe723990ee5673bfa563a34f6b3a33e5b8ef3b6":"potencial","b0012dee19aa75224302b14b76026f04b2580bb6":"apolo","684e4148faa97004a489036514c8469677cd94ff":"visitas","03465e7f181f868bac615a7a0370186ce87dc8ec":"precios","72c49ef782ec280455eb4877d384e1f27e758e77":"precios","9397c9276df7ec4a0c82b6703a493159de5d8f8d":"visitas","fdce9c1e5fbae8d56fa6b55a1e2033b923e3a5e4":"apolo","19314859df2ce010dbf80129e0b32d50cf10c24d":"supervisores","25d6441cbfe2ddbec328a88b6789a1dd391a27dc":"apolo","23685496c5b3ae714504ea0d72ac218ddf3bed56":"visitas","a11b9cc39f13dc29bcfe6f3b247582d8f8b03758":"apolo","f2deafabbb6627ed0be9c7e55827990cffe96c28":"supervisores","699929de6e780c07a1377e2e63d3cb16355de309":"visitas","7e0aee77b9049fc800e0d41a6a6c464eadac4194":"apolo","d69583f5a417e76dc16e7fd3bb51dd72b838644f":"supervisores","8f83ac6f9094ffd92de487ab2a22b86a54ba9045":"apolo","222be8a50639da6e26c08838acfa2cbba51b7ff6":"visitas","7ebbb9f58a4be1f96d0e41d15eb1a5e02b25fcda":"precios","4c3484116ad826d2c3146e9758b47c134bb76d40":"precios","652f689c409412faa96362e9e9695d022bcdfe9d":"supervisores","a03cc37743d956de377eac935f36b0bb21f8de21":"apolo","57d9decaab16dd957ee3c00a7165239845b8bf34":"visitas","2e44d774e306908e71a2f0f8ea2dc7cbb372321b":"supervisores","532b7cd9e8e44d1bf21ebd31479e2f4f63a8c07e":"apolo","e1f5bc62412e8f3f71e8f37b54c6cf49b0d8e4da":"visitas","2a67b43da592ea60985a9faee1b62e4b73ac6182":"apolo","bfba5f9f8a12292e0bc2943092e9e7ebca053b51":"supervisores","94a568ed7c43d2b0d9e719ee4871ff8d10fac0bf":"visitas","04a64cd4cf2a1c1e5774086c58dc08f3482b806d":"supervisores","2dd551a7319f3e6766f9719bbf3f883d373d1cf7":"visitas","796b9402239db62345139ca1646fe35741cdaccb":"apolo","80d12cd4f2a22a72c2146468cdcc4b01eab57656":"supervisores","9ab45c6c492dff2ad497561a24ec67fbe76e19b5":"visitas","2ea41936774fe2e156d19d3c0c716c433c07c943":"potencial","1b0db2b370fd753b3ca3986e453bcd267e71f185":"potencial","7b8ddf7682663a77acb62aeec5da07c460c7933b":"supervisores","8f45daad359dfef129774c80f6923c8985e91df8":"visitas","5e3e99623f50fbecaeb28ee140ac30d462ab4b42":"visitas","f1f5afbe663c49a2089ca08caaf72c23b39ccbca":"supervisores","62dff5848330765eed5d6844e62fbee116c958be":"otro","7cc38a4cd426f00397241b7fc3ffefcaee28a22f":"supervisores","3b079a790a66d93bcbd42bba28e5337c8821d4ec":"visitas","73b17fb5bdf167ced12b937501c2ec04fbc9e221":"supervisores","481f421b43451ce87045a1907ac7b2a464ca7ada":"visitas","d2846669c945d5a112999def5c868f02083ac6bc":"supervisores","f47a9ff06d82459c654a86b588c28098b42877e2":"gps","43cf3bdd3df6883c9d10ff6febc36a86e0a1597d":"potencial","d43c87adc2ae614f7b5a712f832ccbed9422fa23":"ruteo","cbae70128dd08aa5c8c7253c1abf20a64a663a98":"padron","b3955e6ad0b9f3ec6297b64c79aecb0c93a65dd1":"ventas","938b45bd36707ad00a1aecd630b17b8912057ec3":"visitas","fe055e1646870bcb01aafb5374d41bfea5351487":"ventas","f9fa77326b6718057a104b0856ca0c5cad26022a":"ventas","a72a5367ef974f141d60bb29429754e1df35bcf6":"visitas","c722a8f57f5a1daf17b170598f4f19453a6e58a1":"precios","c6bd1e73cac2d8dd538f481871c0dcf80293f594":"precios","d42a22844ac7a30d7ee6917d79ac70c57cb4947c":"cuotas","2fcfea390260f4215cacf8365b2bd9ed095ac10d":"ventas","d81f4aee2ef0d8c779e168ff7efc54c5faf21188":"visitas","47070194f0d7ff751e55702ba66edec309508902":"visitas","43015e0c3ac315eafd34569f930b5663bf661908":"precios","04ea125f23aa5fe213360613eaf57c6b57bccb63":"precios","3a083b7bfdec4eb224c47bf8f56b862476fa53be":"visitas","beb033e73f978d9766a7aa06f75beeac7e2f4203":"precios","016eb58061f54e4a478940e3dc387e085ff8e034":"precios"};
   // Fecha escrita con palabras en el nombre: "Stock_Asuncion_Noviembre_06.pdf", "lp 25 nov_5_11.xlsx", "LP35 5_11.xlsx"
   const MESN = {ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, set: 9, sep: 9, oct: 10, nov: 11, dic: 12};
   function fechaEnPalabras(n){
@@ -207,6 +149,7 @@
         if (!fecha) fecha = fechaEnPalabras(f.nombre);
         return {nombre: f.nombre, url: f.ruta.split('/').map(encodeURIComponent).join('/'), fecha, sha: f.sha};
       }));
+      if (!carpeta) podar(items.map(f => f.sha));
       return items.sort((a, b) => (b.fecha ? b.fecha.getTime() : 0) - (a.fecha ? a.fecha.getTime() : 0) || b.nombre.localeCompare(a.nombre));
     })();
     memoLista = {c: carpeta, p};
@@ -214,11 +157,30 @@
     return p;
   }
 
+  // Cada archivo se guarda en el celular la primera vez que se baja (por su "sha", que cambia si el archivo cambia).
+  // Así, al volver a abrir la app no se descarga de nuevo nada que ya se tenga: solo lo nuevo que subiste.
+  const CACHE_A = 'ruteo-archivos-v1';
+  const claveCache = sha => new Request(location.origin + location.pathname.replace(/[^/]*$/, '') + '__archivo__/' + encodeURIComponent(sha));
+  async function desdeCache(sha){
+    try { if (!window.caches) return null; const r = await (await caches.open(CACHE_A)).match(claveCache(sha)); return r ? await r.arrayBuffer() : null; } catch(e){ return null; }
+  }
+  function aCache(sha, buf){ try { if (window.caches) caches.open(CACHE_A).then(c => c.put(claveCache(sha), new Response(buf.slice(0)))).catch(() => {}); } catch(e){} }
+  let podado = false;
+  function podar(shas){   // borra del celular los archivos que ya no están en GitHub
+    if (podado || !window.caches) return; podado = true;
+    const vivos = new Set(shas.map(s => claveCache(s).url));
+    caches.open(CACHE_A).then(c => c.keys().then(ks => ks.forEach(k => { if (!vivos.has(k.url)) c.delete(k); }))).catch(() => {});
+  }
   // Descarga (una sola vez por sesión)
   const bajados = new Map();
   function bajar(f){
     if (!bajados.has(f.sha)){
-      const p = fetch(f.url, {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('No se pudo bajar ' + f.nombre); return r.arrayBuffer(); });
+      // GitHub Pages tarda 1 o 2 minutos en publicar un archivo recién subido: mientras tanto se baja directo de GitHub
+      const R = repo(), crudo = () => R ? fetch(`https://raw.githubusercontent.com/${R.owner}/${R.repo}/HEAD/${f.url}`) : Promise.reject(new Error('sin repo'));
+      const red = () => fetch(f.url, {cache: 'no-cache'}).then(r => r.ok ? r : crudo()).catch(() => crudo())
+        .then(r => { if (!r.ok) throw new Error('No se pudo bajar ' + f.nombre); return r.arrayBuffer(); })
+        .then(buf => { aCache(f.sha, buf); return buf; });
+      const p = desdeCache(f.sha).then(b => b || red());
       p.catch(() => bajados.delete(f.sha));
       bajados.set(f.sha, p);
     }
@@ -229,6 +191,7 @@
   const norm = s => String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   async function tipoDe(f){
     const nom = porNombre(f.nombre); if (nom) return nom;
+    if (TIPOS_SEMILLA[f.sha]) return TIPOS_SEMILLA[f.sha];
     const k = 'ruteoTR1_tipo3_' + f.sha;
     try { const c = localStorage.getItem(k); if (c) return c; } catch(e){}
     let t = 'otro';
@@ -286,6 +249,7 @@
    */
   const ym = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   async function porMes(tipo, leerFn, meses){
+    const tipo_ = window.Archivos.tipo;
     meses = meses || 3;
     let lista = [];
     try { lista = await window.Archivos.ultimos(''); } catch(e){ return {regs: [], usados: []}; }
@@ -303,10 +267,14 @@
         if (cand.every(m => tomados.has(m))) continue;           // esos meses ya salieron de un archivo más nuevo
       }
       if (await tipoDe(f) !== tipo) continue;
+      // si ya se sabe qué meses trae y ninguno hace falta, no se baja
+      const sabidos = tipo_.leer(f.sha, 'meses');
+      if (sabidos !== null && !sabidos.split(',').some(m => m && !tomados.has(m) && m >= minMes)) continue;
       abiertos++;
       let rs = null; try { rs = await leerFn(await bajar(f)); } catch(e){ rs = null; }
       if (!rs || !rs.length) continue;
       const ms = new Set(rs.map(r => String(r.d).slice(0, 7)));
+      tipo_.guardar(f.sha, 'meses', [...ms].sort().join(','));
       const nuevos = [...ms].filter(m => !tomados.has(m) && m >= minMes);
       if (!nuevos.length) continue;
       rs.forEach(r => { if (nuevos.includes(String(r.d).slice(0, 7))) regs.push(r); });
@@ -315,9 +283,9 @@
     return {regs, usados};
   }
 
-  // Recuerda datos de cada archivo (por ejemplo, qué listas trae)
+  // Recuerda datos de cada archivo (por ejemplo, qué listas trae o qué meses)
   const tipo = {
-    leer: (sha, t) => { try { return localStorage.getItem('ruteoTR1_es_' + t + '_' + sha); } catch(e){ return null; } },
+    leer: (sha, t) => { const k = 'ruteoTR1_es_' + t + '_' + sha; try { const v = localStorage.getItem(k); if (v !== null) return v; } catch(e){} return ES_SEMILLA[t + '_' + sha] ?? null; },
     guardar: (sha, t, si) => { try { localStorage.setItem('ruteoTR1_es_' + t + '_' + sha, typeof si === 'string' ? si : (si ? '1' : '0')); } catch(e){} }
   };
   // Vuelve a consultar GitHub (botón "Actualizar")

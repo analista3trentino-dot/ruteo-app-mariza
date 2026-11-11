@@ -75,7 +75,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         const cD = h.findIndex(x => x === 'date' || x === 'fecha');
         if (cS < 0 || cC < 0 || cD < 0) continue;
         const c1 = h.findIndex(x => x.startsWith('primera') || x.startsWith('minhora')), c2 = h.findIndex(x => x.startsWith('ultima') || x.startsWith('maxhora'));
-        const cP = h.findIndex(x => x === 'cod persona');
+        const cP = h.findIndex(x => x === 'cod persona'), cN = h.findIndex(x => x === 'nombre' || x === 'nombre vendedor');
         const out = [];
         for (let k = i + 1; k < rows.length; k++){
           const r = rows[k]; if (!r) continue;
@@ -83,7 +83,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
           const vc = (vtxt.match(/\b((?:TR|TM|AR)\d{4})\b/) || [])[1] || vtxt;
           if (!vc || !sub || !d) continue;
           const m = sub.match(CODE_RX);
-          out.push({vc, emp: /^AR/.test(vc) ? 'A' : 'T', p: cP >= 0 && r[cP] != null ? String(r[cP]).trim() : '', code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
+          out.push({vc, emp: /^AR/.test(vc) ? 'A' : 'T', nom: cN >= 0 && r[cN] != null ? String(r[cN]).trim() : '', p: cP >= 0 && r[cP] != null ? String(r[cP]).trim() : '', code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
         }
         if (out.length) return out;
       }
@@ -122,8 +122,15 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   let DATES = [], porCartera = new Map(), fuera = new Map(), huerfanas = new Set();
   let EN_CURSO = '';                     // último día exportado a medias (todavía en curso)
   let marcasCartera = new Map();         // cartera -> Map(mes -> cantidad de marcaciones)
+  let ULT_T = '', ULT_A = '';
+  const NUEVO = '9999-12-31';
+  let inicioCart = new Map();            // cartera -> primer día con marcaciones de su vendedor actual
+  const inicioDe = c => inicioCart.get(c.vc) || (DATES[0] ? NUEVO : '');   // sin ninguna marcación: vendedor nuevo            // último día con marcaciones de Trentino / de Apolo
   let apoloMes = new Set();              // meses que traen marcaciones por Apolo (vendedores mixtos)
   let apoloCart = new Set();             // carteras con marcaciones por Apolo
+  let gemelos = new Map();               // cartera -> {gem: Map(índice repetido -> índice que queda), dias: Map(índice -> días de visita)}
+  const esGemelo = (c, i) => { const g = gemelos.get(c.vc); return !!(g && g.gem.has(i)); };
+  const diasDe = (c, i, cl) => { const g = gemelos.get(c.vc); return g && g.dias.has(i) ? [...g.dias.get(i)] : sched(cl); };
   const isMix = c => (typeof MIXTOS !== 'undefined' && MIXTOS.includes(c.vc)) || apoloCart.has(c.vc);
   // Día todavía en curso: el de hoy antes de las 17 h, o un último día con muy pocas marcaciones
   const enCurso = d => (d === TODAY && new Date().getHours() < 17) || d === EN_CURSO;
@@ -131,11 +138,19 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     const RU = window.RUTEO;
     const carts = RU.carteras;
     const days = new Set(), porDia = new Map();
-    porCartera = new Map(); fuera = new Map(); huerfanas = new Set(); marcasCartera = new Map(); apoloMes = new Set(); apoloCart = new Set();
+    porCartera = new Map(); fuera = new Map(); huerfanas = new Set(); marcasCartera = new Map(); apoloMes = new Set(); apoloCart = new Set(); gemelos = new Map();
     const rutaDe = new Map();
     carts.forEach(c => {
       const byCode = new Map(), byName = new Map();
-      c.cl.forEach((cl, i) => { if (cl[6]) byCode.set(cl[6], i); if (cl[9] && !byCode.has(cl[9])) byCode.set(cl[9], i); const k = nameKey(cl[2]); if (!byName.has(k)) byName.set(k, i); });
+      // Mismo local cargado dos veces en el ruteo (vendedores mixtos): "12485-494 COMERCIAL SAN VICENTE (3111-1)"
+      // y "3111-1 COMERCIAL SAN VICENTE". Se toman como UN solo cliente: la visita a cualquiera de los dos cuenta.
+      const por6 = new Map(), gem = new Map(), dias = new Map();
+      c.cl.forEach((cl, i) => { if (cl[6] && !por6.has(cl[6])) por6.set(cl[6], i); });
+      c.cl.forEach((cl, i) => { const j = cl[9] && cl[9] !== cl[6] ? por6.get(cl[9]) : undefined; if (j !== undefined && j !== i && !gem.has(i) && !gem.has(j)) gem.set(j, i); });
+      const canon = i => gem.has(i) ? gem.get(i) : i;
+      c.cl.forEach((cl, i) => { const k = canon(i), s = dias.get(k) || new Set(); sched(cl).forEach(w => s.add(w)); dias.set(k, s); });
+      gemelos.set(c.vc, {gem, dias});
+      c.cl.forEach((cl, i) => { const k = canon(i); if (cl[6] && !byCode.has(cl[6])) byCode.set(cl[6], k); if (cl[9] && !byCode.has(cl[9])) byCode.set(cl[9], k); const n = nameKey(cl[2]); if (!byName.has(n)) byName.set(n, k); });
       rutaDe.set(c.vc.toUpperCase(), {c, byCode, byName});
       porCartera.set(c.vc, new Map());   // índice de cliente -> Map(fecha -> [h1,h2])
       fuera.set(c.vc, new Map());        // clave -> {name, code, dias:Map}
@@ -165,6 +180,23 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       }
     });
     DATES = [...days].sort();
+    // Desde qué día trabaja el vendedor ACTUAL de cada cartera (el nombre de vendedores.js aparece en las marcaciones).
+    // Así un vendedor nuevo no figura como que "no visitó" los días anteriores a su ingreso.
+    inicioCart = new Map();
+    const VN = typeof VENDEDORES !== 'undefined' ? VENDEDORES : {}, palabras = t => new Set(norm(t).replace(/[^a-z ]+/g, ' ').split(/\s+/).filter(w => w.length >= 4));
+    const primero = new Map(), conNombre = new Map();
+    regs.forEach(r => {
+      if (!rutaDe.has(r.vc)) return;
+      if (!primero.has(r.vc) || r.d < primero.get(r.vc)) primero.set(r.vc, r.d);
+      const nv = VN[r.vc]; if (!r.nom || typeof nv !== 'string' || !nv.trim() || /vacante/i.test(nv)) return;
+      const a = palabras(nv); if (![...palabras(r.nom)].some(w => a.has(w))) return;
+      if (!conNombre.has(r.vc) || r.d < conNombre.get(r.vc)) conNombre.set(r.vc, r.d);
+    });
+    // (si el nombre no coincide, por ejemplo por un apodo, se toma la primera marcación de la cartera)
+    primero.forEach((d, vc) => inicioCart.set(vc, conNombre.get(vc) || d));
+    // Hasta qué día llegan las marcaciones de Trentino y las de Apolo (vendedores mixtos)
+    ULT_T = ''; ULT_A = '';
+    regs.forEach(r => { if (r.emp === 'A'){ if (r.d > ULT_A) ULT_A = r.d; } else if (r.d > ULT_T) ULT_T = r.d; });
     // Si el Excel se exportó a media mañana, el último día trae muy pocas marcaciones: se muestra "en curso"
     EN_CURSO = '';
     if (DATES.length > 3){
@@ -173,14 +205,24 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       if (ref.length && porDia.get(u) < ref[Math.floor(ref.length / 2)] * 0.25) EN_CURSO = u;
     }
   }
+  // Mixtos: si el Excel de Apolo quedó atrás del de Trentino, se avisa (sus visitas por Apolo todavía no están)
+  function avisoApolo(yo){
+    const RU = window.RUTEO; if (yo && !(RU.vendedor && isMix(RU.vendedor))) return '';
+    if (!ULT_A) return '';
+    const corto = s => { const d = new Date(s + 'T12:00'); return ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1); };
+    if (ULT_A >= ULT_T || (enCurso(ULT_T) && ULT_A >= DATES.filter(d => d < ULT_T).pop())) return `<p class="vs-apolo ok">Mixtos (Apolo): al día, hasta el ${corto(ULT_A)}</p>`;
+    return `<p class="vs-apolo">⚠ Mixtos: el Excel de Apolo llega hasta el ${corto(ULT_A)}. Subí el de Apolo para ver sus visitas del ${corto(ULT_T)}.</p>`;
+  }
   const sched = cl => String(cl[3] || '').split(',').map(s => DAYMAP[s.trim()]).filter(Boolean);
 
   // --- Cálculos ---
   function delDia(c, d){
+    if (d < inicioDe(c)) return {si: [], no: [], otro: [], fuera: [], toca: 0, visitas: 0, conVenta: 0, monto: 0, nuevo: true};
     const w = wday(d), vis = porCartera.get(c.vc) || new Map();
     const si = [], no = [], otro = [];
     c.cl.forEach((cl, i) => {
-      const hit = vis.has(i) ? vis.get(i).get(d) : null, toca = sched(cl).includes(w);
+      if (esGemelo(c, i)) return;
+      const hit = vis.has(i) ? vis.get(i).get(d) : null, toca = diasDe(c, i, cl).includes(w);
       if (toca) (hit ? si : no).push({cl, hit}); else if (hit) otro.push({cl, hit});
     });
     const fu = []; (fuera.get(c.vc) || new Map()).forEach(f => { const h = f.dias.get(d); if (h) fu.push({cl: [ '', '', f.name, '', null, null, f.code ], hit: h, fuera: true}); });
@@ -190,11 +232,13 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   }
   function delMes(c, m){ return delRango(c, DATES.filter(d => d.startsWith(m))); }
   function delRango(c, ds){
+    const ini = inicioDe(c); ds = ds.filter(d => d >= ini);
     const vis = porCartera.get(c.vc) || new Map();
     let prog = 0, hechas = 0, enDia = 0, cli = 0, cliVis = 0, otroDia = 0, visitas = 0, conVenta = 0, monto = 0;
     const lista = [];
     c.cl.forEach((cl, i) => {
-      const s = sched(cl), v = vis.get(i) || new Map();
+      if (esGemelo(c, i)) return;
+      const s = diasDe(c, i, cl), v = vis.get(i) || new Map();
       let p = 0, a = 0, e = 0; const falto = [];
       ds.forEach(d => {
         const toca = s.includes(wday(d)), hit = v.has(d);
@@ -366,6 +410,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Datos hasta el ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
+      ${avisoApolo(yo)}
       ${ms.length > 1 && !esSem ? `<div class="vs-meses">${ms.map(m => `<button type="button" class="${m === ui.mes ? 'on' : ''}" data-mes="${m}">${mesNombre(m)}</button>`).join('')}</div>` : ''}
       ${esDia ? `<div class="vs-dias">${chipsDias}</div>` : ''}
       ${esSem ? `<div class="vs-dias">${chipsSem}</div>` : ''}
@@ -431,6 +476,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       return out.sort((a, b) => String(a.h1 || '99').localeCompare(String(b.h1 || '99')));
     },
     tieneDia(d){ return estado === 'ok' && DATES.includes(d); },
+    // Primer día con marcaciones del vendedor actual ('' = sin datos; '9999-12-31' = nuevo, todavía sin marcar)
+    inicio(vc){ return estado === 'ok' ? (inicioCart.get(vc) || (DATES[0] ? NUEVO : '')) : ''; },
     resumenUltimoDia(carts){
       if (estado !== 'ok' || !DATES.length) return null;
       const d = diaPorDefecto();

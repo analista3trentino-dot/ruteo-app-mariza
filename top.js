@@ -6,6 +6,8 @@
 //  y jefatura la ven en la app. No hace falta modificar este archivo.
 // =====================================================================
 (function () {
+  // Nombre del cliente con su código original, sin repetirlo si ya viene en el nombre
+  const nomCli = cl => String(cl[2] || '') + (cl[9] && !String(cl[2] || '').includes('(' + cl[9] + ')') ? ' (' + cl[9] + ')' : '');
   const MF = window.MARCAS_FOCO;
   if (!MF){ window.TopFoco = null; return; }
   const $ = id => document.getElementById(id);
@@ -250,7 +252,7 @@
       if (t.dataset.foto){
         const id = t.dataset.foto, cat = CAT[id], f = F, quien = quienCarga();
         if (!window.Fotos || !window.Fotos.tomarFoto) return;
-        const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [f.cl[2] + (f.cl[9] ? ' (' + f.cl[9] + ')' : ''), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, quien + '  ·  ' + f.c.vc + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
+        const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [nomCli(f.cl), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, quien + '  ·  ' + f.c.vc + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
         if (!fo || F !== f) return;
         (fotosMem[cod] || (fotosMem[cod] = {}))[id] = fo;
         const o = r.rep[id] || (r.rep[id] = {}); o.foto = fo; o.ok = false;
@@ -281,7 +283,7 @@
   async function enviar(){
     const f = F, {cl, r, c} = f, Fo = window.Fotos, btn = $('tfEnviar');
     if (!Fo || !Fo.enviarGestion){ toast('Falta configurar Google Drive (config.js)'); return; }
-    const meta = {sup: c.sup, vendedor: c.vc, nomVendedor: nom(c.vn).split(' ').slice(0, 2).join(' '), cargadoPor: quienCarga(), cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), codigo: cl[6], pm: cl[8]};
+    const meta = {sup: c.sup, vendedor: c.vc, nomVendedor: nom(c.vn).split(' ').slice(0, 2).join(' '), cargadoPor: quienCarga(), cliente: nomCli(cl), codigo: cl[6], pm: cl[8]};
     const fila = (accion, cat, extra) => Object.assign({accion, marca: cat.m, categoria: cat.n}, extra);
     const filas = [];
     f.A.amp.forEach(x => x.falta.forEach(s => { const a = r.amp[s]; if (a && a.v) filas.push(fila('Ampliación', x.cat, {producto: MF.sku[s].d, art: s, resp: a.v === 'si' ? 'Se ofreció' : 'No se ofreció', com: a.com || ''})); }));

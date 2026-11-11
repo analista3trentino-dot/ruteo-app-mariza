@@ -526,6 +526,14 @@
   function cargarTop(){
     const fuera = new Set(typeof TOP_EXCLUIR !== 'undefined' ? TOP_EXCLUIR.map(x => String(x).trim()) : []);
     carteras.forEach(c => c.cl.forEach(cl => { cl._top = PM_TOP_SET.has(String(cl[8] == null ? '' : cl[8]).trim().replace(',', '.')) && !fuera.has(String(cl[6])); }));
+    // Un solo criterio para contar clientes top en toda la app (Ruta, Top, fichas, Control):
+    //  - las carteras vacantes no cuentan (no hay vendedor que lo visite)
+    //  - el mismo local cargado dos veces ("12485-494 SAN VICENTE (3111-1)" y "3111-1 SAN VICENTE") cuenta una sola vez
+    carteras.forEach(c => {
+      if (isVacante(c)){ c.cl.forEach(cl => { cl._top = false; }); return; }
+      const por6 = new Map(); c.cl.forEach(cl => { if (cl[6] && !por6.has(cl[6])) por6.set(cl[6], cl); });
+      c.cl.forEach(cl => { const otro = cl[9] && cl[9] !== cl[6] ? por6.get(cl[9]) : null; if (otro && otro !== cl && cl._top) otro._top = false; });
+    });
     topEstado = 'ok';
   }
 
@@ -593,13 +601,63 @@
     if (window.TopFoco && $('tfAnalisis')) window.TopFoco.analisis($('tfAnalisis'), base.filter(c => !isVacante(c)));
   }
 
+  // ---- Bienvenida: saludo con el día y la fecha (en la portada y al entrar) ----
+  const MESES_L = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
+  const DIAS_L = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const FECHA_LARGA = `${DIAS_L[now.getDay()]} ${now.getDate()} de ${MESES_L[now.getMonth()]}`;
+  const SALUDO = () => { const h = new Date().getHours(); return h < 12 ? '¡Buen día' : h < 19 ? '¡Buenas tardes' : '¡Buenas noches'; };
+  const FRASES = [
+    'Que sea un gran día de ventas.', 'Cada visita suma: ¡vamos por todas!', 'Un cliente bien atendido vuelve siempre.',
+    'Hoy es un buen día para superar la meta.', 'Paso a paso se llega lejos.', 'Tu ruta, tu oportunidad. ¡Éxitos!',
+    'Gracias por el esfuerzo de todos los días.', 'Lo que se mide, se mejora.', 'Una buena exhibición vende sola.',
+    'Hoy sumamos clientes y sonrisas.', 'El equipo somos todos. ¡A la cancha!', 'Constancia: el secreto de los mejores.',
+    'Cada góndola completa es una venta más.', 'Arrancamos con todo. ¡Buena jornada!'
+  ];
+  const diaDelAnio = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+  const FRASE_DIA = FRASES[diaDelAnio % FRASES.length];
+  const NOMBRE_PILA = () => {
+    const t = s => String(s || '').trim().split(/\s+/)[0] || '';
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    if (MODO_VENDEDOR) return isVacante(MI_CARTERA) ? '' : cap(t(MI_CARTERA.vn));
+    if (MODO_JEFATURA) return '';
+    return MI_SUP && NOMBRE_SUP(MI_SUP) ? cap(t(NOMBRE_SUP(MI_SUP))) : '';
+  };
+  function bienvenida(){
+    if ($('bienv')) return;
+    const n = NOMBRE_PILA();
+    // lo de hoy: clientes de la ruta y cuántos son top
+    let linea = '';
+    if (!TODAY_LBL) linea = 'Hoy no hay ruta. ¡Buen descanso!';
+    else if (MODO_JEFATURA) linea = 'El Control del día ya te espera con lo que hay que revisar.';
+    else {
+      const cs = MODO_VENDEDOR ? [MI_CARTERA] : carteras.filter(c => !isVacante(c) && !/^AR/.test(c.vc) && (!MI_SUP || c.sup === MI_SUP));
+      let cli = 0, top = 0; cs.forEach(c => c.cl.forEach(cl => { if (daysOf(cl).includes(TODAY_LBL)){ cli++; if (cl._top) top++; } }));
+      linea = cli ? `${MODO_VENDEDOR ? 'Hoy tenés' : 'Hoy tu equipo tiene'} <b>${cli}</b> ${cli === 1 ? 'cliente' : 'clientes'} en la ruta${top ? ` · <b>${top}</b> top ★` : ''}.` : 'Hoy no hay clientes en la ruta.';
+    }
+    const box = document.createElement('div');
+    box.id = 'bienv'; box.className = 'bienv'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Bienvenida');
+    box.innerHTML = `<div class="bv-card">
+      <span class="bv-sol" aria-hidden="true">${new Date().getHours() < 19 ? '☀️' : '🌙'}</span>
+      <h2>${MODO_JEFATURA ? '¡Bienvenido a Jefatura!' : `¡Bienvenido${n ? ', ' + esc(n) : ''}!`}</h2>
+      <p class="bv-fecha">${esc(FECHA_LARGA.charAt(0).toUpperCase() + FECHA_LARGA.slice(1))}</p>
+      <p class="bv-linea">${linea}</p>
+      <p class="bv-frase">${esc(FRASE_DIA)}</p>
+      <button type="button" class="bv-btn">Empezar</button>
+      <i class="bv-tiempo" aria-hidden="true"></i>
+    </div>`;
+    document.body.appendChild(box);
+    const fuera = () => { if (!box.isConnected) return; box.classList.add('fuera'); setTimeout(() => box.remove(), 350); };
+    box.onclick = fuera;
+    setTimeout(fuera, 5000);
+  }
+
   // ---- "¿Cuál es tu cartera?" ----
   // ---- Portada: se muestra cada vez que se abre la app ----
   const SALTAR = 'ruteoTR1_saltarPortada';
   // Recarga sin volver a mostrar la portada (al cambiar de cartera o de rol)
   function entrarComo(v){
     guardar(v);
-    try { sessionStorage.setItem(SALTAR, '1'); } catch(e){}
+    try { sessionStorage.setItem(SALTAR, '1'); sessionStorage.setItem('ruteoTR1_recienEntro', '1'); } catch(e){}
     if (PARAM_C) location.href = location.pathname; else location.reload();
   }
   const ICO_P = {
@@ -630,8 +688,10 @@
       </div>
       <div class="po-cont">
         <div class="po-logo"><img src="logo-trentino.png" alt="Trentino S.A." /></div>
-        <h1 class="po-tit">Ruteo <span>TR1</span></h1>
-        <p class="po-fecha">${esc(FECHA_TXT.charAt(0).toUpperCase() + FECHA_TXT.slice(1))}</p>
+        <p class="po-app">Ruteo <span>TR1</span></p>
+        <h1 class="po-tit">${esc(SALUDO())}${NOMBRE_PILA() ? ', ' + esc(NOMBRE_PILA()) : ''}!</h1>
+        <p class="po-fecha">Hoy es ${esc(FECHA_LARGA)}</p>
+        <p class="po-frase">${esc(FRASE_DIA)}</p>
         ${seguir ? `<button type="button" class="po-seguir" id="poSeguir">${seguir}<span class="po-ir">${ICO_P.flecha}</span></button>
         <p class="po-o">o entrá de otra forma</p>` : `<p class="po-o">¿Cómo querés entrar?</p>`}
         <div class="po-opc">
@@ -653,7 +713,7 @@
       box.classList.add('fuera'); document.documentElement.classList.remove('cat-abierto');
       setTimeout(() => box.remove(), 420);
     };
-    const s = $('poSeguir'); if (s) s.onclick = cerrar;
+    const s = $('poSeguir'); if (s) s.onclick = () => { cerrar(); setTimeout(bienvenida, 380); };
     rol = '';
     const opcHTML = box.querySelector('.po-opc').innerHTML;
     // volver de la lista de equipos a las tres opciones (botón "‹ Volver" o el "atrás" del celular)
@@ -865,6 +925,7 @@
   // Portada al abrir (salvo recargas internas de la app)
   let saltar = false; try { saltar = sessionStorage.getItem(SALTAR) === '1'; sessionStorage.removeItem(SALTAR); } catch(e){}
   if (PREGUNTAR || !saltar) mostrarPortada();
+  else { let recien = false; try { recien = sessionStorage.getItem('ruteoTR1_recienEntro') === '1'; sessionStorage.removeItem('ruteoTR1_recienEntro'); } catch(e){} if (recien) setTimeout(bienvenida, 500); }
   const spl = $('splash'); if (spl){ spl.classList.add('fuera'); setTimeout(() => spl.remove(), 600); }
   // Potencial de cada cliente (se carga sin frenar la app)
   if (window.Potencial) window.Potencial.cargar().then(() => refresh(false));

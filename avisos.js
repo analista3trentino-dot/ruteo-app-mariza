@@ -150,7 +150,7 @@ const AVISOS = [
     if (al.quien !== 'jefatura' || !window.Jefatura || !window.Jefatura.resumenUltimo) return [];
     const r = await window.Jefatura.resumenUltimo(); if (!r) return [];
     const hm = window.Jefatura.hm, fs = r.filas.slice().sort((a, b) => a.x.enCli - b.x.enCli);
-    const sinMarcar = fs.filter(f => !f.x.visitas).length;
+    const sinMarcar = fs.filter(f => !f.x.visitas && !f.nuevo).length;
     return [{id: 'sup-' + r.dia, tipo: 'sup', titulo: 'Supervisores · ' + esc(r.largo), valor: String(fs.reduce((t, f) => t + f.x.visitas, 0)), tono: sinMarcar ? 'mid' : 'good',
       linea: `visitas en total${sinMarcar ? ` · <b>${sinMarcar}</b> sin marcar` : ''}`, sub: 'Tiempo en clientes',
       filas: fs.slice(0, 4).map(f => [esc(nom(f.n)), f.x.visitas ? hm(f.x.enCli) + ' · ' + f.x.visitas + ' vis.' : 'sin marcar']), ir: ['jefatura', 'Ver supervisores']}];

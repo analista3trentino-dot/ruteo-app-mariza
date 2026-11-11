@@ -91,6 +91,10 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
 
   // --- Datos ---
   let estado = 'sin-cargar', error = '', REGS = [], DATES = [], SUPS = [], VACANTES = [], fArchivo = null, usado = null, vacios = [];
+  let INICIO = new Map();
+  // Primer día con marcaciones del supervisor actual; sin ninguna marcación: es nuevo
+  const inicioSup = k => INICIO.get(k) || INICIO.get('~' + k) || '9999-12-31';
+  const esNuevo = (k, d) => d < inicioSup(k);
   async function cargarDatos(){
     const XLSX = await window.cargarExcelLib();
     // cada mes sale del Excel más nuevo que lo trae (los meses cerrados quedan como histórico)
@@ -112,6 +116,12 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const todos = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([k, n]) => ({k, n: LISTA[k] ? titulo(LISTA[k]) : n, vac: /vacante/i.test(LISTA[k] || '')}));
     Object.keys(LISTA).forEach(k => { if (!m.has(k)) todos.push({k, n: titulo(LISTA[k]), vac: /vacante/i.test(LISTA[k])}); });
     SUPS = todos.filter(s => !s.vac).sort((a, b) => a.k.localeCompare(b.k));
+    // Desde qué día marca el supervisor ACTUAL (nombre de vendedores.js). Uno nuevo no figura como "no marcó" antes de empezar.
+    INICIO = new Map();
+    const pal = t => new Set(norm(t).split(' ').filter(w => w.length >= 4));
+    regs.forEach(r => { const a = pal(LISTA[r.sup] || ''); if (a.size && ![...pal(r.nombre)].some(w => a.has(w))) return; if (!INICIO.has(r.sup) || r.d < INICIO.get(r.sup)) INICIO.set(r.sup, r.d); });
+    // sin nombre en vendedores.js se toma la primera marcación del código
+    regs.forEach(r => { if (LISTA[r.sup] && !/vacante/i.test(LISTA[r.sup])) return; if (!INICIO.has('~' + r.sup) || r.d < INICIO.get('~' + r.sup)) INICIO.set('~' + r.sup, r.d); });
     VACANTES = todos.filter(s => s.vac).map(s => s.k).sort();
   }
 
@@ -261,7 +271,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
         const cc = cuentaCruce(x.rs);
-        const sub = esDia ? (x.visitas ? `${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))}–${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))} · ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}` : 'Sin marcaciones este día') : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
+        const sub = esDia ? (x.visitas ? `${hora(Math.min(...x.rs.map(r => r.ini ?? Infinity)))}–${hora(Math.max(...x.rs.map(r => r.fin ?? -Infinity)))} · ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}` : (esNuevo(f.s.k, ui.dia) ? (inicioSup(f.s.k) > ultimoDia() ? 'Supervisor nuevo · todavía sin marcaciones' : 'Supervisor nuevo · empezó después de este día') : 'Sin marcaciones este día')) : `${x.visitas} visitas en ${x.dias} días · ${x.clientes} clientes`;
         const chipC = cc.base ? `<span class="jf-cc ${cc.ok / cc.base >= .7 ? 'ok' : cc.ok / cc.base >= .4 ? 'mid' : 'bad'}">✓ ${cc.ok}/${cc.base} coinciden</span>` : '';
         return `<article class="vs-v jf-v ${abierto ? 'open' : ''} ${x.visitas ? '' : 'vacio'}" data-sup="${esc(f.s.k)}">
           <button type="button" class="vs-v-head" aria-expanded="${abierto}">
@@ -305,7 +315,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       // último día completo (el de hoy cuenta recién después de las 17 h)
       const ds = DATES.filter(x => x !== HOY || new Date().getHours() >= 17); const d = ds[ds.length - 1]; if (!d) return null;
       return {dia: d, largo: largo(d), filas: SUPS.map(s => { const x = resumen(s.k, new Set([d])), i = Math.min(...x.rs.map(r => r.ini ?? Infinity)), f = Math.max(...x.rs.map(r => r.fin ?? -Infinity));
-        return {k: s.k, n: s.n, x, cc: cuentaCruce(x.rs), ini: isFinite(i) ? hora(i) : '', fin: isFinite(f) ? hora(f) : ''}; })};
+        return {k: s.k, n: s.n, x, cc: cuentaCruce(x.rs), nuevo: esNuevo(s.k, d), ini: isFinite(i) ? hora(i) : '', fin: isFinite(f) ? hora(f) : ''}; })};
     },
     // Abre la pestaña Supervisores con el recorrido de un supervisor en un día
     abrir(k, d){ ui.modo = 'dia'; if (d) { ui.dia = d; ui.mes = d.slice(0, 7); } ui.abierto = k || ''; if (window.RUTEO) window.RUTEO.setSeccion('jefatura');

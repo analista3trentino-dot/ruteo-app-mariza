@@ -7,6 +7,8 @@
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
+  // Nombre del cliente con su código original, sin repetirlo si ya viene en el nombre
+  const nomCli = cl => String(cl[2] || '') + (cl[9] && !String(cl[2] || '').includes('(' + cl[9] + ')') ? ' (' + cl[9] + ')' : '');
   const URL_F = (typeof FOTOS_URL !== 'undefined' ? String(FOTOS_URL) : '').trim();
   const CLAVE_F = typeof FOTOS_CLAVE !== 'undefined' ? String(FOTOS_CLAVE) : '';
   const MAX_LADO = 1600, CALIDAD = .82, MIN_VIEJA = 10;   // foto de hace más de 10 min = de la galería
@@ -134,7 +136,7 @@
   }
   const miVend = () => { const v = R().vendedor; return v ? {vc: v.vc, nom: nombreCorto(v.vn), sup: v.sup} : null; };
   const lineasCli = (cl, tipo, d) => { const v = miVend(); return [
-    cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''),
+    nomCli(cl),
     {t: tipo.toUpperCase() + '  ·  ' + cl[6] + '  ·  PM ' + cl[8], color: tipo === 'Ampliación' ? '#9DB4FF' : '#7BE3B6'},
     v.vc + ' ' + v.nom + '  ·  ' + fechaTxt(d)]; };
   const lineasCompe = (f, d) => { const v = miVend(); return [
@@ -247,9 +249,9 @@
     paso('proc', 'Subiendo la foto…');
     try {
       const j = await enviar({imagen: await aBase64(h.foto.blob), fecha: h.fecha.toISOString(), sup: v.sup, vendedor: v.vc, nomVendedor: v.nom,
-        cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), codigo: cl[6], pm: cl[8], tipo: h.tipo, comentario: com});
+        cliente: nomCli(cl), codigo: cl[6], pm: cl[8], tipo: h.tipo, comentario: com});
       locales.unshift({_local: h.foto.url, Fecha: iso(h.fecha), Hora: p2(h.fecha.getHours()) + ':' + p2(h.fecha.getMinutes()), Supervisor: v.sup, Vendedor: v.vc, 'Nombre vendedor': v.nom,
-        Cliente: cl[2] + (cl[9] ? ' (' + cl[9] + ')' : ''), 'Código': cl[6], PM: cl[8], Tipo: h.tipo, Comentario: com, Enlace: j.enlace || '', ID: j.id || ''});
+        Cliente: nomCli(cl), 'Código': cl[6], PM: cl[8], Tipo: h.tipo, Comentario: com, Enlace: j.enlace || '', ID: j.id || ''});
       if (H === h) cerrarHoja();
       toast('Foto subida. Tu supervisor ya la puede ver.');
       if (R().refrescar) R().refrescar(); else pintarTop();
