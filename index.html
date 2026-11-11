@@ -15,10 +15,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" />
 <title>Ruteo por Carteras TR1 | Trentino</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-<link rel="stylesheet" href="styles.css?v=20261111a" />
+<link rel="stylesheet" href="styles.css?v=20261111c" />
 <style>
-#splash{position:fixed;inset:0;z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(120% 80% at 50% 0%,#1B3A6B 0%,#0C1A2E 60%);transition:opacity .5s ease,visibility .5s;}
+#splash{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:5000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(120% 80% at 50% 0%,#1B3A6B 0%,#0C1A2E 60%);transition:opacity .5s ease,visibility .5s;}
 #splash.fuera{opacity:0;visibility:hidden;}
 #splash .sp-logo{background:#fff;border-radius:16px;padding:10px 16px;box-shadow:0 18px 40px -12px rgba(0,0,0,.5);animation:spIn .7s cubic-bezier(.2,.8,.2,1) both;}
 #splash .sp-logo img{height:34px;display:block;}
@@ -137,44 +136,44 @@
 
 
 <!-- Mapa -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <!-- Ruteo de respaldo (la app usa el Excel de ruteo más nuevo de GitHub) -->
-<script src="data.js?v=20261111a"></script>
+<script src="compat.js?v=20261111c"></script>
+<script defer src="data.js?v=20261111c"></script>
 <!-- Clave de supervisores -->
-<script src="config.js?v=20261111a"></script>
+<script defer src="config.js?v=20261111c"></script>
 <!-- Nombres de vendedores (opcional) -->
-<script src="vendedores.js?v=20261111a"></script>
+<script defer src="vendedores.js?v=20261111c"></script>
 <!-- Lector de Excel -->
-<script src="excel.js?v=20261111a"></script>
+<script defer src="excel.js?v=20261111c"></script>
 <!-- Reconoce los Excel subidos (ruteo, GPS, padrón, visitas, ventas, precios, potencial) -->
-<script src="archivos.js?v=20261111a"></script>
+<script defer src="archivos.js?v=20261111c"></script>
 <!-- Ruteo desde el Excel del sistema -->
-<script src="ruteo.js?v=20261111a"></script>
+<script defer src="ruteo.js?v=20261111c"></script>
 <!-- Catálogo de productos -->
-<script src="catalogo.js?v=20261111a"></script>
+<script defer src="catalogo.js?v=20261111c"></script>
 <!-- Visitas -->
-<script src="visitas.js?v=20261111a"></script>
+<script defer src="visitas.js?v=20261111c"></script>
 <!-- Lista de precios de cada cliente (botón LP) -->
-<script src="precios.js?v=20261111a"></script>
+<script defer src="precios.js?v=20261111c"></script>
 <!-- Potencial de cada cliente (se ve en Ruta) -->
-<script src="potencial.js?v=20261111a"></script>
+<script defer src="potencial.js?v=20261111c"></script>
 <!-- Jefatura: control de supervisores -->
-<script src="jefatura.js?v=20261111a"></script>
+<script defer src="jefatura.js?v=20261111c"></script>
 <!-- Stock (reporte PDF o Excel) -->
-<script src="stock.js?v=20261111a"></script>
+<script defer src="stock.js?v=20261111c"></script>
 <!-- Marcas foco y ficha de clientes TOP (ampliación, reposición, ingreso) -->
-<script src="marcasfoco.js?v=20261111a"></script>
-<script src="top.js?v=20261111a"></script>
+<script defer src="marcasfoco.js?v=20261111c"></script>
+<script defer src="top.js?v=20261111c"></script>
 <!-- Fotos de clientes top y competencia (Google Drive) -->
-<script src="fotos.js?v=20261111a"></script>
+<script defer src="fotos.js?v=20261111c"></script>
 <!-- Anomalías de vendedores (las carga el supervisor) -->
-<script src="anomalias.js?v=20261111a"></script>
+<script defer src="anomalias.js?v=20261111c"></script>
 <!-- Avisos (campanita) -->
-<script src="encuesta.js?v=20261111a"></script>
-<script src="control.js?v=20261111a"></script>
-<script src="avisos.js?v=20261111a"></script>
+<script defer src="encuesta.js?v=20261111c"></script>
+<script defer src="control.js?v=20261111c"></script>
+<script defer src="avisos.js?v=20261111c"></script>
 <!-- Lógica de la aplicación -->
-<script src="app.js?v=20261111a"></script>
+<script defer src="app.js?v=20261111c"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
