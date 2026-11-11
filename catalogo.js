@@ -95,7 +95,9 @@ const CATALOGO = {
         <img src="${src(p)}" alt="Página ${p} del catálogo" loading="lazy" decoding="async" width="1100" height="1556" />
         <figcaption>${p}</figcaption></figure>`;
     }
-    pagesEl.innerHTML = h;
+    pagesEl.innerHTML = (window.Foco ? window.Foco.bloqueCatalogo() : '') + h;
+    // Productos foco del mes: cada marca lleva a su página
+    pagesEl.querySelectorAll('[data-foco-marca]').forEach(b => b.onclick = () => { const ps = window.Foco.paginasDe(b.dataset.focoMarca); if (ps.length) irA(ps[0]); });
     // Por si las imágenes se subieron sueltas (sin la carpeta "catalogo")
     pagesEl.querySelectorAll('img').forEach(img => img.addEventListener('error', function () {
       if (!this.dataset.retry) { this.dataset.retry = '1'; this.src = this.src.replace(C.CARPETA, ''); }
@@ -129,7 +131,7 @@ const CATALOGO = {
 
   function pintarIndice() {
     const q = norm(idxSearch.value.trim());
-    const catSel = (catChips.querySelector('.on') || {}).dataset?.c || '';
+    const catSel = (function(o){return o==null?undefined:o.c})((catChips.querySelector('.on') || {}).dataset) || '';
     const items = Object.entries(C.MARCAS)
       .filter(([m, p]) => (!q || norm(m).includes(q)) && (!catSel || (catDe(p) || {}).nombre === catSel))
       .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));

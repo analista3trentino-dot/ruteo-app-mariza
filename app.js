@@ -382,7 +382,7 @@
   }
 
   // Fotos de clientes top: aviso arriba de la ruta (vendedor: sus fotos de hoy; supervisor: las del equipo)
-  const bannerFotos = () => ((window.Encuesta && !state.query) ? window.Encuesta.banner() : '') + ((window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '');
+  const bannerFotos = () => ((window.Foco && !state.query) ? window.Foco.franja() : '') + ((window.Encuesta && !state.query) ? window.Encuesta.banner() : '') + ((window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '');
   function renderList(){
     current = visibleCarteras();
     renderKPIs(current);
@@ -417,12 +417,12 @@
         </button>`;
       }).join('');
       main.querySelectorAll('[data-grupo]').forEach(b => b.onclick = () => { apilar('Todos los supervisores', () => window.RUTEO.setSpv('TODOS'), false, 'sup'); window.RUTEO.setSpv(b.dataset.grupo); });
-      if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main);
+      if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main); if (window.Foco) window.Foco.enlazar(main);
       return;
     }
     const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
     main.innerHTML = volver + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
-    if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main);
+    if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main); if (window.Foco) window.Foco.enlazar(main);
     if (volver) $('jfVolver').onclick = () => { if (PILA.some(p => p.clave === 'sup')){ while (tope() && tope() !== 'sup') PILA.pop(); volver(); } else window.RUTEO.setSpv('TODOS'); };
     main.querySelectorAll('.cartera').forEach(el => {
       const h = el.querySelector('.head');
@@ -453,7 +453,19 @@
     }).addTo(leafletMap);
     markersLayer = L.layerGroup().addTo(leafletMap);
   }
+  // El mapa (Leaflet) se baja recién cuando alguien abre el mapa: la app abre más rápido y gasta menos datos y batería
+  let leafletP = null;
+  function cargarLeaflet(){
+    if (window.L) return Promise.resolve();
+    if (!leafletP) leafletP = new Promise((ok, mal) => {
+      const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css'; document.head.appendChild(css);
+      const js = document.createElement('script'); js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+      js.onload = () => ok(); js.onerror = () => { leafletP = null; mal(new Error('mapa')); }; document.head.appendChild(js);
+    });
+    return leafletP;
+  }
   function renderMap(){
+    if (!window.L){ cargarLeaflet().then(() => { if (state.vista === 'mapa') renderMap(); }, () => toast('No se pudo abrir el mapa. Revisá la señal.')); return; }
     initMap(); markersLayer.clearLayers();
     const vendedorSel = $('vendedorSelect').value;
     const mixSel = vendedorSel.startsWith('MIX:');
@@ -510,14 +522,14 @@
   vendedorSelect.addEventListener('change', renderMap);
   $('btnFit').onclick = () => { if (leafletMap && lastBounds.length) leafletMap.fitBounds(lastBounds, {padding:[28,28]}); };
   $('btnLocate').onclick = () => {
-    if (!navigator.geolocation){ toast('Ubicación no disponible'); return; }
+    if (!navigator.geolocation || !leafletMap){ toast('Ubicación no disponible'); return; }
     toast('Buscando tu ubicación…');
     navigator.geolocation.getCurrentPosition(p => {
       const ll = [p.coords.latitude, p.coords.longitude];
       if (meMarker) meMarker.setLatLng(ll);
       else meMarker = L.circleMarker(ll, {radius:10, color:'#fff', weight:3, fillColor:'#E5484D', fillOpacity:1}).addTo(leafletMap).bindPopup('Estás aquí');
       leafletMap.flyTo(ll, 15);
-    }, () => toast('No se pudo obtener tu ubicación'), {enableHighAccuracy:true, timeout:10000});
+    }, () => toast('No se pudo obtener tu ubicación'), {enableHighAccuracy:true, timeout:10000, maximumAge:60000});   // una sola lectura del GPS (si hay una de hace 1 minuto, se usa esa)
   };
 
   // ---- Clientes top: los de los PM elegidos en config.js (PM_TOP) ----
@@ -681,7 +693,7 @@
         <svg class="po-ruta" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
           <path class="po-camino" d="M-20 690 C 80 640, 120 560, 210 560 S 360 470, 300 380 S 90 300, 150 200 S 330 120, 430 60"/>
           <path class="po-camino dos" d="M-30 300 C 60 330, 120 250, 190 240 S 300 180, 420 210"/>
-          <circle class="po-punto" r="6"><animateMotion dur="9s" repeatCount="indefinite" path="M-20 690 C 80 640, 120 560, 210 560 S 360 470, 300 380 S 90 300, 150 200 S 330 120, 430 60"/></circle>
+          <circle class="po-punto" r="6"><animateMotion dur="9s" repeatCount="3" path="M-20 690 C 80 640, 120 560, 210 560 S 360 470, 300 380 S 90 300, 150 200 S 330 120, 430 60"/></circle>
           <circle class="po-pin" cx="210" cy="560" r="5"/><circle class="po-pin" cx="300" cy="380" r="5"/><circle class="po-pin" cx="150" cy="200" r="5"/>
         </svg>
         <div class="po-brillo"></div>

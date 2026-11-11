@@ -2219,3 +2219,69 @@ html.sin-gap .sp2-linea > * + *{margin-left:10px;}
 
 /* Animaciones livianas: solo se mueven con transform y opacity (las hace la placa de video, casi no gastan batería) */
 .esqueleto, .av2.esq .av2-ic{background-size:auto !important;}
+
+/* ===== Avisos: productos foco del mes ===== */
+.pf{position:relative; display:flex; flex-direction:column; gap:14px; padding:16px; border-radius:20px; background:linear-gradient(135deg, var(--noche) 0%, #1C3460 100%); color:#fff; overflow:hidden; box-shadow:var(--sh-2);}
+.pf::after{content:""; position:absolute; width:220px; height:220px; right:-70px; top:-90px; border-radius:50%; background:radial-gradient(circle, rgba(245,184,61,.35), transparent 70%); pointer-events:none;}
+.pf-cab{position:relative; z-index:1; display:flex; align-items:center; gap:12px;}
+.pf-cab > div{flex:1; min-width:0; display:flex; flex-direction:column;}
+.pf-cab small{font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#F5C866;}
+.pf-cab b{font-family:var(--f-tit); font-size:1.15rem; font-weight:800; line-height:1.2;}
+.pf-estrella{flex:none; width:42px; height:42px; border-radius:14px; display:grid; place-items:center; background:#F5B83D; color:var(--noche); font-size:1.3rem; animation:pfBrilla 2.4s ease-in-out 3;}
+.pf-n{flex:none; min-width:30px; height:30px; padding:0 8px; box-sizing:border-box; border-radius:99px; display:grid; place-items:center; background:rgba(255,255,255,.14); font-weight:800; font-size:.86rem;}
+.pf-grid{position:relative; z-index:1; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px;}
+.pf-m{display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; animation:pfSube .4s ease-out both;}
+.pf-m:nth-child(2){animation-delay:.04s} .pf-m:nth-child(3){animation-delay:.08s} .pf-m:nth-child(4){animation-delay:.12s}
+.pf-m:nth-child(5){animation-delay:.16s} .pf-m:nth-child(6){animation-delay:.2s} .pf-m:nth-child(7){animation-delay:.24s} .pf-m:nth-child(8){animation-delay:.28s}
+.pf-img{width:100%; aspect-ratio:1; max-width:100%; border-radius:16px; background:#fff; display:grid; place-items:center; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,.25); border:3px solid var(--pc);}
+@supports not (aspect-ratio: 1){ .pf-img{height:64px;} }
+.pf-img img{width:86%; height:86%; object-fit:contain; display:block;}
+.pf-sig, .pf-img.sin{font-family:var(--f-tit); font-weight:800; font-size:1.25rem; color:var(--pc);}
+.pf-m b{font-size:.74rem; font-weight:800; text-align:center; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+.pf-msg{position:relative; z-index:1; margin:0; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.1); font-size:.86rem; font-weight:600; color:#F5E7C4; text-align:center;}
+@keyframes pfSube{from{opacity:0; transform:translateY(10px) scale(.94)}}
+@keyframes pfBrilla{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(-8deg) scale(1.08)}}
+html.ahorro .pf-estrella{animation:none;}
+
+/* ===== Productos foco: franja arriba de la Ruta ===== */
+.pfx{display:flex; align-items:center; gap:12px; width:100%; margin:0 0 12px; padding:10px 12px; border:0; border-radius:16px; background:linear-gradient(120deg, #2A1650 0%, #3D2470 55%, #5B2E7E 100%); color:#fff; font:inherit; text-align:left; cursor:pointer; box-shadow:var(--sh-1); box-sizing:border-box;}
+.pfx-est{flex:none; width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:#F5B83D; color:#2A1650; font-size:1.05rem; font-weight:900;}
+.pfx-tx{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.pfx-tx b{font-family:var(--f-tit); font-size:.95rem; font-weight:800;}
+.pfx-tx small{font-size:.74rem; color:#D9CBF3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pfx-logos{flex:none; display:flex;}
+.pfx-logos i{width:30px; height:30px; margin-left:-8px; border-radius:50%; background:#fff; border:2px solid var(--pc); display:grid; place-items:center; overflow:hidden; font-style:normal; font-size:.62rem; font-weight:900; color:var(--pc);}
+.pfx-logos i:first-child{margin-left:0;}
+.pfx-logos img{width:80%; height:80%; object-fit:contain;}
+@media (max-width:380px){ .pfx-logos{display:none;} }
+.pfx-f{flex:none; font-size:1.4rem; color:#D9CBF3; line-height:1;}
+/* ===== Pantalla de productos foco ===== */
+.pfh{position:fixed; top:0; right:0; bottom:0; left:0; z-index:2600; display:flex; flex-direction:column; background:var(--fondo); overflow-y:auto; -webkit-overflow-scrolling:touch; animation:tfEntra .25s cubic-bezier(.2,.8,.2,1);}
+.pfh-cab{position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:12px; background:linear-gradient(120deg, #2A1650, #4A2775); color:#fff; padding:14px 16px; padding-top:calc(12px + env(safe-area-inset-top,0px));}
+.pfh-cab > div{display:flex; flex-direction:column;} .pfh-cab small{font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#F5C866;}
+.pfh-cab b{font-family:var(--f-tit); font-size:1.25rem; font-weight:800;}
+.pfh-cuerpo{width:100%; max-width:760px; margin:0 auto; box-sizing:border-box; padding:16px; display:flex; flex-direction:column; gap:14px;}
+.pfh-msg{margin:0; padding:10px 14px; border-radius:12px; background:#F3EDFC; color:#4A2775; font-weight:700; font-size:.9rem; text-align:center;}
+.pfh-grid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px;}
+.pfh-m{display:flex; flex-direction:column; align-items:center; gap:6px; padding:0; border:0; background:none; font:inherit; color:var(--txt); cursor:pointer; min-width:0;}
+.pfh-logo{width:100%; height:0; padding-top:100%; position:relative; border-radius:18px; background:var(--sup); border:2px solid var(--linea); overflow:hidden; font-family:var(--f-tit); font-weight:900; font-size:1.3rem; color:var(--pc); transition:transform .15s, border-color .15s, box-shadow .15s;}
+.pfh-logo > *{position:absolute; top:0; left:0; right:0; bottom:0; margin:auto;}
+.pfh-logo img{width:84%; height:84%; object-fit:contain;}
+.pfh-m b{font-size:.76rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+.pfh-m.on .pfh-logo{border:3px solid var(--pc); box-shadow:0 6px 16px rgba(0,0,0,.15); transform:translateY(-2px);}
+.pfh-m.on b{color:var(--pc);}
+.pfh-det{display:flex; flex-direction:column; gap:12px; padding:16px; border-radius:18px; background:var(--sup); border:1px solid var(--linea); border-top:5px solid var(--pc); box-shadow:var(--sh-1);}
+.pfh-det h3{margin:0; font-family:var(--f-tit); font-size:1.3rem; font-weight:800; color:var(--txt);}
+.pfh-ref{width:100%; max-width:100%; border-radius:14px; display:block; box-shadow:0 4px 14px rgba(0,0,0,.12);}
+.pfh-sub{margin:4px 0 0; font-size:.74rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--txt-3);}
+.pfh-pag{display:flex; flex-direction:column; gap:6px; padding:0; border:0; background:none; font:inherit; color:var(--acento-osc); font-weight:700; font-size:.84rem; cursor:pointer; text-align:left;}
+.pfh-pag img{width:100%; max-width:100%; border-radius:12px; border:1px solid var(--linea);}
+/* ===== Catálogo: productos foco arriba ===== */
+.cat-foco{margin:4px auto 14px; max-width:1100px; padding:14px; border-radius:18px; background:linear-gradient(120deg, #2A1650, #4A2775); color:#fff; box-sizing:border-box;}
+.cat-foco-t{font-family:var(--f-tit); font-weight:800; font-size:1rem; margin-bottom:10px;} .cat-foco-t span{color:#F5B83D;}
+.cat-foco-l{display:flex; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch;}
+.cat-foco-l button{flex:0 0 auto; width:72px; margin-right:10px; display:flex; flex-direction:column; align-items:center; padding:0; border:0; background:none; color:#fff; font:inherit; cursor:pointer;}
+.cat-foco-l i{width:64px; height:64px; margin-bottom:5px; border-radius:16px; background:#fff; border:3px solid var(--pc); display:flex; align-items:center; justify-content:center; overflow:hidden; font-style:normal; font-weight:900; color:var(--pc);}
+.cat-foco-l img{width:82%; height:82%; object-fit:contain;}
+.cat-foco-l b{font-size:.7rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+.pfh-logo > .sig, .cat-foco-l .sig, .pfx-logos .sig{display:flex; align-items:center; justify-content:center; width:100%; height:100%;}

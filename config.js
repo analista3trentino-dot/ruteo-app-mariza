@@ -67,3 +67,22 @@ const MARCAS_CARPETA = "1mGNL79KR9Mpu_MEDXRj5Dtx6xCuQIAZG";
 // desaparece solo y no se aceptan más respuestas; vos seguís viendo los resultados.
 // Para cerrarla antes poné activa: false. Para una encuesta nueva, cambiá el id (ej. "app-dic-2026").
 const ENCUESTA = { id: "app-nov-2026", activa: true, hasta: "2026-11-06 17:00" };
+
+// ---------------------------------------------------------------------
+// PRODUCTOS FOCO DEL MES: aparecen arriba de todo en la pantalla de Avisos.
+// Cada mes cambiá el mes y la lista de marcas (en el orden que quieras).
+// Las imágenes salen de la carpeta "Marcas" de Google Drive (MARCAS_CARPETA):
+// basta con que el archivo se llame como la marca, por ejemplo "Saadet.png" o "7 Colinas.jpg".
+// ---------------------------------------------------------------------
+const PRODUCTOS_FOCO = {
+  mes: "Noviembre",
+  marcas: ["Mesa", "Saadet", "Copacol", "Urca", "7 Colinas", "Casaredo", "My Bit", "Menoyo"],
+  mensaje: "¡A empujar estas marcas en cada visita!",
+  // Imágenes de referencia (opcional): marca -> nombre del archivo de imagen subido a GitHub.
+  // Las marcas sin referencia muestran sus páginas del catálogo.
+  referencias: {
+    "7 Colinas": "foco-7-colinas.jpg",
+    "Saadet": "foco-saadet.jpg"
+  }
+};
+// (Los productos foco se ven arriba de la Ruta y del Catálogo, no en Avisos)

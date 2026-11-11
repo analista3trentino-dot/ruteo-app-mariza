@@ -203,6 +203,7 @@ const AVISOS = [
   }
   function cerrar(){ const p = $('avPanel'); if (!p) return; p.classList.remove('abierto'); document.documentElement.classList.remove('cat-abierto'); }
   function abrir(){
+    if (!armado){ try { armar(); } catch(e){} }
     if (esJef() && !window.Control.items().length && !window.Control.cargandoAhora()) window.Control.cargar();
     let p = $('avPanel');
     if (!p){ p = document.createElement('div'); p.id = 'avPanel'; p.className = 'av-panel'; document.body.appendChild(p);
@@ -219,7 +220,9 @@ const AVISOS = [
     Promise.resolve(carga).catch(() => {}).then(() => armarItems()).then(items => { FUENTES[k] = {estado: 'ok', items: items || []}; }, () => { FUENTES[k] = {estado: 'ok', items: []}; })
       .then(() => { pintarBoton(); pintarPanel(); });
   }
+  let armado = false;
   function armar(){
+    armado = true;
     if (!window.RUTEO) return;
     const al = alcance();
     FUENTES.msg = {estado: 'ok', items: mensajes()};
@@ -234,5 +237,11 @@ const AVISOS = [
     pintarBoton();
   }
   window.Avisos = {armar, abrir, refrescar: () => { pintarBoton(); pintarPanel(); }};
-  window.addEventListener('load', () => setTimeout(() => { try { armar(); } catch(e){} }, 600));
+  // Los avisos se preparan cuando el celular está libre (no compite con abrir la app) y,
+  // con batería baja, recién cuando se toca la campanita
+  window.addEventListener('load', () => setTimeout(() => {
+    if (document.documentElement.classList.contains('ahorro')) return;
+    const ir = () => { try { armar(); } catch(e){} };
+    if (window.requestIdleCallback) requestIdleCallback(ir, {timeout: 4000}); else ir();
+  }, 1500));
 })();
