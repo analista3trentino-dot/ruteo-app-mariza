@@ -90,8 +90,9 @@ const CATALOGO = {
 
     // Páginas: el navegador descarga cada imagen recién cuando se acerca a la pantalla
     let h = '';
+    const nav = p => window.Foco && window.Foco.esCanasta && window.Foco.esCanasta(p);   // páginas de canastas navideñas
     for (let p = 1; p <= N; p++) {
-      h += `<figure class="cat-page" id="cat-p${p}" data-p="${p}">
+      h += `<figure class="cat-page${nav(p) ? ' es-nav' : ''}" id="cat-p${p}" data-p="${p}">${nav(p) ? '<span class="cat-nav">🎄 Canasta navideña</span>' : ''}
         <img src="${src(p)}" alt="Página ${p} del catálogo" loading="lazy" decoding="async" width="1100" height="1556" />
         <figcaption>${p}</figcaption></figure>`;
     }

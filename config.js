@@ -93,3 +93,36 @@ const PRODUCTOS_FOCO = {
     { marca: "Menoyo", producto: "Display de 60 g", logo: "foco-logo-menoyo.webp" }
   ]
 };
+
+// =====================================================================
+//  MARCAS POTENCIALES DEL MES
+//  Se ven en la pantalla de foco (pestaña "Potenciales") y en el Catálogo.
+//  canasta: true  → es especial de CANASTAS NAVIDEÑAS (se muestra aparte, con su sello 🎄).
+//  Si una marca no tiene logo, se muestra su nombre.
+// =====================================================================
+const MARCAS_POTENCIALES = {
+  mes: "Noviembre",
+  mensaje: "Marcas con más oportunidad este mes: ofrecelas en cada cliente.",
+  canastas: {
+    titulo: "Canastas navideñas",
+    mensaje: "Productos especiales para armar canastas de fin de año. Ofrecelos a comercios que arman canastas y a empresas que regalan a su gente."
+  },
+  marcas: [
+    { marca: "Menoyo", logo: "foco-logo-menoyo.webp" },
+    { marca: "Rivoli", logo: "foco-logo-rivoli.webp", canasta: true },
+    { marca: "Mesa", logo: "foco-logo-mesa.webp" },
+    { marca: "Piacere", logo: "foco-logo-piacere.webp" },
+    { marca: "Urca", logo: "foco-logo-urca.webp" },
+    { marca: "Selky", logo: "foco-logo-selky.webp", canasta: true },
+    { marca: "Chocobon", logo: "foco-logo-chocobon.webp", canasta: true },
+    { marca: "Casaredo", logo: "foco-logo-casaredo.webp", canasta: true },
+    { marca: "Santa Mónica", logo: "foco-logo-santa-monica.webp", canasta: true },
+    { marca: "Piattelli", logo: "foco-logo-piattelli.webp" },
+    { marca: "Otro Loco Más", logo: "foco-logo-otro-loco-mas.webp" },
+    { marca: "Farruca", logo: "foco-logo-la-farruca.webp", canasta: true, catalogo: "La Farruca" },
+    { marca: "Danesa", producto: "Galletitas danesas Bakemate (lata)", logo: "foco-logo-bakemate.webp", canasta: true, catalogo: "Bakemate",
+      foto: { src: "foco-bakemate-danesa.webp", w: 544, h: 562 }, paginas: [46] },
+    { marca: "7 Colinas", logo: "foco-logo-7-colinas.webp" },
+    { marca: "Anasol", logo: "foco-logo-anasol.webp" }
+  ]
+};
