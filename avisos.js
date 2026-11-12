@@ -143,8 +143,8 @@ const AVISOS = [
     const r = A.resumen(new Set(al.carts.map(c => c.vc))); if (!r || (!r.semana.length && !r.pendientes.length)) return [];
     const xs = r.hoy.length ? r.hoy : r.semana;
     return [{id: 'anom-' + r.hoy.length + '-' + r.semana.length + '-' + r.pendientes.length + '-' + HOY, tipo: 'anom', titulo: r.hoy.length ? 'Anomalías de hoy' : 'Anomalías de la semana', valor: String(xs.length), tono: r.pendientes.length ? 'mid' : 'good',
-      linea: `${r.semana.length} esta semana${r.pendientes.length ? ` · <b>${r.pendientes.length}</b> sin justificar` : ''}`, sub: 'Últimas',
-      filas: xs.slice(0, 3).map(x => [esc(nom(x['Nombre vendedor']) || x.Vendedor), esc(x['Anomalía']) + ' · ' + esc(x['Justificó'] === 'Sí' ? 'justificó' : x['Justificó'] === 'No' ? 'no justificó' : 'pendiente')]), ir: [al.quien === 'jefatura' ? 'jefatura' : 'visitas', 'Ver anomalías']}];
+      linea: `${r.semana.length} esta semana${r.pendientes.length ? ` · <b>${r.pendientes.length}</b> pendientes (vencen 17:00)` : ''}`, sub: 'Últimas',
+      filas: xs.slice(0, 3).map(x => [esc(nom(x['Nombre vendedor']) || x.Vendedor), esc(x['Anomalía']) + ' · ' + esc(({si: 'justificó', no: 'no justificó', venc: 'no justificó (venció 17:00)', pen: 'pendiente, vence 17:00'})[A.estado(x).k])]), ir: [al.quien === 'jefatura' ? 'jefatura' : 'visitas', 'Ver anomalías']}];
   }
   async function supervisores(al){
     if (al.quien !== 'jefatura' || !window.Jefatura || !window.Jefatura.resumenUltimo) return [];

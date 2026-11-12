@@ -290,9 +290,9 @@
     const precio = esCompe && r['Precio Gs.'] ? (+String(r['Precio Gs.']).replace(/\D/g, '')).toLocaleString('es-PY') : '';
     $('fxVIn').innerHTML = `
       ${conFoto ? `<div class="fx-vista"><img id="fxVImg" alt="Foto" src="${r._local || img(id, 1600)}"></div>` : ''}
-      <div class="fx-coment"><small>Comentario de ${esc(r['Nombre vendedor'] || r.Vendedor)}</small><p>${r.Comentario ? esc(r.Comentario) : '<span class="fx-tenue">Sin comentario</span>'}</p></div>
+      <div class="fx-coment"><small>Comentario de ${esCompe ? esc(r['Nombre vendedor'] || r.Vendedor) : esc(quienFoto(r))}</small><p>${r.Comentario ? esc(r.Comentario) : '<span class="fx-tenue">Sin comentario</span>'}</p></div>
       <dl class="fx-datos">
-        <dt>Vendedor</dt><dd>${esc(r.Vendedor)} · ${esc(r['Nombre vendedor'] || nomVend(r.Vendedor))}</dd>
+        ${esCompe ? `<dt>Vendedor</dt><dd>${esc(r.Vendedor)} · ${esc(r['Nombre vendedor'] || nomVend(r.Vendedor))}</dd>` : `<dt>Envió</dt><dd>${esc(quienFoto(r))}</dd><dt>Cartera</dt><dd>${esc(r.Vendedor)} · ${esc(r['Nombre vendedor'] || nomVend(r.Vendedor))}</dd>`}
         <dt>Supervisor</dt><dd>${esc((R().supLabel || {})[r.Supervisor] || r.Supervisor)}</dd>
         ${esCompe ? `<dt>Qué vio</dt><dd>${esc(r['Qué vio'])}</dd>${r.Producto ? `<dt>Producto</dt><dd>${esc(r.Producto)}</dd>` : ''}${precio ? `<dt>Precio</dt><dd>Gs. ${precio}</dd>` : ''}${r.Cliente ? `<dt>Dónde</dt><dd>${esc(r.Cliente)}</dd>` : ''}`
                   : `<dt>Cliente</dt><dd>${esc(r.Cliente)} · ${esc(r['Código'])}</dd><dt>PM</dt><dd>${esc(r.PM)}</dd>`}
@@ -303,6 +303,7 @@
     $('fxVisor').hidden = false; $('fxVisor').scrollTop = 0; bloquear(true);
     apilarCapa('visor', cerrarVisorYa);
   }
+  const quienFoto = r => r['Cargado por'] ? String(r['Cargado por']).replace(/^Sup\.\s*/i, 'SPV ') : 'SPV ' + nombreCorto((R().nombreSup && R().nombreSup(r.Supervisor)) || r.Supervisor);
   const miniatura = (r, esCompe) => {
     const id = idDe(r), conFoto = r._local || (esCompe ? r['Enlace foto'] : r.Enlace);
     if (!conFoto) return '';
@@ -462,7 +463,7 @@
       <div class="fx-grid">${g.map(r => `<button type="button" class="fx-ft" data-k="${k++}">
         ${miniatura(r, esCompe) || `<span class="fx-ftxt">“${esc(r.Comentario)}”</span>`}
         <span class="fx-fti"><span class="fx-tag ${r.Tipo === 'Ampliación' ? 'amp' : r.Tipo === 'Reposición' ? 'rep' : 'com'}">${esc(esCompe ? r['Qué vio'] : r.Tipo)}</span>
-        <b>${esc(esCompe ? r['Empresa/Marca'] : r.Cliente)}</b><small>${esc(r.Vendedor)} ${esc(nombreCorto(r['Nombre vendedor']))} · ${esc(r.Hora)}${r.Comentario ? ' · con comentario' : ''}</small></span></button>`).join('')}</div>`).join('');
+        <b>${esc(esCompe ? r['Empresa/Marca'] : r.Cliente)}</b><small>${esCompe ? esc(r.Vendedor) + ' ' + esc(nombreCorto(r['Nombre vendedor'])) : '📤 ' + esc(quienFoto(r)) + ' · cartera ' + esc(r.Vendedor)} · ${esc(r.Hora)}</small>${r.Comentario ? `<span class="fx-ftc">💬 ${esc(r.Comentario)}</span>` : ''}</span></button>`).join('')}</div>`).join('');
   }
   function enlazarGaleria(box, filas, esCompe, enVisor){
     box.querySelectorAll('.fx-ft').forEach(b => b.onclick = () => { const r = filas[+b.dataset.k]; if (enVisor) $('fxVisor').hidden = true; abrirVisor(r, esCompe); });
@@ -666,5 +667,5 @@
   }
 
   const compeSemana = () => { const desde = lunes(new Date()); return compe().filter(r => r.Fecha >= desde); };
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, fichaDe, compeSemana, anomalias, enviarAnomalia, base64: aBase64, listo: () => !!datos};
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, todasFotos: () => fotos(), fichaDe, compeSemana, anomalias, enviarAnomalia, base64: aBase64, listo: () => !!datos};
 })();

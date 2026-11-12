@@ -56,11 +56,12 @@
   // Lo último que envió el vendedor (para el supervisor): de la hoja Gestion TOP
   function desdeGestion(cl){
     const F = window.Fotos, rows = F && F.gestion ? F.gestion().filter(x => x['Código'] === cl[6]) : [];
-    const r = {amp: {}, ing: {}, rep: {}, fecha: ''};
+    const r = {amp: {}, ing: {}, rep: {}, fecha: '', hora: '', quien: '', coms: []};
     const porNombre = {}; MF.cats.forEach(c => porNombre[nombreCat(c)] = c.id);
     rows.slice().reverse().forEach(x => {   // del más viejo al más nuevo: queda lo último
       const id = porNombre[x.Marca + ' · ' + x['Categoría']];
-      if (!r.fecha || x.Fecha > r.fecha) r.fecha = x.Fecha;
+      if (!r.fecha || x.Fecha > r.fecha){ r.fecha = x.Fecha; r.coms = []; }
+      if (x.Fecha === r.fecha){ r.hora = x.Hora || r.hora; r.quien = x['Cargado por'] || ('SPV ' + ((R_().nombreSup && R_().nombreSup(x.Supervisor)) || x.Supervisor || '')); if (String(x.Comentario || '').trim()) r.coms.push({acc: x['Acción'], prod: x.Producto || (x.Marca + ' · ' + x['Categoría']), resp: x.Respuesta, com: x.Comentario}); }
       if (x['Acción'] === 'Ampliación') r.amp[x['Cód. artículo']] = {v: /^se ofreci/i.test(x.Respuesta) ? 'si' : 'no', com: x.Comentario, f: x.Fecha};
       else if (x['Acción'] === 'Ingreso') r.ing[x['Cód. artículo']] = {v: /^acept/i.test(x.Respuesta) ? 'si' : 'no', com: x.Comentario, f: x.Fecha};
       else if (x['Acción'] === 'Reposición' && id){
@@ -157,7 +158,12 @@
       ing: 'Marcas foco que este cliente todavía no compra. Cada producto trae su código de barras y la cantidad sugerida para la góndola.'};
     const VACIO = {amp: '<b>Sin ampliación pendiente.</b> En las marcas que ya compra tiene todo el surtido.', rep: '<b>Todavía no compra marcas foco.</b> La reposición aparece cuando la marca ya está ingresada. Empezá por Ingreso.', ing: '<b>¡Excelente!</b> Ya compra todas las categorías foco.'};
     $('tfCuerpo').innerHTML =
-      (ro ? `<div class="tf-aviso">${r.fecha ? `Última ficha de este cliente el <b>${esc(r.fecha.split('-').reverse().join('/'))}</b>. Se muestra lo que respondió.` : `Todavía no hay ficha de este cliente en las últimas semanas.`}</div>` : '') +
+      (ro ? (r.fecha ? `<div class="tf-quien">
+          <div><small>📤 La envió</small><b>${esc(String(r.quien).replace(/^Sup\.\s*/i, 'SPV '))}</b><em>${esc(r.fecha.split('-').reverse().join('/'))}${r.hora ? ' a las ' + esc(r.hora) : ''}</em></div>
+          <div><small>👤 Cliente de la cartera</small><b>${esc(c.vc)} · ${esc(nom(c.vn).split(' ').slice(0, 2).join(' '))}</b><em>Vendedor de este cliente</em></div>
+        </div>
+        ${r.coms.length ? `<div class="tf-coms"><b>💬 Comentarios del supervisor (${r.coms.length})</b>${r.coms.map(y => `<div><small>${esc(y.acc)} · ${esc(y.prod)} · ${esc(y.resp)}</small><p>“${esc(y.com)}”</p></div>`).join('')}</div>` : '<div class="tf-aviso">El supervisor no dejó comentarios en esta ficha.</div>'}`
+        : `<div class="tf-aviso">Todavía no hay ficha de este cliente en las últimas semanas.</div>`) : '') +
       (xs.length ? `<p class="tf-intro">${INTRO[F.tab]}</p>` + xs.map(secHtml).join('') : `<div class="tf-aviso">${VACIO[F.tab]}</div>`);
   }
   function pintarSec(id){
@@ -184,7 +190,7 @@
       ${ab ? `<div class="tf-cat-b">${x.req.map(s => {
         const k = MF.sku[s], ya = !x.falta.includes(s), a = r.amp[s] || {};
         return `<div class="tf-sku">${fotoProd(s, x.cat, true)}<div class="tf-sku-n">${esc(k.d)}<small>${s}${k.b ? ' · ' + k.b : ''}</small></div>
-          ${ya ? `<span class="tf-tiene">✓ Ya lo tiene</span>` : sino('amp:' + s, a.v, ro) + `<span class="tf-lbl">¿Se ofreció?</span>${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="amp:${s}" placeholder="Comentario (opcional)" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}`}</div>`;
+          ${ya ? `<span class="tf-tiene">✓ Ya lo tiene</span>` : sino('amp:' + s, a.v, ro) + `<span class="tf-lbl">¿Se ofreció?</span>${ro ? (a.com ? `<p class="tf-com-ro">💬 “${esc(a.com)}”</p>` : '') : a.v ? `<input class="tf-com" data-com="amp:${s}" placeholder="Comentario (opcional)" value="${esc(a.com || '')}">` : ''}`}</div>`;
       }).join('')}</div>` : ''}
     </section>`;
   }
@@ -197,7 +203,7 @@
         return `<div class="tf-prod">${fotoProd(s, x.cat)}
           <div class="tf-prod-i"><b>${esc(k.d)}</b><small>Cód. ${s}${k.b ? ' · Barras ' + k.b : ''}</small>${g ? `<span class="tf-gond">Góndola sugerida: ${g} unid.</span>` : ''}
             <div class="tf-pre"><span class="tf-lbl">¿Lo aceptó?</span>${sino('ing:' + s, a.v, ro)}</div>
-            ${a.v && (!ro || a.com) ? `<input class="tf-com" data-com="ing:${s}" placeholder="${a.v === 'no' ? '¿Por qué no? (precio, espacio, trabaja otra marca…)' : 'Comentario (opcional)'}" value="${esc(a.com || '')}" ${ro ? 'readonly' : ''}>` : ''}</div></div>`;
+            ${ro ? (a.com ? `<p class="tf-com-ro">💬 “${esc(a.com)}”</p>` : '') : a.v ? `<input class="tf-com" data-com="ing:${s}" placeholder="${a.v === 'no' ? '¿Por qué no? (precio, espacio, trabaja otra marca…)' : 'Comentario (opcional)'}" value="${esc(a.com || '')}">` : ''}</div></div>`;
       }).join('')}</div>` : ''}
     </section>`;
   }

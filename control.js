@@ -64,8 +64,9 @@
     // Anomalías (esta semana y anteriores, las más nuevas primero)
     if (F && F.anomalias && F.listo && F.listo()){
       const xs = F.anomalias().filter(r => vcs.has(r.Vendedor)).sort((a, b) => String(b.Fecha).localeCompare(String(a.Fecha)));
-      const fila = r => ({f: r.Fecha, vc: r.Vendedor, n: nom2(r['Nombre vendedor']) || r.Vendedor, eq: RU.supLabel[r.Supervisor] || r.Supervisor, tipo: r['Anomalía'], motivo: r.Motivo, jus: r['Justificó'] || 'Pendiente', adj: !!r['Enlace adjunto']});
-      M.anom = {hoy: xs.filter(r => r.Fecha === HOY).map(fila), semana: xs.filter(r => r.Fecha >= lunes(HOY)).map(fila), pend: xs.filter(r => r['Justificó'] === 'Pendiente').map(fila), ultimas: xs.slice(0, 4).map(fila)};
+      const est = r => window.Anomalias && window.Anomalias.estado ? window.Anomalias.estado(r) : {k: r['Justificó'] === 'Sí' ? 'si' : r['Justificó'] === 'No' ? 'no' : 'pen', txt: r['Justificó']};
+      const fila = r => { const e = est(r); return {f: r.Fecha, vc: r.Vendedor, n: nom2(r['Nombre vendedor']) || r.Vendedor, eq: RU.supLabel[r.Supervisor] || r.Supervisor, tipo: r['Anomalía'], motivo: r.Motivo, com: r.Comentario || '', jus: e.k, jtxt: e.txt, vence: e.vence || '', adj: !!r['Enlace adjunto'], r}; };
+      M.anom = {hoy: xs.filter(r => r.Fecha === HOY).map(fila), semana: xs.filter(r => r.Fecha >= lunes(HOY)).map(fila), pend: xs.filter(r => est(r).k === 'pen').map(fila), ultimas: xs.slice(0, 4).map(fila)};
     }
 
     // Fichas TOP de esta semana (las carga el supervisor en cada cliente top)
@@ -98,8 +99,8 @@
   // ---------------- Lo que hay que revisar ----------------
   function pendientes(M){
     const out = [];
-    if (M.anom && M.anom.pend.length) out.push({t: 'bad', n: M.anom.pend.length, b: M.anom.pend.length === 1 ? 'anomalía sin justificar' : 'anomalías sin justificar', s: M.anom.pend.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
-    const hoyNP = M.anom ? M.anom.hoy.filter(a => a.jus !== 'Pendiente') : [];
+    if (M.anom && M.anom.pend.length) out.push({t: 'bad', n: M.anom.pend.length, b: (M.anom.pend.length === 1 ? 'anomalía pendiente' : 'anomalías pendientes') + ' · vence' + (M.anom.pend.length === 1 ? '' : 'n') + ' hoy a las 17:00', s: M.anom.pend.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
+    const hoyNP = M.anom ? M.anom.hoy.filter(a => a.jus !== 'pen') : [];
     if (hoyNP.length) out.push({t: 'mid', n: hoyNP.length, b: hoyNP.length === 1 ? 'anomalía informada hoy' : 'anomalías informadas hoy', s: hoyNP.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
     if (M.sup){
       const sin = M.sup.filas.filter(f => !f.visitas && !f.nuevo);   // un supervisor nuevo no cuenta como "no marcó"
@@ -133,11 +134,11 @@
 
     // 2. Anomalías
     const cnt = xs => ({aus: xs.filter(a => clase(a.tipo) === 'aus').length, tar: xs.filter(a => clase(a.tipo) === 'tar').length, fue: xs.filter(a => clase(a.tipo) === 'fue').length});
-    const JUS = {Sí: ['si', 'Justificó'], No: ['no', 'No justificó'], Pendiente: ['pen', 'Pendiente']};
+
     const anom = A ? (() => { const c = cnt(A.semana); return `<section class="ct-card" id="ctAnom">
       ${head('alerta', 'aus', 'Anomalías de vendedores', A.semana.length ? `<b>${A.semana.length}</b> esta semana · ${A.hoy.length} hoy` : 'Ninguna esta semana', ['anom', 'Ver todas'])}
       <div class="ct-tri"><span class="aus"><b>${c.aus}</b>ausencias</span><span class="tar"><b>${c.tar}</b>llegadas tarde</span><span class="fue"><b>${c.fue}</b>fuera de ruta</span></div>
-      ${A.ultimas.length ? `<div class="ct-lista">${A.ultimas.map(a => `<button type="button" class="ct-an" data-go="anom"><span class="ct-tag ${clase(a.tipo)}">${esc(a.tipo)}</span><span class="ct-an-t"><b>${esc(a.n)}</b><small>${esc(corto(a.f))} · ${esc(a.eq)}${a.motivo ? ' · ' + esc(a.motivo) : ''}</small></span><span class="ct-j ${(JUS[a.jus] || JUS.Pendiente)[0]}">${(JUS[a.jus] || JUS.Pendiente)[1]}</span></button>`).join('')}</div>`
+      ${A.ultimas.length ? `<div class="an-lista">${A.ultimas.map(a => window.Anomalias && window.Anomalias.fila ? window.Anomalias.fila(a.r) : '').join('')}</div>`
         : '<p class="ct-vacio">Todavía no hay anomalías. Las cargan los supervisores desde la pestaña Visitas.</p>'}
     </section>`; })() : '';
 
@@ -187,7 +188,7 @@
       <div class="ct-tri top"><span><b>${T.repoCli}</b>clientes con faltantes${T.repoCaras ? ` (${T.repoCaras} caras)` : ''}</span><span><b>${T.ampOf}</b>marcas ofrecidas</span><span><b>${T.ingOk}</b>ingresos aceptados</span></div>
       <div class="ct-sub">Avance por supervisor</div>
       <div class="ct-barras">${T.porSup.map(x => { const q = pct(x.ok, x.n); return `<div><span>${esc(x.eq)}</span><i class="ct-b"><i class="${tono(q)}" style="width:${q}%"></i></i><em>${x.ok}/${x.n}</em></div>`; }).join('')}</div>
-      ${T.fotos.length ? `<div class="ct-sub">Últimas fotos</div><div class="ct-fotos">${T.fotos.map(f => `<a href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${thumb(f.id)}" alt="" loading="lazy"><span>${esc(f.acc)} · ${esc(nom2(f.cli))}</span></a>`).join('')}</div>` : '<p class="ct-vacio">Todavía no hay fotos de fichas esta semana.</p>'}
+      <button type="button" class="ct-irrec" data-go="rec">📥 Ver las fichas recibidas, con fotos y comentarios ›</button>
     </section>` : '';
 
     // 6. Stock, competencia y encuesta
@@ -198,11 +199,13 @@
 
     box.innerHTML = `<div class="ct">
       <div class="ct-cab"><div><h2>Control</h2><p>${esc(largo(HOY).replace(/^./, c => c.toUpperCase()))}</p></div><button type="button" class="ar-act" data-ct-act>↻ Actualizar</button></div>
-      ${rev}${anom || esq('Anomalías de vendedores')}${sup || esq('Supervisores en la calle')}${vis || esq('Visitas de vendedores')}${top}${otros}
+      ${rev}<div id="ctRec"></div>${anom || esq('Anomalías de vendedores')}${sup || esq('Supervisores en la calle')}${vis || esq('Visitas de vendedores')}${top}${otros}
     </div>`;
     box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ir(b.dataset.go));
     box.querySelector('[data-ct-act]').onclick = () => { if (window.Archivos && window.Archivos.olvidar) window.Archivos.olvidar(); if (window.Encuesta && window.Encuesta.cargar) window.Encuesta.cargar(true).catch(() => {}); cargar(true); };
     if (window.Encuesta && $('ctEnc')) window.Encuesta.tarjeta($('ctEnc'));
+    if (window.Recibidos && $('ctRec')) window.Recibidos.en($('ctRec'));
+    box.querySelectorAll('#ctAnom [data-an]').forEach(b => b.onclick = () => { const r = (window.Fotos.anomalias() || []).find(x => x.ID === b.dataset.an); if (r && window.Anomalias.ver) window.Anomalias.ver(r); });
     if (window.Avisos && window.Avisos.refrescar) window.Avisos.refrescar();
   }
   function ir(go){
@@ -213,6 +216,7 @@
     if (k === 'vend' && window.Visitas && window.Visitas.abrirVendedor) return window.Visitas.abrirVendedor(v, M && M.vis ? M.vis.dia : '');
     if (k === 'vis') return RU.setSeccion('visitas');
     if (k === 'top') return RU.setSeccion('top');
+    if (k === 'rec'){ const s = $('ctRecibido'); if (s) s.scrollIntoView({behavior: 'smooth', block: 'start'}); return; }
     if (k === 'compe') return RU.setSeccion('compe');
     if (k === 'stock'){ const s = $('controlView').querySelector('.ct-mini'); if (s) s.scrollIntoView({behavior: 'smooth', block: 'center'}); }
   }

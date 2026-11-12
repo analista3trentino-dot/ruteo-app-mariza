@@ -26,7 +26,24 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
   const TIPOS = typeof ANOMALIAS_TIPOS !== 'undefined' ? ANOMALIAS_TIPOS : ['Ausencia', 'Llegada tardía', 'Fuera de ruta'];
   const MOTIVOS = typeof ANOMALIAS_MOTIVOS !== 'undefined' ? ANOMALIAS_MOTIVOS : ['Problemas familiares', 'Problemas de salud', 'Otro'];
   const clase = t => /aus/i.test(t) ? 'aus' : /tard/i.test(t) ? 'tar' : 'fue';
-  const JUS = {Sí: ['si', '✓ Justificó'], No: ['no', '✗ No justificó'], Pendiente: ['pen', '⏳ Pendiente']};
+  const JUS = {Sí: ['si', '✓ Justificó'], No: ['no', '✗ No justificó'], Pendiente: ['pen', '⏳ Pendiente'], Vencida: ['venc', '✗ No justificó']};
+  // Una anomalía PENDIENTE vence el mismo día que se informó, a las 17:00.
+  // Después de esa hora cuenta como "No justificó" (vencida).
+  const HORA_VENCE = 17;
+  const diaInforme = r => { const m = String(r.Registrado || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[0] : r.Fecha; };
+  const venceEn = r => { const d = deIso(diaInforme(r)) || deIso(r.Fecha); if (!d) return null; d.setHours(HORA_VENCE, 0, 0, 0); return d; };
+  function estado(r){
+    const j = r['Justificó'];
+    if (j === 'Sí') return {k: 'si', txt: '✓ Justificó', jus: 'Sí'};
+    if (j === 'No') return {k: 'no', txt: '✗ No justificó', jus: 'No'};
+    const v = venceEn(r), falta = v ? v - Date.now() : 1;
+    if (falta <= 0) return {k: 'venc', txt: '✗ No justificó · venció 17:00', jus: 'Vencida', vencida: true};
+    const h = Math.floor(falta / 3600e3), m = Math.floor(falta % 3600e3 / 60000);
+    return {k: 'pen', txt: '⏳ Pendiente', jus: 'Pendiente', vence: 'vence hoy 17:00' + (falta < 6 * 3600e3 ? ` (${h ? h + ' h ' : ''}${m} min)` : '')};
+  }
+  const horaDe = s => { const m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? p2(m[1]) + ':' + m[2] : ''; };
+  const iniciales = s => String(s || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const quienSup = r => r['Cargado por'] ? String(r['Cargado por']).replace(/^Sup\.\s*/i, 'SPV ') : ('SPV ' + ((R().nombreSup && R().nombreSup(r.Supervisor)) || r.Supervisor || ''));
   const idDe = r => (String(r['Enlace adjunto'] || '').match(/\/d\/([\w-]+)/) || [])[1] || '';
   const puedeCargar = () => R().modo === 'supervisor' && !!R().miSup;
 
@@ -39,11 +56,15 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
 
   // ---------- Tarjeta (Visitas y Supervisores) ----------
   function fila(r){
-    const j = JUS[r['Justificó']] || JUS.Pendiente, id = idDe(r);
-    return `<button type="button" class="an-fila" data-an="${esc(r.ID)}">
-      <span class="an-tipo ${clase(r['Anomalía'])}">${esc(r['Anomalía'])}</span>
-      <span class="an-fi"><b>${esc(nom(r['Nombre vendedor']) || r.Vendedor)} <small>${esc(r.Vendedor)}</small></b><small>${esc(corto(r.Fecha))}${r.Motivo ? ' · ' + esc(r.Motivo) : ''}${r.Comentario ? ' · ' + esc(r.Comentario) : ''}</small></span>
-      <span class="an-der"><span class="an-j ${j[0]}">${j[1]}</span>${id || r._local ? '<span class="an-adj">📎 reposo</span>' : ''}</span>
+    const e = estado(r), id = idDe(r), hr = horaDe(r.Registrado);
+    return `<button type="button" class="an-fila2 ${e.k}" data-an="${esc(r.ID)}">
+      <span class="an-av ${clase(r['Anomalía'])}">${esc(iniciales(nom(r['Nombre vendedor']) || r.Vendedor))}</span>
+      <span class="an-cuerpo">
+        <span class="an-l1"><b>${esc(nom(r['Nombre vendedor']) || r.Vendedor)}</b><small>${esc(r.Vendedor)}</small><span class="an-tipo ${clase(r['Anomalía'])}">${esc(r['Anomalía'])}</span></span>
+        <span class="an-l2">${esc(corto(r.Fecha))}${r.Motivo ? ' · ' + esc(r.Motivo) : ''}${id || r._local ? ' · 📎 reposo' : ''}</span>
+        ${r.Comentario ? `<span class="an-com">“${esc(r.Comentario)}”</span>` : ''}
+        <span class="an-l3"><span class="an-est ${e.k}">${e.txt}</span>${e.vence ? `<span class="an-vence">${e.vence}</span>` : ''}<span class="an-quien">${esc(quienSup(r))}${hr ? ' · ' + hr : ''}</span></span>
+      </span>
     </button>`;
   }
   function tarjeta(box){
@@ -51,10 +72,10 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
     const F = Fo();
     if (!F){ box.innerHTML = ''; return; }
     const xs = lista(), desde = lunes(HOY), sem = xs.filter(r => r.Fecha >= desde), hoy = xs.filter(r => r.Fecha === HOY);
-    const pend = xs.filter(r => r['Justificó'] === 'Pendiente').length;
+    const pend = xs.filter(r => estado(r).k === 'pen').length;
     const n = t => sem.filter(r => clase(r['Anomalía']) === t).length;
     box.innerHTML = `<section class="an-card">
-      <div class="an-cab"><div><h3>Anomalías</h3><p>${hoy.length ? `<b>${hoy.length}</b> hoy · ` : 'Ninguna hoy · '}${sem.length} esta semana${pend ? ` · <b class="an-pend">${pend} sin justificar</b>` : ''}</p></div>
+      <div class="an-cab"><div><h3>Anomalías</h3><p>${hoy.length ? `<b>${hoy.length}</b> hoy · ` : 'Ninguna hoy · '}${sem.length} esta semana${pend ? ` · <b class="an-pend">${pend} pendiente${pend === 1 ? '' : 's'} (vence${pend === 1 ? '' : 'n'} a las 17:00)</b>` : ''}</p></div>
         ${puedeCargar() ? '<button type="button" class="an-mas" data-an-nueva>+ Informar</button>' : ''}</div>
       ${F.listo && !F.listo() ? '<div class="an-vacio">Cargando…</div>' : `
       <div class="an-kpis"><span class="aus"><b>${n('aus')}</b>ausencias</span><span class="tar"><b>${n('tar')}</b>llegadas tarde</span><span class="fue"><b>${n('fue')}</b>fuera de ruta</span></div>
@@ -85,7 +106,8 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
   // Formulario: nueva (r = null) o actualizar (por ejemplo, cuando el vendedor trae el reposo)
   function formulario(r){
     const eq = equipo().sort((a, b) => a.vc.localeCompare(b.vc));
-    const st = {vc: r ? r.Vendedor : '', dia: r ? r.Fecha : HOY, tipo: r ? r['Anomalía'] : TIPOS[0], motivo: r ? r.Motivo : '', jus: r ? r['Justificó'] : 'Pendiente', com: r ? r.Comentario : '', hora: '', adj: null};
+    const venc = !!(r && estado(r).vencida);
+    const st = {vc: r ? r.Vendedor : '', dia: r ? r.Fecha : HOY, tipo: r ? r['Anomalía'] : TIPOS[0], motivo: r ? r.Motivo : '', jus: venc ? 'No' : r ? r['Justificó'] : 'Pendiente', com: r ? r.Comentario : '', hora: '', adj: null};
     const chips = (k, xs) => xs.map(x => `<button type="button" data-${k}="${esc(x)}" aria-pressed="${st[k] === x}">${esc(x)}</button>`).join('');
     const c = capa(cab(r ? 'Actualizar anomalía' : 'Informar anomalía', r ? esc(nom(r['Nombre vendedor'])) + ' · ' + esc(corto(r.Fecha)) : 'Llega a jefatura y queda en el historial') + `
       <form class="an-form" id="anForm" novalidate>
@@ -94,7 +116,8 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
         <div class="an-lbl">Anomalía<div class="an-chips" data-grupo="tipo">${chips('tipo', TIPOS)}</div></div>
         <label class="an-lbl" for="anHora" id="anHoraL" ${/tard/i.test(st.tipo) && !r ? '' : 'hidden'}>Hora de llegada<input type="time" id="anHora"></label>
         <div class="an-lbl">Motivo<div class="an-chips" data-grupo="motivo">${chips('motivo', MOTIVOS)}</div></div>
-        <div class="an-lbl">¿Justificó?<div class="an-chips an-jus" data-grupo="jus">${chips('jus', ['Sí', 'No', 'Pendiente'])}</div></div>
+        <div class="an-lbl">¿Justificó?<div class="an-chips an-jus" data-grupo="jus">${chips('jus', venc ? ['No'] : ['Sí', 'No', 'Pendiente'])}</div>
+          <small class="an-ayuda ${venc ? 'venc' : ''}">${venc ? '⏰ Venció a las 17:00 sin justificativo: queda como <b>No justificó</b>.' : 'Si queda <b>Pendiente</b>, tiene hasta las <b>17:00 de hoy</b>. Después cuenta como No justificó.'}</small></div>
         <div class="an-lbl">Reposo o comprobante · opcional
           <label class="an-adjb" for="anArch"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg><span id="anArchT">${r && (idDe(r) || r._local) ? 'Cambiar el adjunto' : 'Adjuntar foto o PDF del reposo'}</span></label>
           <input type="file" id="anArch" accept="image/*,application/pdf" hidden>
@@ -142,7 +165,7 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
   }
   // Detalle (jefatura)
   function ver(r){
-    const j = JUS[r['Justificó']] || JUS.Pendiente, id = idDe(r);
+    const e = estado(r), j = [e.k, e.txt], id = idDe(r);
     const c = capa(cab(esc(r['Anomalía']) + ' · ' + esc(nom(r['Nombre vendedor'])), esc(largo(r.Fecha))) + `
       <div class="an-det">
         <div class="an-det-f"><span class="an-tipo ${clase(r['Anomalía'])}">${esc(r['Anomalía'])}</span><span class="an-j ${j[0]}">${j[1]}</span></div>
@@ -158,7 +181,7 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
     const xs = lista();
     const enRango = r => H.modo === 'dia' ? r.Fecha === H.ref : H.modo === 'semana' ? lunes(r.Fecha) === lunes(H.ref) : r.Fecha.slice(0, 7) === H.ref.slice(0, 7);
     const sel = xs.filter(enRango);
-    const porV = new Map(); sel.forEach(r => { const k = r.Vendedor; if (!porV.has(k)) porV.set(k, {r, aus: 0, tar: 0, fue: 0, sin: 0}); const o = porV.get(k); o[clase(r['Anomalía'])]++; if (r['Justificó'] !== 'Sí') o.sin++; });
+    const porV = new Map(); sel.forEach(r => { const k = r.Vendedor; if (!porV.has(k)) porV.set(k, {r, aus: 0, tar: 0, fue: 0, sin: 0}); const o = porV.get(k); o[clase(r['Anomalía'])]++; if (estado(r).k !== 'si') o.sin++; });
     const filasV = [...porV.values()].sort((a, b) => (b.aus + b.tar + b.fue) - (a.aus + a.tar + a.fue));
     const mover = d => { const x = deIso(H.ref); if (H.modo === 'dia') x.setDate(x.getDate() + d); else if (H.modo === 'semana') x.setDate(x.getDate() + 7 * d); else x.setMonth(x.getMonth() + d, 1); H.ref = iso(x) > HOY ? HOY : iso(x); historial(); };
     const titulo = H.modo === 'dia' ? largo(H.ref) : H.modo === 'semana' ? 'Semana del ' + corto(lunes(H.ref)) : MESES[deIso(H.ref).getMonth()] + ' ' + deIso(H.ref).getFullYear();
@@ -182,9 +205,9 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
   function refrescar(){ cajas.forEach(b => { if (document.body.contains(b)) tarjeta(b); else cajas.delete(b); }); if (window.Visitas && window.Visitas.refrescar) window.Visitas.refrescar(); }
   // Etiqueta para la lista de visitas: anomalía de ese vendedor ese día
   function de(vc, dia){ const F = Fo(); if (!F || !F.anomalias) return null; return F.anomalias().find(r => r.Vendedor === vc && r.Fecha === dia) || null; }
-  function etiqueta(vc, dia){ const r = de(vc, dia); if (!r) return ''; const j = JUS[r['Justificó']] || JUS.Pendiente; return `<span class="an-tag ${clase(r['Anomalía'])}">${esc(r['Anomalía'])} · ${j[1].replace(/^\S+ /, '')}</span>`; }
+  function etiqueta(vc, dia){ const r = de(vc, dia); if (!r) return ''; const e = estado(r); return `<span class="an-tag ${clase(r['Anomalía'])}">${esc(r['Anomalía'])} · ${e.k === 'pen' ? 'pendiente' : e.k === 'si' ? 'justificó' : 'no justificó'}</span>`; }
   // Para los avisos
-  function resumen(vcs){ const F = Fo(); if (!F || !F.anomalias || !F.listo || !F.listo()) return null; const xs = F.anomalias().filter(r => vcs.has(r.Vendedor)); return {hoy: xs.filter(r => r.Fecha === HOY), semana: xs.filter(r => r.Fecha >= lunes(HOY)), pendientes: xs.filter(r => r['Justificó'] === 'Pendiente')}; }
+  function resumen(vcs){ const F = Fo(); if (!F || !F.anomalias || !F.listo || !F.listo()) return null; const xs = F.anomalias().filter(r => vcs.has(r.Vendedor)); return {hoy: xs.filter(r => r.Fecha === HOY), semana: xs.filter(r => r.Fecha >= lunes(HOY)), pendientes: xs.filter(r => estado(r).k === 'pen'), vencidas: xs.filter(r => estado(r).k === 'venc' && diaInforme(r) === HOY)}; }
 
-  window.Anomalias = {en, refrescar, etiqueta, de, resumen, historial};
+  window.Anomalias = {en, refrescar, etiqueta, de, resumen, historial, estado, fila, ver: r => ver(r), quien: quienSup, hora: r => horaDe(r.Registrado)};
 })();
