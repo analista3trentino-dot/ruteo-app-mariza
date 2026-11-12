@@ -2303,3 +2303,18 @@ html.ahorro .pf-estrella{animation:none;}
 .cat-foco-l i{width:84px; height:56px; margin-bottom:5px; border-radius:12px; background:#fff; border:2px solid var(--pc); display:flex; align-items:center; justify-content:center; overflow:hidden; font-style:normal; font-weight:900; color:var(--pc); box-sizing:border-box;}
 .cat-foco-l img{max-width:86%; max-height:78%;}
 .cat-foco-l b{font-size:.7rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+
+/* Bandeja de salida: lo que se cargó sin señal y espera para enviarse */
+.salida-pill{
+  position:fixed; left:max(12px, env(safe-area-inset-left,0px)); bottom:calc(84px + env(safe-area-inset-bottom,0px)); z-index:990;
+  display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:999px;
+  background:var(--noche); color:#fff; font:600 .82rem/1.2 inherit; box-shadow:0 0 0 2px var(--oro), var(--sh-3);
+}
+.salida-pill b{color:var(--oro);}
+.salida-aviso{
+  position:fixed; left:50%; bottom:calc(132px + env(safe-area-inset-bottom,0px)); z-index:995; transform:translate(-50%, 16px);
+  width:max-content; max-width:calc(100vw - 32px); background:var(--noche); color:#fff; font-size:.86rem; font-weight:500;
+  padding:10px 16px; border-radius:14px; box-shadow:var(--sh-3); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; text-align:center;
+}
+.salida-aviso.on{opacity:1; transform:translate(-50%,0);}
+html.sin-gap .salida-pill > * + *{margin-left:6px;}

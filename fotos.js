@@ -56,16 +56,23 @@
     if (!URL_F) return Promise.reject(new Error('Falta FOTOS_URL en config.js'));
     if (!forzar && datos && Date.now() - datosT < 90000) return Promise.resolve(datos);
     if (pend) return pend;
+    const claveC = 'ruteoTR1_fotosCache_' + parametros().toString().replace(/clave=[^&]*&?/, '');
     pend = fetch(URL_F + '?' + parametros().toString(), {redirect: 'follow'})
       .then(r => { if (!r.ok) throw new Error('Google respondió ' + r.status); return r.json(); })
       .then(j => {
         if (!j || !j.ok) throw new Error(j && j.error === 'clave' ? 'La clave de fotos no coincide (FOTOS_CLAVE)' : 'Respuesta inválida');
         datos = j; datosT = Date.now(); errorCarga = '';
+        try { localStorage.setItem(claveC, JSON.stringify(j)); } catch(e){}   // para ver lo último aunque no haya señal
         // lo que ya llegó a Drive deja de ser "local"
         for (let i = locales.length - 1; i >= 0; i--){ const L = locales[i]; if (L.anom){ if ((j.anomalias || []).some(r => r.ID === L.ID && r.Actualizado >= L.Actualizado)) locales.splice(i, 1); continue; } if (L.gest){ if ((j.gestion || []).some(r => r.ID === L.ID)) locales.splice(i, 1); continue; } if ((L.compe ? j.compe : j.fotos).some(r => idDe(r) && idDe(r) === L.ID)) locales.splice(i, 1); }
         return j;
       })
-      .catch(e => { errorCarga = e.message || String(e); throw e; })
+      .catch(e => {
+        // sin señal: se muestra lo último que se trajo
+        let c = null; try { c = JSON.parse(localStorage.getItem(claveC) || 'null'); } catch(x){}
+        if (c && c.ok && !datos){ datos = c; datosT = Date.now() - 60000; errorCarga = ''; return c; }
+        errorCarga = e.message || String(e); throw e;
+      })
       .finally(() => { pend = null; });
     return pend;
   }
@@ -92,13 +99,23 @@
   function aBase64(blob){
     return new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = () => mal(fr.error); fr.readAsDataURL(blob); });
   }
+  // Si no hay señal, queda en la bandeja de salida (salida.js) y se envía solo al volver la señal
   async function enviar(payload){
-    const r = await fetch(URL_F, {method: 'POST', body: JSON.stringify(Object.assign({clave: CLAVE_F}, payload)), redirect: 'follow'});
+    const cuerpo = JSON.stringify(Object.assign({clave: CLAVE_F}, payload));
+    const tipo = payload.gestion ? 'Ficha TOP' : payload.compe ? 'Competencia' : payload.anomalia ? 'Anomalía' : payload.imagen ? 'Foto' : 'Envío';
+    if (window.Salida) return window.Salida.enviar(URL_F, cuerpo, {tipo, detalle: payload.cliente || payload.nomVendedor || ''});
+    const r = await fetch(URL_F, {method: 'POST', body: cuerpo, redirect: 'follow'});
     if (!r.ok) throw new Error('Google respondió ' + r.status);
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
     return j;
   }
+  // cuando la bandeja de salida logra enviar algo guardado, lo local toma el código real de Google
+  window.addEventListener('salida:enviado', e => {
+    const d = e.detail || {}, j = d.respuesta || {};
+    locales.forEach(l => { if (l.ID === d.local){ l.ID = j.id || ''; if (j.enlace){ if ('Enlace' in l) l.Enlace = j.enlace; if ('Enlace foto' in l) l['Enlace foto'] = j.enlace; } } });
+    datosT = 0;
+  });
 
   // ------------------------------------------------------------------
   //  Foto: achicar y grabar los datos en la imagen
@@ -253,7 +270,7 @@
       locales.unshift({_local: h.foto.url, Fecha: iso(h.fecha), Hora: p2(h.fecha.getHours()) + ':' + p2(h.fecha.getMinutes()), Supervisor: v.sup, Vendedor: v.vc, 'Nombre vendedor': v.nom,
         Cliente: nomCli(cl), 'Código': cl[6], PM: cl[8], Tipo: h.tipo, Comentario: com, Enlace: j.enlace || '', ID: j.id || ''});
       if (H === h) cerrarHoja();
-      toast('Foto subida. Tu supervisor ya la puede ver.');
+      toast(j.pendiente ? 'Sin señal: la foto quedó guardada y se sube sola cuando vuelva la señal.' : 'Foto subida. Tu supervisor ya la puede ver.');
       if (R().refrescar) R().refrescar(); else pintarTop();
       punto();
     } catch(err){
@@ -556,7 +573,7 @@
       locales.unshift({compe: true, _local: foto ? foto.url : '', Fecha: iso(d), Hora: p2(d.getHours()) + ':' + p2(d.getMinutes()), Supervisor: v.sup, Vendedor: v.vc, 'Nombre vendedor': v.nom,
         'Qué vio': f.queVio, 'Empresa/Marca': f.marca, Producto: f.producto, 'Precio Gs.': f.precio, Cliente: f.cliente, Comentario: f.comentario, 'Enlace foto': j.enlace || '', ID: j.id || ''});
       fC = {queVio: f.queVio, foto: null};
-      armar(); toast('Enviado a tu supervisor y a jefatura.');
+      armar(); toast(j.pendiente ? 'Sin señal: quedó guardado y se envía solo cuando vuelva la señal.' : 'Enviado a tu supervisor y a jefatura.');
       pintarCompe();
     } catch(err){
       if (btn){ btn.disabled = false; btn.textContent = 'Enviar a supervisor'; }

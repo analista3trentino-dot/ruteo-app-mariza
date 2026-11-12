@@ -298,10 +298,10 @@
         filas.push(fila('Reposición', x.cat, {resp: `Ubicación ${q.ubic === 'si' ? 'sí' : 'no'} · Participación ${q.part === 'si' ? 'sí' : 'no'}`, tenemos: q.ubic === 'si' && q.part === 'si' ? '' : q.tenemos, faltan: q.ubic === 'si' && q.part === 'si' ? '' : q.faltan, enlace}));
       }
       if (btn) btn.textContent = 'Enviando…';
-      await Fo.enviarGestion(meta, filas);
+      const jr = await Fo.enviarGestion(meta, filas);
       try { localStorage.removeItem(KB(cl[6])); } catch(e){}
       delete fotosMem[cl[6]];
-      toast('Ficha enviada. Jefatura ya la puede ver.');
+      toast(jr && jr.pendiente ? 'Sin señal: la ficha quedó guardada y se envía sola cuando vuelva la señal.' : 'Ficha enviada. Jefatura ya la puede ver.');
       if (F === f) cerrar();
     } catch(e){
       if (btn){ btn.disabled = false; btn.textContent = 'Enviar ficha'; }

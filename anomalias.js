@@ -124,9 +124,9 @@ const ANOMALIAS_MOTIVOS = ['Problemas familiares', 'Problemas de salud', 'Trámi
       const b = $('anGuardar'); b.disabled = true; b.textContent = 'Enviando…';
       try {
         const sn = R().nombreSup ? R().nombreSup(R().miSup) : '';
-        await Fo().enviarAnomalia({id: r ? r.ID : '', dia, sup: cart.sup || R().miSup, vendedor: vc, nomVendedor: nom(cart.vn), tipo: st.tipo, motivo: st.motivo, justifico: st.jus, comentario: hora + $('anCom').value.trim(),
+        const jr = await Fo().enviarAnomalia({id: r ? r.ID : '', dia, sup: cart.sup || R().miSup, vendedor: vc, nomVendedor: nom(cart.vn), tipo: st.tipo, motivo: st.motivo, justifico: st.jus, comentario: hora + $('anCom').value.trim(),
           imagen: st.adj ? st.adj.b64 : '', mime: st.adj ? st.adj.mime : '', ext: st.adj ? st.adj.ext : '', enlaceAnterior: r ? r['Enlace adjunto'] : '', _local: st.adj && st.adj.url ? st.adj.url : (r ? r._local : ''), registrado: r ? r.Registrado : '', cargadoPor: 'Sup. ' + (sn ? sn.split(' ').slice(0, 2).join(' ') : R().miSup)});
-        cerrar(); toast(r ? 'Anomalía actualizada' : 'Anomalía enviada a jefatura');
+        cerrar(); toast(jr && jr.pendiente ? 'Sin señal: quedó guardada y se envía sola cuando vuelva la señal.' : r ? 'Anomalía actualizada' : 'Anomalía enviada a jefatura');
       } catch(x){ b.disabled = false; b.textContent = r ? 'Guardar cambios' : 'Enviar a jefatura'; err.textContent = 'No se pudo enviar. Revisá la señal y probá de nuevo.'; err.hidden = false; }
     };
   }
