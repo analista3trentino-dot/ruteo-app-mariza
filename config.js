@@ -126,3 +126,74 @@ const MARCAS_POTENCIALES = {
     { marca: "Anasol", logo: "foco-logo-anasol.webp" }
   ]
 };
+
+// =====================================================================
+//  TÁCTICOS DE VOLUMEN DEL MES
+//  Solo para clientes con PERFIL (PM) habilitado: en la Ruta les aparece "🎯 Táctico".
+//  Cada acción: comprando "compra" recibe "bonif" sin cargo (en cajas o unidades).
+//  Para el mes que viene: cambiar "mes", los "perfiles" y las "marcas".
+// =====================================================================
+const TACTICOS = {
+  mes: "Noviembre",
+  perfiles: ["12.1","12.2","13.1","13.2","13.5","13.8","13.9","17.1","17.9","21.1","21.2","21.3","21.9","22.4","22.8","23.1","25.5","25.8"],
+  marcas: [
+    { marca: "Bluf", acciones: [
+      { accion: "6433", cod: "3185", productos: ["3185 Papel hig. simple neutro 30m 4 und", "3184 Papel hig. simple perfumado 30m 4 und", "3187 Papel hig. simple neutro 30m 8 und", "3186 Papel hig. simple perfumado 30m 8 und"], compra: 30, bonif: 1, unidad: "cajas", nota: "Surtido entre los 4 códigos" },
+      { accion: "6434", cod: "3185", productos: ["3185 Papel hig. simple neutro 30m 4 und", "3184 Papel hig. simple perfumado 30m 4 und", "3187 Papel hig. simple neutro 30m 8 und", "3186 Papel hig. simple perfumado 30m 8 und"], compra: 100, bonif: 5, unidad: "cajas", nota: "Surtido entre los 4 códigos" } ] },
+    { marca: "Residence", nombre: "Residence Velas", acciones: [
+      { accion: "6432", cod: "218", productos: ["469 Vela Nº2 chica", "468 Vela Nº3 mediana", "467 Vela Nº4", "218 Vela Nº5", "476 Vela Nº6 caja 24x8", "475 Vela Nº8 caja 24x8"], compra: 100, bonif: 5, unidad: "cajas", nota: "Surtido de velas" },
+      { accion: "6435", cod: "469", productos: ["469 Vela Nº2 chica - und c/8"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6436", cod: "468", productos: ["468 Vela Nº3 mediana - und c/8"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6437", cod: "467", productos: ["467 Vela Nº4 - und c/8"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6438", cod: "218", productos: ["218 Vela Nº5 - und c/8"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6440", cod: "476", productos: ["476 Vela Nº6 - caja 24x8"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6441", cod: "475", productos: ["475 Vela Nº8 - caja 24x8"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Menoyo", logo: "foco-logo-menoyo.webp", acciones: [
+      { accion: "6442", cod: "775", productos: ["775 Mayonesa - und 2,7 kg"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6443", cod: "2012", productos: ["2012 Mostaza - caja 4x2,7 kg"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Rivoli", logo: "foco-logo-rivoli.webp", acciones: [
+      { accion: "6444", cod: "1399", productos: ["1399 Aceitunas verdes rodaja - balde 3,2 kg"], compra: 30, bonif: 1, unidad: "und" },
+      { accion: "6445", cod: "1398", productos: ["1398 Aceitunas verdes s/semilla - balde 3,2 kg"], compra: 30, bonif: 1, unidad: "und" },
+      { accion: "6446", cod: "837", productos: ["837 Aceitunas verdes c/semilla - balde 3,2 kg"], compra: 30, bonif: 1, unidad: "und" },
+      { accion: "6489", cod: "1520", productos: ["1520 Aceitunas verdes c/semilla doy pack 170 g"], compra: 23, bonif: 1, unidad: "und" },
+      { accion: "6488", cod: "350", productos: ["350 Aceitunas verdes c/semilla doy pack 240 g"], compra: 23, bonif: 1, unidad: "und" } ] },
+    { marca: "Piacere", logo: "foco-logo-piacere.webp", acciones: [
+      { accion: "6449", cod: "1730", productos: ["1730 Ketchup - und 160 g", "1731 Mostaza - und 160 g"], compra: 30, bonif: 1, unidad: "cajas", nota: "Surtido ketchup y mostaza" } ] },
+    { marca: "Listo", acciones: [
+      { accion: "6519", cod: "11863", productos: ["11863 Extracto de tomate bidón - caja 4x3 kg"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6520", cod: "6951", productos: ["6951 Salsa lista p/ pizza - und 3 kg"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Listo Aceites", nombre: "Listo Aceites / Conservas", acciones: [
+      { accion: "6453", cod: "3884", productos: ["3884 Aceite de girasol - 900 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6454", cod: "3883", productos: ["3883 Aceite de girasol - 1500 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6456", cod: "3881", productos: ["3881 Aceite de girasol - 5000 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6460", cod: "6956", productos: ["6956 Aceite mezcla - 900 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6461", cod: "6955", productos: ["6955 Aceite mezcla - 1500 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6459", cod: "6957", productos: ["6957 Aceite mezcla - 5000 ml"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Mesa", logo: "foco-logo-mesa.webp", acciones: [
+      { accion: "6462", cod: "64", productos: ["64 Margarina c/sal - caja 24x250 g"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6464", cod: "92", productos: ["92 Margarina c/sal - caja 12x500 g"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Hanilase", nombre: "Hanilase / Ha-La", acciones: [
+      { accion: "6466", cod: "1299", productos: ["1299 Cuajo Hanilase - caja 24x200 ml"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Copacol", logo: "foco-logo-copacol.webp", acciones: [
+      { accion: "6467", cod: "7200", productos: ["7200 Mortadela c/tocino - 1,7 kg"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "7 Colinas", logo: "foco-logo-7-colinas.webp", acciones: [
+      { accion: "6468", cod: "1967", productos: ["1967 Tinto suave - caja 12x880 ml"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6469", cod: "1961", productos: ["1961 Tinto suave - caja 6x2 L"], compra: 30, bonif: 1, unidad: "cajas" },
+      { accion: "6470", cod: "1986", productos: ["1986 Tinto suave - 3 L"], compra: 30, bonif: 1, unidad: "cajas" } ] },
+    { marca: "Selky", logo: "foco-logo-selky.webp", acciones: [
+      { accion: "6490", cod: "7183", productos: ["7183 Papas barbacoa - 110 g"], compra: 23, bonif: 1, unidad: "und" },
+      { accion: "6491", cod: "7185", productos: ["7185 Papas crema acebollada - 110 g"], compra: 23, bonif: 1, unidad: "und" },
+      { accion: "6493", cod: "7186", productos: ["7186 Papas picante - 110 g"], compra: 23, bonif: 1, unidad: "und" },
+      { accion: "6494", cod: "7184", productos: ["7184 Papas queso - 110 g"], compra: 23, bonif: 1, unidad: "und" } ] },
+    { marca: "Bakemate", nombre: "Bakemate (Danesa)", logo: "foco-logo-bakemate.webp", acciones: [
+      { accion: "6495", cod: "6069", productos: ["6069 Galletita danesa mantecada lata - 114 g"], compra: 23, bonif: 1, unidad: "und" } ] },
+    { marca: "Chocobon", logo: "foco-logo-chocobon.webp", acciones: [
+      { accion: "6497", cod: "6122", productos: ["6122 Bombón relleno chocolate - display x12"], compra: 23, bonif: 1, unidad: "und" },
+      { accion: "6524", cod: "6123", productos: ["6123 Bombón relleno chocolate - x24"], compra: 23, bonif: 1, unidad: "und" } ] },
+    { marca: "Casaredo", logo: "foco-logo-casaredo.webp", acciones: [
+      { accion: "6498", cod: "4975", productos: ["4975 Roscas chocolate 250 g", "4976 Roscas leche 250 g", "4977 Roscas coco 250 g", "4979 Roscas brigadeiro 250 g", "4980 Roscas capuccino 250 g"], compra: 19, bonif: 1, unidad: "und", nota: "Surtido de roscas" } ] },
+    { marca: "Santa Mónica", logo: "foco-logo-santa-monica.webp", acciones: [
+      { accion: "6485", cod: "3368", productos: ["3368 Vino dulce - 750 ml"], compra: 11, bonif: 1, unidad: "und" },
+      { accion: "6486", cod: "3371", productos: ["3371 Gran vino tinto - 750 ml"], compra: 11, bonif: 1, unidad: "und" } ] }
+  ]
+};

@@ -74,6 +74,12 @@
       <span class="pfx-f" aria-hidden="true">›</span>
     </button>`;
   }
+  // versión mini: media tarjeta, para ir al lado de Tácticos sin cargar la pantalla
+  function mini(){
+    const L = lista(), P = listaPot(); if (!L.length && !P.length) return '';
+    return `<button type="button" class="mes-t foco" data-foco-abrir>
+      <span class="mes-ic">★</span><span class="mes-tx"><b>Foco</b><small>${L.length ? L.length + ' marcas' : ''}${P.length ? (L.length ? ' · ' : '') + P.length + ' potenciales' : ''}</small></span></button>`;
+  }
   function enlazar(root){ (root || document).querySelectorAll('[data-foco-abrir]').forEach(b => b.onclick = () => abrir()); }
 
   // ---- Pantalla de foco ----
@@ -181,5 +187,5 @@
     </div>`;
   }
 
-  window.Foco = {franja, enlazar, abrir, bloqueCatalogo, paginasDe, esCanasta};
+  window.Foco = {franja, mini, enlazar, abrir, bloqueCatalogo, paginasDe, esCanasta};
 })();

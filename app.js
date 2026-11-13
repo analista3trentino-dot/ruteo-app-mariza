@@ -289,7 +289,7 @@
     const lpBtn = `<button type="button" class="lpbtn ${lp ? '' : 'nolp'}" data-lpi="${i}" aria-label="Lista de precios de ${esc(nombre)}"><b>LP</b><span>${esc(lp || '—')}</span></button>`;
     return `<div class="client ${cl._top ? 'is-top' : ''}">
       <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
-        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}</div>
+        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}${window.Tacticos ? window.Tacticos.chip(cl) : ''}</div>
       </div><div class="acts">${lpBtn}${go}</div>${potCliHtml(codigo)}${cl._top && window.Fotos ? window.Fotos.filaCli(cl, c) : ''}</div>`;
   }
   function bodyHtml(v){
@@ -382,7 +382,12 @@
   }
 
   // Fotos de clientes top: aviso arriba de la ruta (vendedor: sus fotos de hoy; supervisor: las del equipo)
-  const bannerFotos = () => ((window.Foco && !state.query) ? window.Foco.franja() : '') + ((window.Encuesta && !state.query) ? window.Encuesta.banner() : '') + ((window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '');
+  const filaMes = () => {
+    if (state.query) return '';
+    const f = window.Foco && window.Foco.mini ? window.Foco.mini() : '', t = window.Tacticos ? window.Tacticos.mini(current.map(v => v.c || v), TODAY_LBL) : '';
+    return f || t ? `<div class="mes-fila ${f && t ? '' : 'uno'}">${f}${t}</div>` : '';
+  };
+  const bannerFotos = () => filaMes() + ((window.Encuesta && !state.query) ? window.Encuesta.banner() : '') + ((window.Fotos && !state.query) ? window.Fotos.bannerRuta(current, DIA_UNO(), TODAY_LBL) : '');
   function renderList(){
     current = visibleCarteras();
     renderKPIs(current);

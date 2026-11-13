@@ -48,6 +48,7 @@ const AVISOS = [
     enc: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
     anom: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
     compe: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+    tac: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
     campana: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
   };
   const svg = k => `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
@@ -63,8 +64,8 @@ const AVISOS = [
 
   // Cada fuente arma sus tarjetas; se pintan apenas están listas
   const FUENTES = {};      // nombre -> {estado: 'cargando'|'ok', items: []}
-  const ORDEN = ['msg', 'enc', 'anom', 'vis', 'pot', 'top', 'compe', 'stock', 'sup'];
-  const TITULOS = {enc: 'Encuesta', anom: 'Anomalías', vis: 'Visitas', pot: 'Potencial de hoy', top: 'Fichas TOP', compe: 'Competencia', stock: 'Stock', sup: 'Supervisores'};
+  const ORDEN = ['msg', 'enc', 'anom', 'vis', 'pot', 'tac', 'top', 'compe', 'stock', 'sup'];
+  const TITULOS = {tac: 'Tácticos', enc: 'Encuesta', anom: 'Anomalías', vis: 'Visitas', pot: 'Potencial de hoy', top: 'Fichas TOP', compe: 'Competencia', stock: 'Stock', sup: 'Supervisores'};
 
   function mensajes(){
     const RU = window.RUTEO, out = [];
@@ -190,7 +191,7 @@ const AVISOS = [
       extra.map(a => tarjeta(a, L)).join('') +
       `<button type="button" class="avj-ctl" data-ctgo="control">Ver la pantalla Control completa ›</button>`;
     p.querySelectorAll('[data-ctgo]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ctgo === 'control') window.RUTEO.setSeccion('control'); else C.ir(b.dataset.ctgo); });
-    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
+    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else if (b.dataset.ir === 'tacticos') window.Tacticos.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
   }
   function pintarPanel(){
     const p = $('avPanel'); if (!p || !p.classList.contains('abierto')) return;
@@ -199,7 +200,7 @@ const AVISOS = [
     p.querySelector('.av-cuerpo').innerHTML = xs.map(a => tarjeta(a, L)).join('') +
       cargando.map(k => `<div class="av2 esq"><span class="av2-ic"></span><div><b>${TITULOS[k] || ''}</b><span>Cargando…</span></div></div>`).join('') +
       (!xs.length && !cargando.length ? '<p class="av-vacio">No hay avisos por ahora.</p>' : '');
-    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
+    p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else if (b.dataset.ir === 'tacticos') window.Tacticos.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
   }
   function cerrar(){ const p = $('avPanel'); if (!p) return; p.classList.remove('abierto'); document.documentElement.classList.remove('cat-abierto'); }
   function abrir(){
@@ -233,6 +234,7 @@ const AVISOS = [
     if (window.Fotos && window.Fotos.cargar && al.quien !== 'vendedor') fuente('anom', window.Fotos.cargar(), () => anomalias(al));
     if (window.Stock) fuente('stock', Promise.all([window.Stock.cargar(), window.Precios && window.Precios.asegurar ? window.Precios.asegurar() : null]), () => stock());
     if (window.Encuesta) fuente('enc', null, () => encuesta(al));
+    if (window.Tacticos) FUENTES.tac = {estado: 'ok', items: window.Tacticos.aviso(al)};
     if (al.quien === 'jefatura') fuente('sup', null, () => supervisores(al));
     pintarBoton();
   }

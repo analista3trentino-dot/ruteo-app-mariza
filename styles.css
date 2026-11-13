@@ -2471,3 +2471,85 @@ html.sin-gap .rc > * + *, html.sin-gap .rc-lista > * + *, html.sin-gap .rc-det >
 .fx-ftc{display:block; font-size:.72rem; color:var(--txt); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
 .rc-it.ficha{border-left:4px solid var(--oro);} .rc-it.anom{border-left:4px solid #E8590C;} .rc-it.foto{border-left:4px solid var(--acento);}
+
+/* ===== Fila "del mes" en la Ruta (Foco + Tácticos, compacta) ===== */
+.mes-fila{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 12px;}
+.mes-fila.uno{grid-template-columns:1fr;}
+.mes-t{position:relative; display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; border-radius:14px; border:1px solid var(--linea); background:var(--sup); color:var(--txt); font:inherit; text-align:left; cursor:pointer; box-shadow:var(--sh-1);}
+.mes-ic{flex:none; width:32px; height:32px; border-radius:10px; display:grid; place-items:center; font-size:1rem; font-weight:900;}
+.mes-t.foco .mes-ic{background:#EFE7FB; color:#5B2E7E;}
+.mes-t.tact .mes-ic{background:#E3F6EF;}
+.mes-tx{display:flex; flex-direction:column; min-width:0;}
+.mes-tx b{font-family:var(--f-tit); font-size:.9rem; font-weight:800;}
+.mes-tx small{font-size:.72rem; color:var(--txt-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.mes-n{position:absolute; top:-6px; right:-4px; min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:#0F7A63; color:#fff; font-size:.7rem; font-weight:800; display:grid; place-items:center; box-shadow:0 0 0 2px var(--fondo);}
+html.sin-gap .mes-fila > * + *{margin-left:10px;}
+/* ===== Tácticos de volumen ===== */
+.tac-chip{display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:1px 7px; border:1px solid #BFE8D9; border-radius:99px; background:#EFFAF6; color:#0B5E50; font:inherit; font-size:.68rem; font-weight:800; cursor:pointer; vertical-align:middle;}
+.tac-chip.mini{margin:0 2px; cursor:default;}
+.tac{position:fixed; top:0; right:0; bottom:0; left:0; z-index:2600; display:flex; flex-direction:column; background:var(--fondo); overflow-y:auto; -webkit-overflow-scrolling:touch; animation:pfhEntra .2s ease-out;}
+.tac-cab{position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:12px; background:#0B4F43; color:#fff; padding:14px 16px; padding-top:calc(12px + env(safe-area-inset-top,0px));}
+.tac-cab > div{display:flex; flex-direction:column;}
+.tac-cab small{font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9FE0C9;}
+.tac-cab b{font-family:var(--f-tit); font-size:1.2rem; font-weight:800;}
+.tac-cuerpo{width:100%; max-width:720px; margin:0 auto; box-sizing:border-box; padding:16px; display:flex; flex-direction:column; gap:14px;}
+.tac-ok{padding:10px 14px; border-radius:12px; background:#EFFAF6; color:#0B5E50; font-size:.86rem;}
+.tac-ok small{margin-left:4px; color:var(--txt-2);}
+.tac-tip{margin:0; font-size:.84rem; line-height:1.45; color:var(--txt-2);}
+.tac-tabs{display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--linea-2, #EEF1F6);}
+.tac-tabs button{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; min-height:38px; border:0; border-radius:9px; background:none; font:inherit; font-size:.84rem; font-weight:800; color:var(--txt-2); cursor:pointer;}
+.tac-tabs button em{font-style:normal; font-size:.7rem; padding:0 6px; border-radius:99px; background:#0F7A63; color:#fff;}
+.tac-tabs button.on{background:var(--sup); color:#0B4F43; box-shadow:0 1px 4px rgba(20,30,60,.1);}
+.tac-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; animation:pfhSuave .2s ease-out;}
+.tac-m{display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border:1px solid var(--linea); border-radius:14px; background:var(--sup); font:inherit; color:var(--txt); cursor:pointer;}
+.tac-m-l, .tac-det-l{display:grid; place-items:center; width:100%; height:40px;}
+.tac-m-l img, .tac-det-l img{max-width:84%; max-height:40px; object-fit:contain;}
+.tac-m-l b, .tac-det-l b{font-family:var(--f-tit); font-size:.78rem; font-weight:800; color:#0B5E50; text-align:center; line-height:1.1;}
+.tac-m-n{font-size:.74rem; font-weight:700; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.tac-m-p{font-size:.66rem; font-weight:700; color:#0F7A63;}
+.tac-volver{align-self:flex-start; border:0; background:none; padding:2px 0; font:inherit; font-size:.86rem; font-weight:800; color:#0F7A63; cursor:pointer;}
+.tac-det{display:flex; flex-direction:column; gap:10px; margin-top:6px; animation:pfhSuave .2s ease-out;}
+.tac-det-cab{display:flex; align-items:center; gap:12px;}
+.tac-det-l{width:72px; height:48px; flex:none; background:#fff; border:1px solid var(--linea); border-radius:12px;}
+.tac-det-cab h3{margin:0; font-family:var(--f-tit); font-size:1.1rem;} .tac-det-cab p{margin:2px 0 0; font-size:.76rem; color:var(--txt-2);}
+.tac-ac{background:var(--sup); border:1px solid var(--linea); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:6px;}
+.tac-ac-f{display:flex; align-items:baseline; gap:8px;}
+.tac-ac-q{font-family:var(--f-tit); font-size:1.35rem; font-weight:800; color:var(--txt);}
+.tac-ac-q em{font-style:normal; color:#0F7A63;}
+.tac-ac-u{font-size:.78rem; color:var(--txt-2);}
+.tac-ac-cod{margin-left:auto; font-size:.74rem; color:var(--txt-3);}
+.tac-ac-cod b{font-family:var(--f-tit); font-size:.9rem; color:var(--txt);}
+.tac-ac-p{margin:0; font-size:.8rem; line-height:1.45; color:var(--txt-2);}
+.tac-ac-n{margin:0; font-size:.74rem; font-weight:700; color:#8A5A00;}
+.tac-lista{display:flex; flex-direction:column; gap:8px;}
+.tac-cli{display:flex; gap:10px; align-items:center; padding:10px 12px; border-radius:12px; background:var(--sup); border:1px solid var(--linea);}
+.tac-cli div{display:flex; flex-direction:column; min-width:0;} .tac-cli b{font-size:.86rem;} .tac-cli small{font-size:.72rem; color:var(--txt-2);}
+.tac-pms{display:flex; flex-wrap:wrap; gap:6px;}
+.tac-pms span{font-size:.78rem; font-weight:800; padding:5px 10px; border-radius:8px; background:var(--sup); border:1px solid var(--linea); color:var(--txt-2);}
+.tac-pms span.on{background:#0F7A63; border-color:#0F7A63; color:#fff;}
+.tac-nota{margin:8px 0 0; font-size:.78rem; color:var(--txt-3);}
+html.sin-gap .tac-cuerpo > * + *, html.sin-gap .tac-det > * + *, html.sin-gap .tac-lista > * + *{margin-top:10px;}
+html.sin-gap .tac-pms > * + *{margin-left:6px;}
+html.ahorro .tac, html.ahorro .tac-grid, html.ahorro .tac-det{animation:none;}
+
+/* tácticos: explicación y tarjetas más claras */
+.tac-exp{display:flex; flex-direction:column; background:var(--sup); border:1px solid var(--linea); border-radius:16px; overflow:hidden;}
+.tac-exp > div{display:flex; gap:12px; align-items:flex-start; padding:12px 14px;}
+.tac-exp > div + div{border-top:1px solid var(--linea);}
+.tac-exp-i{flex:none; width:34px; height:34px; border-radius:10px; background:#EFFAF6; display:grid; place-items:center; font-size:1.05rem;}
+.tac-exp p{margin:0; font-size:.84rem; line-height:1.4; color:var(--txt-2);}
+.tac-exp p > b:first-child{display:block; font-family:var(--f-tit); font-size:.9rem; color:var(--txt); margin-bottom:1px;}
+.tac-exp small{display:block; margin-top:4px; font-size:.76rem; color:#0B5E50; font-weight:600;}
+.tac-ayuda{margin:0 0 10px; font-size:.82rem; color:var(--txt-2);}
+.tac-m-c{font-size:.66rem; color:var(--txt-3); font-weight:600;}
+.tac-ac{gap:10px;}
+.tac-ac-top{display:flex;}
+.tac-ac-top .tac-ac-cod{margin-left:0; display:inline-flex; align-items:baseline; gap:6px; padding:4px 10px; border-radius:8px; background:var(--fondo); font-size:.74rem; color:var(--txt-2);}
+.tac-ac-top .tac-ac-cod b{font-family:var(--f-tit); font-size:.98rem; color:var(--txt); letter-spacing:.03em;}
+.tac-ac-f{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px;}
+.tac-ac-c, .tac-ac-g{display:flex; flex-direction:column; padding:8px 12px; border-radius:12px;}
+.tac-ac-c{background:#EEF4FF;} .tac-ac-g{background:#E9FBF4;}
+.tac-ac-c small, .tac-ac-g small, .tac-ac-pr small{font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--txt-3);}
+.tac-ac-c b{font-family:var(--f-tit); font-size:1.15rem; color:#1E3A8A;} .tac-ac-g b{font-family:var(--f-tit); font-size:1.15rem; color:#0F7A63;}
+.tac-ac-fl{font-size:1.2rem; font-weight:800; color:var(--txt-3);}
+.tac-ac-pr ul{margin:4px 0 0; padding:0 0 0 18px; font-size:.82rem; line-height:1.45; color:var(--txt);}
