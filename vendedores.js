@@ -1,6 +1,6 @@
 
 const SUPERVISORES = {
-  "TR12": "OSMAR BENITEZ",                    // ST. MAY. AYGAS
+  "TR12": "VACANTE",                    // ST. MAY. AYGAS
   "TR13": "FELIX SEGOVIA",              // ST. GAS CENTRO
   "TR15": "ANGEL MARTINEZ",                    // ST. GAS ITAUGUA/ITA
   "TR16": "DIEGO GARCIA",               // ST. CAACUPE
