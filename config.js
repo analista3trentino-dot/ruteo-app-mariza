@@ -1,4 +1,4 @@
-const CLAVES_VENDEDORES = {
+const CLAVES_VENDEDOR = {
   "TR1233": "mercadosl",      
   "TR1234": "mercadoluque",       
   "TR1331": "asulambare",      
