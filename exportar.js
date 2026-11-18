@@ -100,20 +100,27 @@
     return out.sort((a, b) => (a.f + a.h).localeCompare(b.f + b.h));
   }
   // Las fotos se piden al script de Google de a 6 (vienen como texto base64)
+  let scriptViejo = false;
   async function traerFotos(ids, avance){
     const out = {}, lotes = [];
     for (let i = 0; i < ids.length; i += 6) lotes.push(ids.slice(i, i + 6));
-    let n = 0;
+    let n = 0; scriptViejo = false;
     for (const l of lotes){
-      try {
+      if (!scriptViejo) try {
         const q = new URLSearchParams({clave: CLAVE_E, accion: 'fotos64', ids: l.join(',')});
-        const j = await fetch(URL_E + '?' + q.toString(), {redirect: 'follow'}).then(r => r.json());
-        Object.keys((j && j.fotos) || {}).forEach(id => { const x = j.fotos[id]; if (x && x.b64) out[id] = 'data:' + (x.mime || 'image/jpeg') + ';base64,' + x.b64; });
+        const ctl = window.AbortController ? new AbortController() : null, to = setTimeout(() => ctl && ctl.abort(), 90000);
+        const j = await fetch(URL_E + '?' + q.toString(), {redirect: 'follow', signal: ctl ? ctl.signal : undefined}).then(r => r.json()).finally(() => clearTimeout(to));
+        if (j && Array.isArray(j.fotos)) scriptViejo = true;   // el script de Google todavía no tiene la versión nueva
+        else for (const id of Object.keys((j && j.fotos) || {})){ const x = j.fotos[id]; if (x && x.b64) out[id] = await achicar('data:' + (x.mime || 'image/jpeg') + ';base64,' + x.b64); }
       } catch(e){}
       n += l.length; avance(n / ids.length);
     }
     return out;
   }
+  // Achica cada foto (máx. 1400 px) para que el PowerPoint no pese demasiado en el celular
+  const achicar = src => new Promise(ok => { const i = new Image(); i.onload = () => { try { const k = Math.min(1, 1400 / Math.max(i.naturalWidth, i.naturalHeight)); if (k >= 1 && src.length < 900000) return ok(src); const c = document.createElement('canvas'); c.width = Math.round(i.naturalWidth * k); c.height = Math.round(i.naturalHeight * k); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.8)); } catch(e){ ok(src); } }; i.onerror = () => ok(src); i.src = src; });
+  // Descarga propia: deja el archivo disponible 60 s (en Android, si se borra enseguida, la descarga falla)
+  const bajar = (blob, nombre) => { const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = nombre; a.rel = 'noopener'; a.style.display = 'none'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 60000); };
   const medir = src => new Promise(ok => { const i = new Image(); i.onload = () => ok({w: i.naturalWidth, h: i.naturalHeight}); i.onerror = () => ok({w: 4, h: 3}); i.src = src; });
   const cargarScript = (src, test) => new Promise((ok, no) => { if (test()) return ok(); const s = document.createElement('script'); s.src = src; s.onload = () => test() ? ok() : no(new Error('librería')); s.onerror = () => no(new Error('No se pudo descargar la herramienta (revisá la señal).')); document.head.appendChild(s); });
   const aDataURL = src => fetch(src).then(r => r.blob()).then(b => new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); })).catch(() => '');
@@ -125,7 +132,7 @@
     const total = grupos.reduce((t, g) => t + g.fotos.length, 0);
     if (!total) return progreso(null, 'No hay fotos ' + (ui.vc !== 'TODAS' ? 'de la cartera ' + ui.vc : ui.sup === 'TODOS' ? 'de ningún supervisor' : 'de ' + (nom2(nombreSup(ui.sup)) || ui.sup)) + ' en ' + P.t.toLowerCase() + '.');
     progreso(0.02, 'Preparando el PowerPoint…');
-    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js', () => !!window.PptxGenJS);
+    await cargarScript('pptxgen.bundle.js?v=3.12.0', () => !!window.PptxGenJS).catch(() => cargarScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js', () => !!window.PptxGenJS));
     progreso(0.05, `Trayendo ${total} fotos…`);
     const imgs = await traerFotos([...new Set(grupos.reduce((a, g) => a.concat(g.fotos.map(x => x.id)), []))], p => progreso(0.05 + p * 0.8, `Trayendo fotos… ${Math.round(p * total)} de ${total}`));
     const logo = await aDataURL('logo-trentino.png');
@@ -191,8 +198,10 @@
     s.addTable([H].concat(filasR.slice(0, 22)), {x: 0.6, y: 1.3, w: 12.1, fontFace: 'Arial', fontSize: 12, color: '1C2A44', border: {type: 'solid', color: 'DDE3EC', pt: 1}, colW: [3.2, 1.6, 3.5, 1.9, 1.9], rowH: 0.3});
     progreso(0.95, 'Guardando el archivo…');
     const nombre = `Fotos_PDV_${ui.sup === 'TODOS' ? 'Todos' : ((r.supLabel || {})[ui.sup] || ui.sup).replace(/[^\wÁÉÍÓÚÑáéíóúñ]+/g, '_')}${ui.vc !== 'TODAS' ? '_' + ui.vc : ''}_${P.d}_al_${P.h}.pptx`;
-    await pres.writeFile({fileName: nombre});
-    listo('Listo: ' + nombre);
+    const blob = await pres.write({outputType: 'blob'});
+    bajar(blob, nombre);
+    if (scriptViejo) progreso(null, 'El PowerPoint se descargó (' + nombre + '), pero sin las fotos: falta publicar la Nueva versión del script de Google.');
+    else listo('Listo: ' + nombre);
   }
 
   // ---------- Excel de visitas ----------

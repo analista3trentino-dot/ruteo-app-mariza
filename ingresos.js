@@ -64,13 +64,13 @@
   window.addEventListener('online', reintentar);
 
   // ---------- Tarjeta para jefatura (Control) ----------
-  let datos = null, datosT = 0, cargando = null, ui = {ver: 'resumen'};
+  let datos = null, datosT = 0, cargando = null, viejo = false, ui = {ver: 'resumen'};
   function cargar(){
     if (datos && Date.now() - datosT < 5 * 60000) return Promise.resolve(datos);
     if (cargando) return cargando;
     const q = new URLSearchParams({clave: CLAVE_I, accion: 'ingresos', dias: '35'});
     cargando = fetch(URL_I + '?' + q.toString(), {redirect: 'follow'}).then(r => r.json())
-      .then(j => { cargando = null; if (!j || !j.ok) throw new Error(j && j.error || 'sin datos'); datos = j.ingresos || []; datosT = Date.now(); return datos; })
+      .then(j => { cargando = null; if (!j || !j.ok) throw new Error(j && j.error || 'sin datos'); viejo = !('ingresos' in j); datos = j.ingresos || []; datosT = Date.now(); return datos; })
       .catch(e => { cargando = null; throw e; });
     return cargando;
   }
@@ -121,5 +121,7 @@
 
   // al abrir la app (cuando ya se sabe quién es)
   window.addEventListener('load', () => setTimeout(registrar, 2500));
-  window.Ingresos = {registrar, tarjeta, marcarLogin: vc => { try { sessionStorage.setItem(LOGIN, vc); } catch(e){} }};
+  // resumen corto para la pantalla Control: {hoy, tot} y si el script de Google está desactualizado
+  const resumen = () => cargar().then(xs => { const V = modelo(xs).vend; return {hoy: V.filter(v => v.est === 'hoy').length, semana: V.filter(v => v.est === 'semana').length, nunca: V.filter(v => v.est === 'nunca').length, tot: V.length, viejo}; });
+  window.Ingresos = {registrar, tarjeta, resumen, scriptViejo: () => viejo, marcarLogin: vc => { try { sessionStorage.setItem(LOGIN, vc); } catch(e){} }};
 })();

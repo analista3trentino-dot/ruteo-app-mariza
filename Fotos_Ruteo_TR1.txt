@@ -14,6 +14,25 @@ const COL_GEST = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Clie
 const COL_ANOM = ['Fecha','Supervisor','Vendedor','Nombre vendedor','Anomalía','Motivo','Justificó','Comentario','Enlace adjunto','ID','Registrado','Actualizado','Cargado por'];
 const COL_COMPE = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Qué vio','Empresa/Marca','Producto','Precio Gs.','Cliente','Comentario','Enlace foto','ID'];
 const COL_ING = ['Fecha','Hora','Rol','Código','Nombre','Supervisor','Tipo','Dispositivo'];
+const VERSION_SCRIPT = '2026-11-18c';
+const TIPOS_INGRESO = ['Entró con contraseña', 'Abrió la app'];
+// Si una versión vieja del script guardó ingresos en la hoja Fotos, los pasa a la hoja Ingresos
+function moverIngresos(){
+  const ss = planilla(), fo = ss.getSheetByName('Fotos'), ing = ss.getSheetByName('Ingresos');
+  if (!fo || fo.getLastRow() < 2) return 0;
+  const v = fo.getRange(2, 1, fo.getLastRow() - 1, COL_FOTOS.length).getDisplayValues();
+  const mover = [], borrar = [];
+  v.forEach((r, i) => {
+    if (TIPOS_INGRESO.indexOf(String(r[8]).trim()) < 0 || String(r[10]).trim()) return;
+    const cod = String(r[6] || r[3]).trim();
+    mover.push(["'" + r[0], "'" + r[1], "'" + (/^TR\d{4}/.test(cod) ? 'Vendedor' : cod ? 'Supervisor' : ''), "'" + cod, "'" + (r[4] || ''), "'" + r[2], "'" + r[8], "'"]);
+    borrar.push(i + 2);
+  });
+  if (!mover.length) return 0;
+  ing.getRange(ing.getLastRow() + 1, 1, mover.length, COL_ING.length).setValues(mover);
+  borrar.reverse().forEach(n => fo.deleteRow(n));
+  return mover.length;
+}
 
 // 1) Tocá ▶ Ejecutar con esta función elegida la primera vez: crea la carpeta y la planilla y pide los permisos.
 function PREPARAR() {
@@ -142,11 +161,13 @@ function doGet(e) {
     });
     return json({ok: true, fotos: out});
   }
+  if (q.accion === 'version') return json({ok: true, version: VERSION_SCRIPT});
   if (q.accion === 'ingresos'){
+    try { moverIngresos(); } catch (err) {}
     const sh = planilla().getSheetByName('Ingresos'); if (!sh || sh.getLastRow() < 2) return json({ok: true, ingresos: []});
     const desdeI = Utilities.formatDate(new Date(Date.now() - (+q.dias || 35) * 864e5), tz(), 'yyyy-MM-dd');
     const v = sh.getDataRange().getDisplayValues(); v.shift();
-    return json({ok: true, ingresos: v.map(r => Object.fromEntries(COL_ING.map((c, i) => [c, r[i]]))).filter(r => r.Fecha >= desdeI)});
+    return json({ok: true, version: VERSION_SCRIPT, ingresos: v.map(r => Object.fromEntries(COL_ING.map((c, i) => [c, r[i]]))).filter(r => r.Fecha >= desdeI)});
   }
   if (q.accion === 'encuesta'){
     const sh = planilla().getSheetByName('Encuesta'); if (!sh || sh.getLastRow() < 2) return json({ok: true, respuestas: []});

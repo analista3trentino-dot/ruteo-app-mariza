@@ -43,6 +43,7 @@
   // ------------------------------------------------------------------
   //  Datos (Google Drive)
   // ------------------------------------------------------------------
+  const esIngreso = r => (r.Tipo === 'Entró con contraseña' || r.Tipo === 'Abrió la app') && !r.Enlace;
   let datos = null, datosT = 0, pend = null, errorCarga = '';
   const locales = [];   // lo subido en esta sesión (se ve al instante)
   function parametros(){
@@ -61,6 +62,7 @@
       .then(r => { if (!r.ok) throw new Error('Google respondió ' + r.status); return r.json(); })
       .then(j => {
         if (!j || !j.ok) throw new Error(j && j.error === 'clave' ? 'La clave de fotos no coincide (FOTOS_CLAVE)' : 'Respuesta inválida');
+        j.fotos = (j.fotos || []).filter(r => !esIngreso(r));   // un script viejo pudo guardar ingresos a la app en Fotos
         datos = j; datosT = Date.now(); errorCarga = '';
         try { localStorage.setItem(claveC, JSON.stringify(j)); } catch(e){}   // para ver lo último aunque no haya señal
         // lo que ya llegó a Drive deja de ser "local"
@@ -70,7 +72,7 @@
       .catch(e => {
         // sin señal: se muestra lo último que se trajo
         let c = null; try { c = JSON.parse(localStorage.getItem(claveC) || 'null'); } catch(x){}
-        if (c && c.ok && !datos){ datos = c; datosT = Date.now() - 60000; errorCarga = ''; return c; }
+        if (c && c.ok && !datos){ c.fotos = (c.fotos || []).filter(r => !esIngreso(r)); datos = c; datosT = Date.now() - 60000; errorCarga = ''; return c; }
         errorCarga = e.message || String(e); throw e;
       })
       .finally(() => { pend = null; });
