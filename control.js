@@ -1,13 +1,11 @@
 // =====================================================================
 //  CONTROL (pantalla de inicio de Jefatura)
 // ---------------------------------------------------------------------
-//  Todo lo importante en una sola pantalla, en este orden:
-//   1. Para revisar: lo que necesita tu atención hoy.
-//   2. Anomalías de vendedores (las cargan los supervisores).
-//   3. Supervisores: su último día en la calle.
-//   4. Visitas de los vendedores.
-//   5. Fichas TOP: lo que revisan los supervisores en los clientes top.
-//   6. Stock, competencia y encuesta.
+//  Pantalla corta y simple, en este orden:
+//   1. Cómo va el día: 4 números grandes (ruta, anomalías, fichas TOP, app).
+//   2. Para mirar hoy: frases simples, de lo más urgente a lo menos.
+//   3. Tus supervisores: una fila por supervisor.
+//   4. Ver en detalle: botones que abren cada tema en una hoja aparte.
 //  No hace falta modificar este archivo.
 // =====================================================================
 (function () {
@@ -96,131 +94,148 @@
     return M;
   }
 
-  // ---------------- Lo que hay que revisar ----------------
+  // ---------------- Lo que hay que mirar (frases simples) ----------------
   function pendientes(M){
-    const out = [];
-    if (M.anom && M.anom.pend.length) out.push({t: 'bad', n: M.anom.pend.length, b: (M.anom.pend.length === 1 ? 'anomalía pendiente' : 'anomalías pendientes') + ' · vence' + (M.anom.pend.length === 1 ? '' : 'n') + ' hoy a las 17:00', s: M.anom.pend.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
+    const out = [], lista = xs => xs.join(' · ');
+    if (M.anom && M.anom.pend.length){ const xs = M.anom.pend, a = xs[0];
+      out.push({t: 'bad', ic: '⏰', n: xs.length, b: xs.length === 1 ? `${a.n} tiene una ${String(a.tipo).toLowerCase()} sin justificar` : `${xs.length} anomalías sin justificar`, s: 'Vence hoy a las 17:00' + (xs.length > 1 ? ' · ' + lista(xs.slice(0, 3).map(x => x.n)) : ''), go: 'anom'}); }
     const hoyNP = M.anom ? M.anom.hoy.filter(a => a.jus !== 'pen') : [];
-    if (hoyNP.length) out.push({t: 'mid', n: hoyNP.length, b: hoyNP.length === 1 ? 'anomalía informada hoy' : 'anomalías informadas hoy', s: hoyNP.slice(0, 3).map(a => `${a.n} · ${a.tipo}`).join(' · '), go: 'anom'});
+    if (hoyNP.length){ const a = hoyNP[0];
+      out.push({t: 'mid', ic: '⚠️', n: hoyNP.length, b: hoyNP.length === 1 ? `${a.n}: ${String(a.tipo).toLowerCase()} hoy` : `${hoyNP.length} anomalías informadas hoy`, s: hoyNP.length === 1 ? (a.motivo || '') + (a.jus === 'si' ? ' · justificó' : a.jus === 'no' || a.jus === 'venc' ? ' · no justificó' : '') : lista(hoyNP.slice(0, 3).map(x => x.n + ' (' + String(x.tipo).toLowerCase() + ')')), go: 'anom'}); }
     if (M.sup){
-      const sin = M.sup.filas.filter(f => !f.visitas && !f.nuevo);   // un supervisor nuevo no cuenta como "no marcó"
-      if (sin.length) out.push({t: 'bad', n: sin.length, b: (sin.length === 1 ? 'supervisor no marcó' : 'supervisores no marcaron') + ' visitas el ' + corto(M.sup.dia), s: sin.map(f => `${f.eq} · ${f.n}`).join(' · '), go: 'sup:' + sin[0].k});
-      M.sup.filas.filter(f => f.base >= 3 && f.ok / f.base < .4).forEach(f => out.push({t: 'mid', n: `${f.ok}/${f.base}`, b: `${f.n}: pocas visitas junto al vendedor`, s: `${f.eq} · ${corto(M.sup.dia)} · ${f.ok} de ${f.base} visitas coinciden`, go: 'sup:' + f.k}));
+      const sin = M.sup.filas.filter(f => !f.visitas && !f.nuevo);
+      if (sin.length) out.push({t: 'bad', ic: '📍', n: sin.length, b: sin.length === 1 ? `${sin[0].n} no marcó visitas el ${corto(M.sup.dia)}` : `${sin.length} supervisores no marcaron visitas el ${corto(M.sup.dia)}`, s: lista(sin.map(f => f.n)), go: 'sup:' + sin[0].k});
+      M.sup.filas.filter(f => f.base >= 3 && f.ok / f.base < .4).forEach(f => out.push({t: 'mid', ic: '🤝', n: `${f.ok}/${f.base}`, b: `${f.n} acompañó a sus vendedores en ${f.ok} de ${f.base} visitas`, s: `${f.eq} · ${corto(M.sup.dia)}`, go: 'sup:' + f.k}));
     }
-    if (M.vis){ const b = M.vis.bajos.filter(x => x.q < 50); if (b.length) out.push({t: 'mid', n: b.length, b: (b.length === 1 ? 'vendedor visitó' : 'vendedores visitaron') + ' menos de la mitad de su ruta el ' + corto(M.vis.dia), s: b.slice(0, 3).map(x => `${x.n} ${x.q}%`).join(' · '), go: 'vis'}); }
-    if (M.top && M.top.total){ const falta = M.top.total - M.top.hechas, dia = new Date().getDay(); if (falta && (dia >= 4 || dia === 0 || M.top.hechas / M.top.total < .2 && dia >= 3)) out.push({t: dia >= 5 ? 'bad' : 'mid', n: falta, b: 'clientes TOP sin ficha esta semana', s: M.top.porSup.filter(x => x.ok < x.n).slice(0, 3).map(x => `${x.eq} ${x.ok}/${x.n}`).join(' · '), go: 'top'}); }
+    if (M.vis){ const b = M.vis.bajos.filter(x => x.q < 50); if (b.length) out.push({t: 'mid', ic: '🚶', n: b.length, b: b.length === 1 ? `${b[0].n} visitó solo el ${b[0].q}% de su ruta` : `${b.length} vendedores visitaron menos de la mitad de su ruta`, s: corto(M.vis.dia) + ' · ' + lista(b.slice(0, 3).map(x => `${x.n} ${x.q}%`)), go: 'vis'}); }
+    if (M.top && M.top.total){ const falta = M.top.total - M.top.hechas, dia = new Date().getDay(); if (falta && (dia >= 4 || dia === 0 || M.top.hechas / M.top.total < .2 && dia >= 3)) out.push({t: dia >= 5 ? 'bad' : 'mid', ic: '⭐', n: falta, b: `Faltan ${falta} fichas TOP esta semana`, s: lista(M.top.porSup.filter(x => x.ok < x.n).slice(0, 3).map(x => `${x.eq} ${x.ok}/${x.n}`)), go: 'top'}); }
     return out;
   }
+  // una fila de "Para mirar" (la usan Control y la campanita)
+  const itemHTML = x => `<button type="button" class="cx-it ${x.t}" data-go="${esc(x.go)}"><span class="cx-it-ic">${x.ic || '•'}</span><span class="cx-it-tx"><b>${esc(x.b)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ''}</span><span class="cx-it-f">›</span></button>`;
 
   // ---------------- Pantalla ----------------
-  let M = null, cargando = null, error = '';
+  let M = null, cargando = null, error = '', ING = null;
+  const saludo = () => { const h = new Date().getHours(); return h < 12 ? 'Buen día' : h < 19 ? 'Buenas tardes' : 'Buenas noches'; };
+  const ini2 = n => String(n || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const colorSup = k => (window.RUTEO && window.RUTEO.supColor && window.RUTEO.supColor[k]) || '#2E5BFF';
   function pintar(){
     const box = $('controlView'); if (!box) return;
+    const cab = `<div class="cx-cab"><div><p class="cx-hola">${saludo()} 👋</p><h2>¿Cómo va el equipo?</h2><p class="cx-fecha">${esc(largo(HOY).replace(/^./, c => c.toUpperCase()))}</p></div><button type="button" class="cx-act" data-ct-act aria-label="Actualizar">↻</button></div>`;
     if (!M || (!M.sup && !M.vis && !M.anom && !M.top)){
-      box.innerHTML = `<div class="ct"><div class="ct-cab"><div><h2>Control</h2><p>${esc(largo(HOY).replace(/^./, c => c.toUpperCase()))}</p></div></div>
-        ${error ? `<div class="ct-card"><p class="ct-vacio">No se pudo cargar todo: ${esc(error)}</p></div>` : [1, 2, 3].map(() => '<div class="ct-card ct-esq"><i></i><i></i><i></i></div>').join('')}</div>`;
+      box.innerHTML = `<div class="ct cx">${cab}${error ? `<div class="cx-card"><p class="ct-vacio">No se pudo cargar todo: ${esc(error)}</p></div>` : '<div class="cx-hero cx-esq"><i></i><i></i></div><div class="cx-card cx-esq"><i></i><i></i><i></i></div>'}</div>`;
+      const b = box.querySelector('[data-ct-act]'); if (b) b.onclick = () => cargar(true);
       return;
     }
-    const esq = t => cargando ? `<div class="ct-card ct-esq"><b>${t}</b><i></i><i></i><small>Cargando…</small></div>` : '';
-    const P = pendientes(M), A = M.anom, S = M.sup, V = M.vis, T = M.top, ST = M.stock;
-    const head = (ic, cls, t, sub, ver) => `<div class="ct-h"><span class="ct-ic ${cls}">${svg(ic)}</span><div><h3>${t}</h3>${sub ? `<p>${sub}</p>` : ''}</div>${ver ? `<button type="button" class="ct-ver" data-go="${ver[0]}">${ver[1]} ›</button>` : ''}</div>`;
-
-    // 1. Para revisar
-    const rev = `<section class="ct-rev ${P.length ? '' : 'ok'}">
-      <h3>${P.length ? 'Para revisar' : cargando ? 'Revisando…' : 'Todo en orden'}</h3>
-      ${!P.length && cargando ? '<p class="ct-okp">Buscando anomalías, supervisores sin marcar y rutas bajas…</p>' : P.length ? P.map(x => `<button type="button" class="ct-r ${x.t}" data-go="${esc(x.go)}"><span class="ct-r-n">${esc(x.n)}</span><span class="ct-r-t"><b>${esc(x.b)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ''}</span><span class="ct-r-f">›</span></button>`).join('')
-        : `<p class="ct-okp">${svg('ok', 18)} No hay anomalías pendientes, todos los supervisores marcaron y las rutas van bien.</p>`}
+    const P = pendientes(M), A = M.anom, S = M.sup, V = M.vis, T = M.top;
+    const malos = P.filter(x => x.t === 'bad').length;
+    const qv = V ? pct(V.si, V.toca) : null, qt = T && T.total ? pct(T.hechas, T.total) : null;
+    const tile = (go, ic, valor, de, txt, cls) => `<button type="button" class="cx-k ${cls || ''}" data-go="${go}"><span class="cx-k-ic">${ic}</span><b>${valor}${de ? `<small>${de}</small>` : ''}</b><span>${txt}</span></button>`;
+    const nAnom = A ? A.hoy.length : null;
+    const hero = `<section class="cx-hero ${P.length ? (malos ? 'bad' : 'mid') : 'ok'}">
+      <div class="cx-estado"><span class="cx-luz"></span><div><b>${P.length ? (P.length === 1 ? 'Hay 1 cosa para mirar' : `Hay ${P.length} cosas para mirar`) : cargando ? 'Revisando…' : 'Todo en orden'}</b><small>${P.length ? 'Abajo te las dejamos en orden, de la más urgente a la menos.' : cargando ? 'Buscando anomalías, rutas y fichas…' : 'Los supervisores marcaron y no hay anomalías pendientes.'}</small></div></div>
+      <div class="cx-ks">
+        ${tile('vis', '🚶', qv === null ? '—' : qv + '%', '', V ? 'ruta visitada · ' + esc(corto(V.dia)) : 'ruta visitada', qv === null ? '' : tono(qv))}
+        ${tile('anom', '⚠️', nAnom === null ? '—' : nAnom, '', nAnom === 1 ? 'anomalía hoy' : 'anomalías hoy', nAnom ? 'mid' : 'good')}
+        ${tile('top', '⭐', T && T.total ? T.hechas : '—', T && T.total ? ' de ' + T.total : '', 'fichas TOP semana', qt === null ? '' : tono(qt))}
+        ${tile('ing', '📲', ING ? ING.hoy : '—', ING ? ' de ' + ING.tot : '', 'entraron a la app hoy', ING ? tono(pct(ING.hoy, ING.tot)) : '')}
+      </div>
     </section>`;
-
-    // 2. Anomalías
-    const cnt = xs => ({aus: xs.filter(a => clase(a.tipo) === 'aus').length, tar: xs.filter(a => clase(a.tipo) === 'tar').length, fue: xs.filter(a => clase(a.tipo) === 'fue').length});
-
-    const anom = A ? (() => { const c = cnt(A.semana); return `<section class="ct-card" id="ctAnom">
-      ${head('alerta', 'aus', 'Anomalías de vendedores', A.semana.length ? `<b>${A.semana.length}</b> esta semana · ${A.hoy.length} hoy` : 'Ninguna esta semana', ['anom', 'Ver todas'])}
-      <div class="ct-tri"><span class="aus"><b>${c.aus}</b>ausencias</span><span class="tar"><b>${c.tar}</b>llegadas tarde</span><span class="fue"><b>${c.fue}</b>fuera de ruta</span></div>
-      ${A.ultimas.length ? `<div class="an-lista">${A.ultimas.map(a => window.Anomalias && window.Anomalias.fila ? window.Anomalias.fila(a.r) : '').join('')}</div>`
-        : '<p class="ct-vacio">Todavía no hay anomalías. Las cargan los supervisores desde la pestaña Visitas.</p>'}
-    </section>`; })() : '';
-
-    // 3. Supervisores: una tarjeta grande por supervisor
-    const ini2 = n => String(n || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-    const colorSup = k => (window.RUTEO && window.RUTEO.supColor && window.RUTEO.supColor[k]) || '#2E5BFF';
-    const sup = S ? `<section class="ct-card ct-sups">
-      ${head('sup', 'sup', 'Supervisores en la calle', `Último día con marcaciones: <b>${esc(largo(S.dia))}</b> · tocá uno para ver su recorrido`, ['sups', 'Ver detalle'])}
-      <div class="sp2-grid">
-        ${S.filas.slice().sort((a, b) => (b.visitas ? 2 : b.nuevo ? 0 : 1) - (a.visitas ? 2 : a.nuevo ? 0 : 1) || b.enCli - a.enCli).map(f => {
-          const q = pct(f.ok, f.base), uso = f.jornada ? Math.min(100, Math.round(f.enCli / f.jornada * 100)) : null;
-          const estado = f.visitas ? `<span class="sp2-est ok">${esc(f.ini)} a ${esc(f.fin)}</span>` : f.nuevo ? '<span class="sp2-est nuevo">Nuevo</span>' : '<span class="sp2-est bad">No marcó</span>';
-          return `<button type="button" class="sp2 ${f.visitas ? '' : f.nuevo ? 'es-nuevo' : 'sin'}" data-go="sup:${esc(f.k)}" style="--sc:${esc(colorSup(f.k))}">
-            <span class="sp2-top"><span class="sp2-av">${esc(ini2(f.n))}</span><span class="sp2-nom"><b>${esc(f.n)}</b><small>${esc(f.eq)}</small></span></span>
-            <span class="sp2-linea">${estado}${f.visitas && f.jornada ? `<small>jornada de ${hm(f.jornada)}</small>` : ''}</span>
-            ${f.visitas ? `<span class="sp2-kpis">
-                <span><b>${f.visitas}</b><small>visitas</small></span>
-                <span><b>${hm(f.enCli)}</b><small>en clientes</small></span>
-                <span><b class="ct-q ${tono(q)}">${q === null ? '—' : q + '%'}</b><small>con vendedor</small></span>
-              </span>
-              ${uso !== null ? `<span class="sp2-uso"><i class="ct-b"><i class="${uso >= 60 ? 'good' : uso >= 40 ? 'mid' : 'bad'}" style="width:${uso}%"></i></i><small><b>${uso}%</b> de la jornada dentro de clientes</small></span>` : ''}`
-            : `<span class="sp2-vacio">${f.nuevo ? 'Todavía no tiene marcaciones. Va a aparecer cuando empiece a marcar.' : 'No hay marcaciones de este supervisor ese día.'}</span>`}
-            <span class="sp2-ver">Ver recorrido ›</span>
-          </button>`; }).join('')}
-      </div>
-      <p class="ct-nota"><b>Con vendedor</b>: de las visitas del supervisor, qué parte fue a clientes que el vendedor también visitó ese día (acompañamiento).</p>
+    const aviso = ING && ING.viejo ? `<button type="button" class="cx-script" data-go="script"><span>⚙️</span><span><b>Falta publicar el script de Google</b><small>Sin eso no se ven los ingresos ni las fotos del PowerPoint. Tocá para ver cómo.</small></span></button>` : '';
+    const mirar = P.length ? `<section class="cx-sec"><h3 class="cx-h">Para mirar hoy</h3><div class="cx-its">${P.map(itemHTML).join('')}</div></section>` : '';
+    const porSup = {}; if (V) V.porSup.forEach(x => porSup[x.k] = pct(x.si, x.toca));
+    const sups = S ? `<section class="cx-sec"><div class="cx-hrow"><h3 class="cx-h">Tus supervisores</h3><span class="cx-hsub">${esc(corto(S.dia))} · tocá uno para ver su día</span></div>
+      <div class="cx-sups">${S.filas.slice().sort((a, b) => (porSup[b.k] || 0) - (porSup[a.k] || 0)).map(f => {
+        const q = pct(f.ok, f.base), r = porSup[f.k];
+        return `<button type="button" class="cx-sp ${f.visitas ? '' : f.nuevo ? 'nuevo' : 'sin'}" data-go="sup:${esc(f.k)}" style="--sc:${esc(colorSup(f.k))}">
+          <span class="cx-av">${esc(ini2(f.n))}</span>
+          <span class="cx-sp-tx"><b>${esc(f.n)}</b><small>${esc(f.eq)} · ${f.visitas ? `${esc(f.ini)} a ${esc(f.fin)}` : f.nuevo ? 'nuevo' : '<em>no marcó</em>'}</small>
+            ${f.visitas ? `<span class="cx-chips"><span>📍 ${f.visitas} visitas</span><span>⏱ ${hm(f.enCli)} en clientes</span><span class="${tono(q)}">🤝 ${q === null ? '—' : q + '%'} con vendedor</span></span>` : ''}</span>
+          <span class="cx-ring ${r == null ? '' : tono(r)}" style="--q:${r == null ? 0 : r}"><b>${r == null ? '—' : r + '%'}</b><small>ruta</small></span>
+        </button>`; }).join('')}</div>
+      <p class="cx-ley"><b>Ruta</b>: clientes que visitaron sus vendedores · <b>🤝 Con vendedor</b>: visitas del supervisor junto a su vendedor</p>
     </section>` : '';
-
-    // 4. Visitas de vendedores
-    const qv = V ? pct(V.si, V.toca) : null;
-    const vis = V ? `<section class="ct-card">
-      ${head('vis', 'vis', 'Visitas de vendedores', `${esc(largo(V.dia).replace(/^./, c => c.toUpperCase()))} · <b>${V.si}</b> de ${V.toca} clientes de la ruta`, ['vis', 'Ver vendedores'])}
-      <div class="ct-big"><b class="${tono(qv)}">${qv}%</b><span>de la ruta visitada</span></div>
-      <div class="ct-barras">${V.porSup.map(x => { const q = pct(x.si, x.toca); return `<div><span>${esc(x.eq)}</span><i class="ct-b"><i class="${tono(q)}" style="width:${q}%"></i></i><em>${q}%</em></div>`; }).join('')}</div>
-      ${V.bajos.length ? `<div class="ct-sub">Más bajos</div><div class="ct-lista">${V.bajos.slice(0, 3).map(x => `<button type="button" class="ct-vb" data-go="vend:${esc(x.vc)}"><span><b>${esc(x.n)}</b><small>${esc(x.vc)} · ${esc(x.eq)} · ${x.si} de ${x.toca}</small></span><em class="${tono(x.q)}">${x.q}%</em></button>`).join('')}</div>` : ''}
-    </section>` : '';
-
-    // 5. Fichas TOP
-    const qt = T ? pct(T.hechas, T.total) : null;
-    const top = T && T.total ? `<section class="ct-card">
-      ${head('top', 'top', 'Fichas TOP de esta semana', `<b>${T.hechas}</b> de ${T.total} clientes top revisados por los supervisores`, ['top', 'Ver clientes'])}
-      <div class="ct-explica">
-        <div><b>Reposición</b><span>¿Nuestros productos están bien ubicados en la góndola? ¿Faltan caras?</span></div>
-        <div><b>Ampliación</b><span>¿Se le ofreció una marca foco que el cliente todavía no compra?</span></div>
-        <div><b>Ingreso</b><span>¿El cliente aceptó ingresar una marca nueva?</span></div>
-      </div>
-      <div class="ct-tri top"><span><b>${T.repoCli}</b>clientes con faltantes${T.repoCaras ? ` (${T.repoCaras} caras)` : ''}</span><span><b>${T.ampOf}</b>marcas ofrecidas</span><span><b>${T.ingOk}</b>ingresos aceptados</span></div>
-      <div class="ct-sub">Avance por supervisor</div>
-      <div class="ct-barras">${T.porSup.map(x => { const q = pct(x.ok, x.n); return `<div><span>${esc(x.eq)}</span><i class="ct-b"><i class="${tono(q)}" style="width:${q}%"></i></i><em>${x.ok}/${x.n}</em></div>`; }).join('')}</div>
-      <button type="button" class="ct-irrec" data-go="rec">📥 Ver las fichas recibidas, con fotos y comentarios ›</button>
-    </section>` : '';
-
-    // 6. Stock, competencia y encuesta
-    const otros = `<section class="ct-mini">
-      ${ST ? `<div class="ct-card ct-m"><span class="ct-ic stock">${svg('stock')}</span><div><h3>Stock${ST.fecha ? ' · ' + esc(corto(ST.fecha)) : ''}</h3><p><b class="bad">${ST.sin.length}</b> productos de la lista de precios sin stock</p>${ST.sin.length ? `<small>${esc(ST.sin.slice(0, 4).join(' · '))}${ST.sin.length > 4 ? ' …' : ''}</small>` : ''}</div></div>` : ''}
-      ${M.compe ? `<button type="button" class="ct-card ct-m" data-go="compe"><span class="ct-ic compe">${svg('compe')}</span><div><h3>Competencia</h3><p><b>${M.compe.n}</b> ${M.compe.n === 1 ? 'comentario' : 'comentarios'} de vendedores esta semana</p>${M.compe.ult.length ? `<small>${esc(M.compe.ult.map(x => x.marca + (x.prod ? ' ' + x.prod : '') + ' · ' + x.que).join(' · '))}</small>` : ''}</div><span class="ct-r-f">›</span></button>` : ''}
-    </section><div id="ctEnc"></div>`;
-
-    box.innerHTML = `<div class="ct">
-      <div class="ct-cab"><div><h2>Control</h2><p>${esc(largo(HOY).replace(/^./, c => c.toUpperCase()))}</p></div><button type="button" class="ar-act" data-ct-act>↻ Actualizar</button></div>
-      ${rev}<div id="ctRec"></div><div id="ctIng"></div><div id="ctExp"></div>${anom || esq('Anomalías de vendedores')}${sup || esq('Supervisores en la calle')}${vis || esq('Visitas de vendedores')}${top}${otros}
-    </div>`;
+    const nRec = window.Recibidos && window.Recibidos.cuantosHoy ? window.Recibidos.cuantosHoy() : null;
+    const boton = (go, ic, t, sub, cls) => `<button type="button" class="cx-b ${cls}" data-go="${go}"><span class="cx-b-ic">${ic}</span><b>${t}</b><small>${sub}</small></button>`;
+    const herr = `<section class="cx-sec"><h3 class="cx-h">Ver en detalle</h3><div class="cx-bs">
+      ${boton('rec', '📥', 'Recibido', nRec ? nRec + ' hoy' : 'Fichas, fotos y anomalías', 'az')}
+      ${boton('anom', '⚠️', 'Anomalías', A ? `${A.semana.length} esta semana` : 'Faltas y llegadas tarde', 'na')}
+      ${boton('vis', '🚶', 'Visitas', qv === null ? 'Ruta de los vendedores' : `${qv}% de la ruta`, 've')}
+      ${boton('top', '⭐', 'Fichas TOP', T && T.total ? `${T.hechas} de ${T.total} esta semana` : 'Clientes top', 'am')}
+      ${boton('ing', '📲', 'Uso de la app', ING ? `${ING.hoy} de ${ING.tot} hoy` : 'Quién entró y quién no', 'vi')}
+      ${boton('exp', '📤', 'Exportar', 'PowerPoint y Excel', 'ro')}
+      ${boton('sups', '🧭', 'Recorridos', 'Mapa de supervisores', 'ce')}
+      ${boton('mas', '📦', 'Más', 'Stock, competencia, encuesta', 'gr')}
+    </div></section>`;
+    box.innerHTML = `<div class="ct cx">${cab}${hero}${aviso}${mirar}${sups}${herr}</div>`;
     box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ir(b.dataset.go));
     box.querySelector('[data-ct-act]').onclick = () => { if (window.Archivos && window.Archivos.olvidar) window.Archivos.olvidar(); if (window.Encuesta && window.Encuesta.cargar) window.Encuesta.cargar(true).catch(() => {}); cargar(true); };
-    if (window.Encuesta && $('ctEnc')) window.Encuesta.tarjeta($('ctEnc'));
-    if (window.Recibidos && $('ctRec')) window.Recibidos.en($('ctRec'));
-    if (window.Ingresos && $('ctIng')) window.Ingresos.tarjeta($('ctIng'));
-    if (window.Exportar && $('ctExp')) window.Exportar.tarjeta($('ctExp'));
-    box.querySelectorAll('#ctAnom [data-an]').forEach(b => b.onclick = () => { const r = (window.Fotos.anomalias() || []).find(x => x.ID === b.dataset.an); if (r && window.Anomalias.ver) window.Anomalias.ver(r); });
     if (window.Avisos && window.Avisos.refrescar) window.Avisos.refrescar();
   }
+
+  // ---------------- Hojas de detalle (se abren encima, el "atrás" las cierra) ----------------
+  function hoja(titulo, ic, llenar){
+    let h = $('cxHoja');
+    if (!h){ h = document.createElement('div'); h.id = 'cxHoja'; h.className = 'cx-hoja'; document.body.appendChild(h); }
+    h.innerHTML = `<div class="cx-hoja-cab"><button type="button" class="cx-hoja-x" aria-label="Volver">‹</button><span class="cx-hoja-ic">${ic}</span><b>${esc(titulo)}</b></div><div class="cx-hoja-cu"></div>`;
+    h.classList.add('abierta'); document.documentElement.classList.add('cat-abierto');
+    const cerrarH = () => { h.classList.remove('abierta'); document.documentElement.classList.remove('cat-abierto'); };
+    const RU = window.RUTEO;
+    if (RU && RU.apilar){ RU.apilar('', cerrarH, true, 'cx-hoja'); h.querySelector('.cx-hoja-x').onclick = () => RU.volver(); }
+    else h.querySelector('.cx-hoja-x').onclick = cerrarH;
+    const cu = h.querySelector('.cx-hoja-cu'); cu.scrollTop = 0;
+    llenar(cu);
+    cu.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const go = b.dataset.go; cerrarHoja(); setTimeout(() => ir(go), 60); });
+  }
+  function cerrarHoja(){ const h = $('cxHoja'); if (h && h.classList.contains('abierta')){ const RU = window.RUTEO; if (RU && RU.tope && RU.tope() === 'cx-hoja') RU.volver(); else { h.classList.remove('abierta'); document.documentElement.classList.remove('cat-abierto'); } } }
+  const barras = (xs, f) => `<div class="ct-barras">${xs.map(x => { const [t, q, v] = f(x); return `<div><span>${esc(t)}</span><i class="ct-b"><i class="${tono(q)}" style="width:${q || 0}%"></i></i><em>${v}</em></div>`; }).join('')}</div>`;
+  const cardVis = V => { const qv = pct(V.si, V.toca); return `<section class="ct-card">
+      <div class="cx-big"><b class="${tono(qv)}">${qv}%</b><span>de la ruta visitada el ${esc(largo(V.dia))}<br><small>${V.si} de ${V.toca} clientes</small></span></div>
+      <div class="ct-sub">Por supervisor</div>${barras(V.porSup, x => { const q = pct(x.si, x.toca); return [x.eq, q, q + '%']; })}
+      ${V.bajos.length ? `<div class="ct-sub">Los más bajos (tocá para ver)</div><div class="ct-lista">${V.bajos.slice(0, 6).map(x => `<button type="button" class="ct-vb" data-go="vend:${esc(x.vc)}"><span><b>${esc(x.n)}</b><small>${esc(x.vc)} · ${esc(x.eq)} · ${x.si} de ${x.toca}</small></span><em class="${tono(x.q)}">${x.q}%</em></button>`).join('')}</div>` : ''}
+      <button type="button" class="ct-irrec" data-go="visitas">Ver todos los vendedores ›</button></section>`; };
+  const cardTop = T => `<section class="ct-card">
+      <div class="cx-big"><b class="${tono(pct(T.hechas, T.total))}">${T.hechas}<small> de ${T.total}</small></b><span>clientes TOP con ficha esta semana</span></div>
+      <div class="ct-tri top"><span><b>${T.repoCli}</b>clientes con faltantes${T.repoCaras ? ` (${T.repoCaras} caras)` : ''}</span><span><b>${T.ampOf}</b>marcas ofrecidas</span><span><b>${T.ingOk}</b>ingresos aceptados</span></div>
+      <div class="ct-sub">Avance por supervisor</div>${barras(T.porSup, x => [x.eq, pct(x.ok, x.n), x.ok + '/' + x.n])}
+      <div class="ct-explica">
+        <div><b>Reposición</b><span>¿Nuestros productos están bien ubicados? ¿Faltan caras?</span></div>
+        <div><b>Ampliación</b><span>¿Se le ofreció una marca foco que todavía no compra?</span></div>
+        <div><b>Ingreso</b><span>¿Aceptó ingresar una marca nueva?</span></div>
+      </div>
+      <button type="button" class="ct-irrec" data-go="rec">📥 Ver las fichas recibidas, con fotos ›</button></section>`;
+  const cardAnom = A => { const c = {aus: 0, tar: 0, fue: 0}; A.semana.forEach(a => c[clase(a.tipo)]++); return `<section class="ct-card">
+      <div class="ct-tri"><span class="aus"><b>${c.aus}</b>ausencias</span><span class="tar"><b>${c.tar}</b>llegadas tarde</span><span class="fue"><b>${c.fue}</b>fuera de ruta</span></div>
+      <p class="cx-nota">Esta semana. Las pendientes vencen a las 17:00 del mismo día.</p>
+      ${A.ultimas.length ? `<div class="an-lista">${A.ultimas.map(a => window.Anomalias && window.Anomalias.fila ? window.Anomalias.fila(a.r) : '').join('')}</div>` : '<p class="ct-vacio">Todavía no hay anomalías. Las cargan los supervisores desde la pestaña Visitas.</p>'}
+      <button type="button" class="ct-irrec" data-go="anomtodas">Ver todas las anomalías ›</button></section>`; };
+  const SCRIPT = `<section class="ct-card cx-pasos"><p>Pasá esto una sola vez y queda andando:</p><ol>
+      <li>Abrí <b>script.google.com</b> y entrá al proyecto de fotos de Ruteo.</li>
+      <li>Borrá todo y pegá el contenido de <b>Fotos_Ruteo_TR1.txt</b>. Guardá (💾).</li>
+      <li>Arriba a la derecha: <b>Implementar → Administrar implementaciones</b>.</li>
+      <li>Tocá el lápiz ✏️, en <b>Versión</b> elegí <b>Nueva versión</b> y tocá <b>Implementar</b>.</li></ol>
+      <p class="cx-nota">Al publicarlo, los ingresos que quedaron en la pestaña Fotos pasan solos a la pestaña <b>Ingresos</b>.</p></section>`;
   function ir(go){
     const RU = window.RUTEO, [k, v] = String(go).split(':');
-    if (k === 'anom' && window.Anomalias) return window.Anomalias.historial();
+    if (k === 'anom') return M && M.anom ? hoja('Anomalías', '⚠️', cu => { cu.innerHTML = cardAnom(M.anom); cu.querySelectorAll('[data-an]').forEach(b => b.onclick = () => { const r = (window.Fotos.anomalias() || []).find(x => x.ID === b.dataset.an); if (r && window.Anomalias.ver) window.Anomalias.ver(r); }); }) : window.Anomalias && window.Anomalias.historial();
+    if (k === 'anomtodas' && window.Anomalias) return window.Anomalias.historial();
     if (k === 'sup' && window.Jefatura) return window.Jefatura.abrir(v, M && M.sup ? M.sup.dia : '');
     if (k === 'sups') return RU.setSeccion('jefatura');
     if (k === 'vend' && window.Visitas && window.Visitas.abrirVendedor) return window.Visitas.abrirVendedor(v, M && M.vis ? M.vis.dia : '');
-    if (k === 'vis') return RU.setSeccion('visitas');
-    if (k === 'top') return RU.setSeccion('top');
-    if (k === 'rec'){ const s = $('ctRecibido'); if (s) s.scrollIntoView({behavior: 'smooth', block: 'start'}); return; }
+    if (k === 'vis') return M && M.vis ? hoja('Visitas de vendedores', '🚶', cu => { cu.innerHTML = cardVis(M.vis); }) : RU.setSeccion('visitas');
+    if (k === 'visitas') return RU.setSeccion('visitas');
+    if (k === 'top') return M && M.top && M.top.total ? hoja('Fichas TOP', '⭐', cu => { cu.innerHTML = cardTop(M.top); }) : RU.setSeccion('top');
+    if (k === 'rec') return hoja('Recibido de los supervisores', '📥', cu => { if (window.Recibidos) window.Recibidos.en(cu); });
+    if (k === 'ing') return hoja('Uso de la app', '📲', cu => { if (window.Ingresos) window.Ingresos.tarjeta(cu); });
+    if (k === 'exp') return hoja('Exportar', '📤', cu => { if (window.Exportar) window.Exportar.tarjeta(cu); });
+    if (k === 'script') return hoja('Publicar el script de Google', '⚙️', cu => { cu.innerHTML = SCRIPT; });
+    if (k === 'mas') return hoja('Stock, competencia y encuesta', '📦', cu => {
+      const ST = M && M.stock;
+      cu.innerHTML = `${ST ? `<section class="ct-card"><h3 class="cx-h">📦 Stock${ST.fecha ? ' · ' + esc(corto(ST.fecha)) : ''}</h3><p><b class="bad">${ST.sin.length}</b> productos de la lista sin stock</p>${ST.sin.length ? `<small>${esc(ST.sin.slice(0, 8).join(' · '))}${ST.sin.length > 8 ? ' …' : ''}</small>` : ''}</section>` : ''}
+        ${M && M.compe ? `<button type="button" class="ct-card ct-m" data-go="compe"><div><h3 class="cx-h">💬 Competencia</h3><p><b>${M.compe.n}</b> ${M.compe.n === 1 ? 'comentario' : 'comentarios'} de vendedores esta semana ›</p></div></button>` : ''}<div id="ctEnc"></div>`;
+      if (window.Encuesta && $('ctEnc')) window.Encuesta.tarjeta($('ctEnc'));
+    });
     if (k === 'compe') return RU.setSeccion('compe');
-    if (k === 'stock'){ const s = $('controlView').querySelector('.ct-mini'); if (s) s.scrollIntoView({behavior: 'smooth', block: 'center'}); }
   }
   // Cada dato se pinta apenas llega (no espera a que esté todo)
   let RJ = null;
@@ -233,7 +248,8 @@
     cargando = Promise.all([
       ok(F && F.cargar ? F.cargar(!!forzar) : null),
       ok(Promise.resolve(V && V.asegurar ? V.asegurar() : null).catch(() => null).then(() => J && J.resumenUltimo ? J.resumenUltimo() : null).then(r => { RJ = r; })),
-      ok(Promise.all([S && S.cargar ? S.cargar() : null, PR && PR.asegurar ? PR.asegurar() : null]))
+      ok(Promise.all([S && S.cargar ? S.cargar() : null, PR && PR.asegurar ? PR.asegurar() : null])),
+      ok(window.Ingresos && window.Ingresos.resumen ? window.Ingresos.resumen().then(r => { ING = r; }) : null)
     ]).then(() => { cargando = null; rehacer(); });
     return cargando;
   }
@@ -242,6 +258,7 @@
     cargar,
     pendientes: () => M ? pendientes(M).length : 0,
     items: () => M ? pendientes(M) : [],
+    itemHTML,
     cargandoAhora: () => !!cargando,
     ir: go => ir(go),
     _modelo: () => M, _pintarCon: m => { M = m; pintar(); }   // para la prueba piloto

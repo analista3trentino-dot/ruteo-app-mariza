@@ -181,15 +181,15 @@ const AVISOS = [
   // Jefatura: la campanita muestra lo mismo que "Para revisar" de la pantalla Control, más los mensajes y la encuesta
   const esJef = () => window.RUTEO && window.RUTEO.modo === 'jefatura' && window.Control;
   function panelJefatura(p){
-    const C = window.Control, its = C.items(), L = leidos();
+    const C = window.Control, its = C.items(), L = leidos(), malos = its.filter(x => x.t === 'bad').length;
     const extra = ['msg', 'enc'].flatMap(k => (FUENTES[k] && FUENTES[k].items) || []);
+    const est = its.length ? (malos ? 'bad' : 'mid') : 'ok';
     p.querySelector('.av-cuerpo').innerHTML =
-      `<div class="avj-t">${its.length ? 'Para revisar' : C.cargandoAhora() ? 'Revisando…' : 'Todo en orden'}</div>` +
-      its.map(x => `<button type="button" class="avj ${x.t}" data-ctgo="${esc(x.go)}"><span class="avj-n">${esc(x.n)}</span><span class="avj-tx"><b>${esc(x.b)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ''}</span><span class="avj-f">›</span></button>`).join('') +
+      `<div class="avx-hero ${est}"><span class="cx-luz"></span><div><b>${its.length ? (its.length === 1 ? '1 cosa para mirar' : its.length + ' cosas para mirar') : C.cargandoAhora() ? 'Revisando…' : 'Todo en orden ✨'}</b><small>${its.length ? (malos ? 'Empezá por las marcadas en rojo.' : 'Nada urgente, pero conviene revisarlo.') : C.cargandoAhora() ? 'Buscando anomalías, rutas y fichas…' : 'No hay anomalías pendientes y los supervisores marcaron.'}</small></div></div>` +
+      (its.length ? `<div class="avx-lista">${its.map(x => C.itemHTML(x).replace('data-go=', 'data-ctgo=')).join('')}</div>` : '') +
       (!its.length && C.cargandoAhora() ? '<div class="av2 esq"><span class="av2-ic"></span><div><b>Buscando pendientes</b><span>Cargando…</span></div></div>' : '') +
-      (!its.length && !C.cargandoAhora() ? '<p class="av-vacio">No hay anomalías pendientes, todos los supervisores marcaron y las rutas van bien.</p>' : '') +
-      extra.map(a => tarjeta(a, L)).join('') +
-      `<button type="button" class="avj-ctl" data-ctgo="control">Ver la pantalla Control completa ›</button>`;
+      (extra.length ? `<div class="avx-sub">Mensajes</div>` + extra.map(a => tarjeta(a, L)).join('') : '') +
+      `<button type="button" class="avx-ir" data-ctgo="control">Ir al panel de Control ›</button>`;
     p.querySelectorAll('[data-ctgo]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ctgo === 'control') window.RUTEO.setSeccion('control'); else C.ir(b.dataset.ctgo); });
     p.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { cerrar(); if (b.dataset.ir === 'encuesta') window.Encuesta.abrir(); else if (b.dataset.ir === 'tacticos') window.Tacticos.abrir(); else window.RUTEO.setSeccion(b.dataset.ir); });
   }
