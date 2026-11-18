@@ -514,7 +514,11 @@
   // ------------------------------------------------------------------
   //  Pestaña Competencia
   // ------------------------------------------------------------------
-  let fC = {queVio: 'Promoción', foto: null}, filtroC = 'Todo';
+  // borrador de Competencia: queda guardado aunque la app se recargue (por ejemplo al abrir la cámara)
+  const KC = 'ruteoTR1_compeBorrador';
+  let fC = (() => { try { const o = JSON.parse(sessionStorage.getItem(KC) || localStorage.getItem(KC) || 'null'); if (o && Date.now() - (o.t || 0) < 6 * 3600e3) return Object.assign(o, {foto: null}); } catch(e){} return {queVio: 'Promoción', foto: null}; })(), filtroC = 'Todo';
+  const guardarC = () => { try { const o = JSON.stringify(Object.assign({}, fC, {foto: null, t: Date.now()})); sessionStorage.setItem(KC, o); localStorage.setItem(KC, o); } catch(e){} };
+  let fotoCBuscada = false;
   const VISTO = 'ruteoTR1_compeVisto';
   function mostrarCompe(){
     const box = $('compeView'); if (!box) return;
@@ -549,11 +553,14 @@
       ${mias.length ? galeriaCompe(mias) : (datos ? '<div class="fx-vacio">Todavía no enviaste información de competencia.</div>' : '')}
     </div>`;
     // conservar lo escrito
-    ['fxMarca', 'fxProd', 'fxPrecio', 'fxCli', 'fxTxt'].forEach(id => { const el = $(id); if (fC[id] != null) el.value = fC[id]; el.oninput = el.onchange = () => { fC[id] = el.value; }; });
-    $('fxQue').querySelectorAll('button').forEach(b => b.onclick = () => { fC.queVio = b.dataset.q; $('fxQue').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+    ['fxMarca', 'fxProd', 'fxPrecio', 'fxCli', 'fxTxt'].forEach(id => { const el = $(id); if (fC[id] != null) el.value = fC[id]; el.oninput = el.onchange = () => { fC[id] = el.value; guardarC(); }; });
+    // la foto que quedó guardada en el celular (si la app se recargó al abrir la cámara)
+    if (!fC.foto && !fotoCBuscada && window.Retomar){ fotoCBuscada = true; window.Retomar.leerFoto('compe').then(fo => { if (fo && !fC.foto){ fC.foto = fo; pintarCompe(); } }); }
+    $('fxQue').querySelectorAll('button').forEach(b => b.onclick = () => { fC.queVio = b.dataset.q; guardarC(); $('fxQue').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
     const leer = () => ({queVio: fC.queVio, marca: $('fxMarca').value.trim(), producto: $('fxProd').value.trim(), precio: $('fxPrecio').value.trim(), cliente: $('fxCli').value, comentario: $('fxTxt').value.trim()});
     $('fxCFoto').onclick = () => {
-      alListo = fo => { fC.foto = fo; pintarCompe(); };
+      guardarC(); if (window.Retomar) window.Retomar.marcar({k: 'compe'});
+      alListo = fo => { fC.foto = fo; if (window.Retomar){ window.Retomar.guardarFoto('compe', fo); window.Retomar.limpiar(); } pintarCompe(); };
       abrirHoja({modo: 'compe', form: leer(), titulo: 'Foto de competencia', sub: 'Se adjunta a tu comentario'});
       $('fxIn').click();
     };
@@ -574,6 +581,8 @@
       locales.unshift({compe: true, _local: foto ? foto.url : '', Fecha: iso(d), Hora: p2(d.getHours()) + ':' + p2(d.getMinutes()), Supervisor: v.sup, Vendedor: v.vc, 'Nombre vendedor': v.nom,
         'Qué vio': f.queVio, 'Empresa/Marca': f.marca, Producto: f.producto, 'Precio Gs.': f.precio, Cliente: f.cliente, Comentario: f.comentario, 'Enlace foto': j.enlace || '', ID: j.id || ''});
       fC = {queVio: f.queVio, foto: null};
+      try { sessionStorage.removeItem(KC); localStorage.removeItem(KC); } catch(e){}
+      if (window.Retomar){ window.Retomar.borrarFotos('compe'); window.Retomar.limpiar(); }
       armar(); toast(j.pendiente ? 'Sin señal: quedó guardado y se envía solo cuando vuelva la señal.' : 'Enviado a tu supervisor y a jefatura.');
       pintarCompe();
     } catch(err){

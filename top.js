@@ -138,9 +138,19 @@
     </div>`;
     pintarTabs(); pintarCuerpo(); pintarPie();
     document.body.classList.add('fx-bloq');
+    // fotos que quedaron guardadas en el celular (por si la app se recargó al abrir la cámara)
+    if (!ro && window.Retomar){
+      const f0 = F, cod0 = cl[6];
+      window.Retomar.fotosDe('ficha|' + cod0 + '|').then(fs => {
+        if (F !== f0) return; let hay = false;
+        Object.keys(fs).forEach(id => { if (!(F.r.rep[id] || {}).foto){ (fotosMem[cod0] || (fotosMem[cod0] = {}))[id] = fs[id]; (F.r.rep[id] || (F.r.rep[id] = {})).foto = fs[id]; hay = true; } });
+        if (hay){ pintarTabs(); pintarCuerpo(); pintarPie(); }
+      });
+      window.Retomar.marcar({k: 'ficha', vc: c.vc, cod: cod0, tab: F.tab, abierto: ''});
+    }
     if (R_().apilar && R_().tope() !== 'ficha') R_().apilar('', cerrarYa, true, 'ficha');
   }
-  function cerrarYa(){ const b = $('tfCapa'); if (b) b.innerHTML = ''; F = null; document.body.classList.remove('fx-bloq'); if (R_().refrescar) R_().refrescar(); }
+  function cerrarYa(){ const b = $('tfCapa'); if (b) b.innerHTML = ''; F = null; if (window.Retomar) window.Retomar.limpiar(); document.body.classList.remove('fx-bloq'); if (R_().refrescar) R_().refrescar(); }
   function cerrar(){ if (R_().tope && R_().tope() === 'ficha') R_().volver(); else cerrarYa(); }
   const hoja = () => $('tfCapa').querySelector('.tf-hoja');
 
@@ -258,9 +268,11 @@
       if (t.dataset.foto){
         const id = t.dataset.foto, cat = CAT[id], f = F, quien = quienCarga();
         if (!window.Fotos || !window.Fotos.tomarFoto) return;
+        if (window.Retomar) window.Retomar.marcar({k: 'ficha', vc: f.c.vc, cod, tab: F.tab, abierto: id});
         const fo = await window.Fotos.tomarFoto({titulo: nombreCat(cat), sub: f.cl[2], lineas: d => [nomCli(f.cl), {t: 'REPOSICIÓN  ·  ' + nombreCat(cat).toUpperCase() + '  ·  ' + f.cl[6], color: '#7BE3B6'}, quien + '  ·  ' + f.c.vc + '  ·  ' + d.toLocaleDateString('es-PY') + ' ' + d.toTimeString().slice(0, 5)]});
         if (!fo || F !== f) return;
         (fotosMem[cod] || (fotosMem[cod] = {}))[id] = fo;
+        if (window.Retomar) window.Retomar.guardarFoto('ficha|' + cod + '|' + id, fo);
         const o = r.rep[id] || (r.rep[id] = {}); o.foto = fo; o.ok = false;
         pintarSec(id); pintarTabs();
       }
@@ -306,6 +318,7 @@
       if (btn) btn.textContent = 'Enviando…';
       const jr = await Fo.enviarGestion(meta, filas);
       try { localStorage.removeItem(KB(cl[6])); } catch(e){}
+      if (window.Retomar) window.Retomar.borrarFotos('ficha|' + cl[6] + '|');
       delete fotosMem[cl[6]];
       toast(jr && jr.pendiente ? 'Sin señal: la ficha quedó guardada y se envía sola cuando vuelva la señal.' : 'Ficha enviada. Jefatura ya la puede ver.');
       if (F === f) cerrar();
@@ -354,5 +367,16 @@
     v.querySelectorAll('.tf-li').forEach(b => b.onclick = () => { const x = cs.find(y => y.cl[6] === b.dataset.cod && y.c.vc === b.dataset.vc); v.remove(); if (x) abrir(x.c, x.cl, true); });
   }
 
-  window.TopFoco = {resumen, abrir, analisis, analizar};
+  // volver a la ficha después de una recarga (cámara)
+  function retomar(o){
+    const R = R_(); if (!R.carteras || R.modo !== 'supervisor') return false;
+    const c = R.carteras.find(x => x.vc === o.vc), cl = c && c.cl.find(x => x[6] === o.cod);
+    if (!cl) return false;
+    abrir(c, cl);
+    if (o.tab) F.tab = o.tab; F.abierto = o.abierto || '';
+    pintarTabs(); pintarCuerpo(); pintarPie();
+    setTimeout(() => { const e = F && F.abierto && $('tfCapa').querySelector(`[data-abrir="${F.abierto}"]`); if (e) e.scrollIntoView({block: 'start'}); }, 400);
+    return true;
+  }
+  window.TopFoco = {resumen, abrir, analisis, analizar, retomar};
 })();

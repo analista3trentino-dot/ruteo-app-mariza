@@ -1,3 +1,7 @@
+// =====================================================================
+//  CONTRASEÑAS DE VENDEDORES (las carteras VACANTES entran sin contraseña)
+//  Cada vendedor la pone una sola vez en su celular. Si agregás un vendedor nuevo, sumá su línea acá.
+// =====================================================================
 const CLAVES_VENDEDOR = {
   "TR1233": "mercadosl",      
   "TR1234": "mercadoluque",       
@@ -12,7 +16,23 @@ const CLAVES_VENDEDOR = {
   "TR1535": "ypakarai3",
   "TR1536": "itauguamaria",
   "TR1621": "lorenamendez",
+  "TR1632": "caacupe32",
+  "TR1633": "sanber33",
+  "TR1634": "altos34",
+  "TR1635": "tobati35",
+  "TR1731": "mra31",
+  "TR1732": "limpio32",
+  "TR1734": "arroyos34",
+  "TR1821": "paraguari21",
+  "TR1834": "yaguaron34",
+  "TR1836": "piribebuy36",
+  "TR1931": "carapegua31",
+  "TR1932": "quindy32",
+  "TR1933": "ybycui33",
+  "TR1934": "lacolmena34",
 };
+// Teléfono de la analista (Mariza) que ve el vendedor para pedir su contraseña (portada)
+const TELEFONO_CLAVES = "0974655445";
 
 const CLAVES_SUPERVISORES = {
   "TR12": "aygas12",        // ST. MAY. AYGAS

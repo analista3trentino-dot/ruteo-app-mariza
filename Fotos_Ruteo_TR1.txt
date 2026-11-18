@@ -13,6 +13,7 @@ const COL_FOTOS = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cli
 const COL_GEST = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Cliente','Código','PM','Acción','Marca','Categoría','Producto','Cód. artículo','Respuesta','Caras tenemos','Caras faltan','Comentario','Enlace foto','ID','Cargado por'];
 const COL_ANOM = ['Fecha','Supervisor','Vendedor','Nombre vendedor','Anomalía','Motivo','Justificó','Comentario','Enlace adjunto','ID','Registrado','Actualizado','Cargado por'];
 const COL_COMPE = ['Fecha','Hora','Supervisor','Vendedor','Nombre vendedor','Qué vio','Empresa/Marca','Producto','Precio Gs.','Cliente','Comentario','Enlace foto','ID'];
+const COL_ING = ['Fecha','Hora','Rol','Código','Nombre','Supervisor','Tipo','Dispositivo'];
 
 // 1) Tocá ▶ Ejecutar con esta función elegida la primera vez: crea la carpeta y la planilla y pide los permisos.
 function PREPARAR() {
@@ -43,7 +44,7 @@ function planilla() {
     props.setProperty('PLANILLA', ss.getId());
   }
   // hojas de la gestión de clientes TOP y de anomalías (se crean o se completan los títulos si faltan)
-  [['Gestion TOP', COL_GEST], ['Anomalias', COL_ANOM]].forEach(([nombre, cols]) => {
+  [['Gestion TOP', COL_GEST], ['Anomalias', COL_ANOM], ['Ingresos', COL_ING]].forEach(([nombre, cols]) => {
     let h = ss.getSheetByName(nombre);
     if (!h){ h = ss.insertSheet(nombre); h.setFrozenRows(1); }
     if (h.getLastColumn() < cols.length || String(h.getRange(1, 1).getValue()) !== cols[0]) h.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground('#0C1A2E').setFontColor('#FFFFFF');
@@ -60,6 +61,12 @@ function doPost(e) {
     const d = JSON.parse(e.postData.contents);
     if (d.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
     const f = new Date(d.fecha || Date.now());
+    // Ingreso a la app (quién usa y quién no): una fila por ingreso
+    if (d.ingreso){
+      const T3 = v => "'" + String(v == null ? '' : v);
+      planilla().getSheetByName('Ingresos').appendRow([T3(Utilities.formatDate(f, tz(), 'yyyy-MM-dd')), T3(Utilities.formatDate(f, tz(), 'HH:mm')), T3(d.rol), T3(d.codigo), T3(d.nombre), T3(d.sup), T3(d.tipo), T3(d.dispositivo)]);
+      return json({ok: true});
+    }
     // Respuesta de la encuesta de la app: una fila por persona y encuesta (si vuelve a responder, se reemplaza)
     if (d.encuesta){
       const T4 = v => "'" + String(v == null ? '' : v), ss2 = planilla();
@@ -127,6 +134,12 @@ function doGet(e) {
   const q = e.parameter || {};
   if (q.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
   if (q.accion === 'marcas') return json(imagenesMarcas(q.carpeta));
+  if (q.accion === 'ingresos'){
+    const sh = planilla().getSheetByName('Ingresos'); if (!sh || sh.getLastRow() < 2) return json({ok: true, ingresos: []});
+    const desdeI = Utilities.formatDate(new Date(Date.now() - (+q.dias || 35) * 864e5), tz(), 'yyyy-MM-dd');
+    const v = sh.getDataRange().getDisplayValues(); v.shift();
+    return json({ok: true, ingresos: v.map(r => Object.fromEntries(COL_ING.map((c, i) => [c, r[i]]))).filter(r => r.Fecha >= desdeI)});
+  }
   if (q.accion === 'encuesta'){
     const sh = planilla().getSheetByName('Encuesta'); if (!sh || sh.getLastRow() < 2) return json({ok: true, respuestas: []});
     const v = sh.getDataRange().getDisplayValues(), cols = v.shift();

@@ -32,6 +32,15 @@
   // Jefatura: otra clave (config.js)
   const CLAVE_J = (typeof CLAVE_JEFATURA !== 'undefined' ? String(CLAVE_JEFATURA) : '').trim();
   const CLAVE_JOK = 'ruteoTR1_jefOK';
+  // Vendedores: cada uno con su contraseña (config.js). Las carteras vacantes entran sin contraseña.
+  const CLAVES_V = typeof CLAVES_VENDEDOR !== 'undefined' ? CLAVES_VENDEDOR : {};
+  const claveVend = vc => String(CLAVES_V[String(vc || '').toUpperCase()] || '').trim();
+  const CLAVE_VOK = 'ruteoTR1_vendOK';
+  const vendValido = vc => { const c = claveVend(vc); if (!c) return true; try { return localStorage.getItem(CLAVE_VOK + '_' + String(vc).toUpperCase()) === huella(c); } catch(e){ return false; } };
+  const TEL = (typeof TELEFONO_CLAVES !== 'undefined' ? String(TELEFONO_CLAVES) : '').replace(/\D/g, '');
+  const TEL_LINDO = TEL.replace(/^(\d{4})(\d{3})(\d+)$/, '$1 $2 $3');
+  const TEL_WA = TEL ? 'https://wa.me/595' + TEL.replace(/^0/, '') + '?text=' + encodeURIComponent('Hola Mariza, necesito mi contraseña de la app Ruteo TR1. Mi cartera es: ') : '';
+  const ayudaTel = (corto) => TEL ? `<div class="po-tel${corto ? ' corto' : ''}"><span class="po-tel-i">📞</span><span>${corto ? '¿No tenés tu contraseña?' : '¿Sos vendedor y no tenés tu contraseña?'} Pedila a la analista <b>Mariza</b></span><a href="${TEL_WA}" target="_blank" rel="noopener">${esc(TEL_LINDO)}</a></div>` : '';
   const jefValido = () => { if (!CLAVE_J) return true; try { return localStorage.getItem(CLAVE_JOK) === huella(CLAVE_J); } catch(e){ return false; } };
   let GUARDADA = leerGuardada();
   if (GUARDADA === 'TODAS' && !supValidoDe(MISUP_GUARD)) GUARDADA = '';      // sin la clave de su equipo vuelve a preguntar
@@ -40,6 +49,8 @@
   const ELEGIDA = PARAM_C || (ESPECIAL ? '' : GUARDADA);
   const MI_CARTERA = carteras.find(c => c.vc.toUpperCase() === ELEGIDA) || null;
   const MODO_VENDEDOR = !!MI_CARTERA;
+  // Cartera elegida (o link ?c=) sin la contraseña puesta en este celular: la portada la pide
+  const VEND_PIDE = !!MI_CARTERA && !/VACANTE/i.test(MI_CARTERA.vn) && !vendValido(MI_CARTERA.vc);
   const MODO_JEFATURA = !MODO_VENDEDOR && GUARDADA === 'JEFATURA';
   // Primera vez en este celular: la portada pide elegir (no se puede cerrar sin elegir)
   const PREGUNTAR = !MI_CARTERA && !ESPECIAL;
@@ -339,7 +350,12 @@
     if (!PILA.length) return;
     if (conHist) history.back(); else { const p = PILA.pop(); p.fn(); pintarVolver(); }
   }
-  window.addEventListener('popstate', () => { const p = PILA.pop(); if (p) p.fn(); pintarVolver(); });
+  window.addEventListener('popstate', e => {
+    const p = PILA.pop();
+    if (p) p.fn();
+    else if (e.state && e.state.ruteo){ try { history.back(); } catch(err){} return; }   // pasos que quedaron de antes de recargar: se saltean solos
+    pintarVolver();
+  });
   const tope = () => PILA.length ? (PILA[PILA.length - 1].clave || '') : '';
   function pintarVolver(){
     const b = $('btnVolver'); if (!b) return;
@@ -720,7 +736,9 @@
           <label for="poClaveIn" id="poClaveLbl">Clave</label>
           <div class="po-clave-row"><input id="poClaveIn" type="password" autocomplete="off" enterkeyhint="go" /><button type="submit">Entrar</button></div>
           <p class="po-err" id="poErr" hidden>La clave no es correcta.</p>
+          <div id="poTel" hidden>${ayudaTel(true)}</div>
         </form>
+        ${ayudaTel(false)}
         <p class="po-pie">Ruteo actualizado al ${esc(GEN_DATE)} · Trentino S.A.</p>
       </div>`;
     document.body.appendChild(box);
@@ -730,7 +748,17 @@
       box.classList.add('fuera'); document.documentElement.classList.remove('cat-abierto');
       setTimeout(() => box.remove(), 420);
     };
-    const s = $('poSeguir'); if (s) s.onclick = () => { cerrar(); setTimeout(bienvenida, 380); };
+    const s = $('poSeguir'); if (s) s.onclick = () => {
+      if (VEND_PIDE){ pedirClaveVend(MI_CARTERA.vc); return; }
+      cerrar(); setTimeout(bienvenida, 380);
+    };
+    const pedirClaveVend = vc => {
+      rol = 'vend:' + vc;
+      const c = carteras.find(x => x.vc === vc);
+      $('poClaveLbl').textContent = 'Contraseña de ' + (c ? titulo(c.vn).split(' ').slice(0, 2).join(' ') : vc);
+      $('poErr').hidden = true; $('poTel').hidden = false; const tg = box.querySelector('.po-cont > .po-tel'); if (tg) tg.hidden = true; $('poClave').hidden = false; $('poClaveIn').value = ''; $('poClaveIn').focus();
+      $('poClave').scrollIntoView({block: 'center', behavior: 'smooth'});
+    };
     rol = '';
     const opcHTML = box.querySelector('.po-opc').innerHTML;
     // volver de la lista de equipos a las tres opciones (botón "‹ Volver" o el "atrás" del celular)
@@ -743,6 +771,7 @@
       rol = b.dataset.rol;
       box.querySelectorAll('.po-btn').forEach(x => x.classList.toggle('on', x === b));
       if (rol === 'vend'){ $('poClave').hidden = true; elegirCartera(); return; }
+      $('poTel').hidden = true;
       if (rol === 'sup'){ $('poClave').hidden = true; elegirEquipo(); return; }
       if (jefValido() || !CLAVE_J){ entrarComo('JEFATURA'); return; }
       $('poClaveLbl').textContent = 'Clave de jefatura';
@@ -751,11 +780,20 @@
     enlazarOpc();
     $('poClave').onsubmit = e => {
       e.preventDefault();
+      if (rol.indexOf('vend:') === 0){
+        const vc = rol.slice(5), cv = claveVend(vc);
+        if (cv && $('poClaveIn').value.trim().toLowerCase() === cv.toLowerCase()){
+          try { localStorage.setItem(CLAVE_VOK + '_' + vc, huella(cv)); } catch(err){}
+          if (window.Ingresos) window.Ingresos.marcarLogin(vc);
+          entrarComo(vc);
+        } else { $('poErr').hidden = false; $('poClaveIn').select(); box.querySelector('.po-clave').classList.remove('tiembla'); void box.offsetWidth; box.querySelector('.po-clave').classList.add('tiembla'); }
+        return;
+      }
       const clave = rol === 'jef' ? CLAVE_J : claveSup(rol);
       if (clave && $('poClaveIn').value.trim() === clave){
         try {
           if (rol === 'jef') localStorage.setItem(CLAVE_JOK, huella(clave));
-          else { localStorage.setItem(CLAVE_OK + '_' + rol, huella(clave)); localStorage.setItem(CLAVE_MISUP, rol); }
+          else { localStorage.setItem(CLAVE_OK + '_' + rol, huella(clave)); localStorage.setItem(CLAVE_MISUP, rol); if (window.Ingresos) window.Ingresos.marcarLogin(rol); }
         } catch(err){}
         entrarComo(rol === 'jef' ? 'JEFATURA' : 'TODAS');
       } else { $('poErr').hidden = false; $('poClaveIn').select(); box.querySelector('.po-clave').classList.remove('tiembla'); void box.offsetWidth; box.querySelector('.po-clave').classList.add('tiembla'); }
@@ -815,7 +853,39 @@
       });
       $('elVacio').hidden = alguno;
     });
-    box.querySelectorAll('.el-item').forEach(b => b.onclick = () => entrarComo(b.dataset.vc));
+    box.querySelectorAll('.el-item').forEach(b => b.onclick = () => {
+      const vc = b.dataset.vc, c = carteras.find(x => x.vc === vc);
+      if (!c || isVacante(c) || vendValido(vc)) return entrarComo(vc);
+      claveEnLista(c);
+    });
+    // contraseña del vendedor (ventanita sobre la lista)
+    const claveEnLista = c => {
+      let m = $('elClave'); if (m) m.remove();
+      m = document.createElement('div'); m.id = 'elClave'; m.className = 'el-clave';
+      m.innerHTML = `<form class="el-clave-in" autocomplete="off">
+        <span class="el-av" style="--c:${supColor[c.sup] || '#2E5BFF'}">${esc(initials(c))}</span>
+        <b>${esc(String(c.vn).toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase()))}</b><small>${esc(c.vc)} · ${esc(c.vz)}</small>
+        <label for="elClaveIn">Tu contraseña</label>
+        <input id="elClaveIn" type="password" autocomplete="off" enterkeyhint="go" autocapitalize="none">
+        <p class="po-err" id="elErr" hidden>La contraseña no es correcta.</p>
+        <div class="el-clave-bt"><button type="button" class="sec" data-no>Cancelar</button><button type="submit">Entrar</button></div>
+        ${ayudaTel(true)}
+      </form>`;
+      box.appendChild(m);
+      const f = m.querySelector('form'), inp = $('elClaveIn');
+      setTimeout(() => inp.focus(), 60);
+      m.querySelector('[data-no]').onclick = () => m.remove();
+      m.onclick = e => { if (e.target === m) m.remove(); };
+      f.onsubmit = e => {
+        e.preventDefault();
+        const cv = claveVend(c.vc);
+        if (inp.value.trim().toLowerCase() === cv.toLowerCase()){
+          try { localStorage.setItem(CLAVE_VOK + '_' + c.vc, huella(cv)); } catch(err){}
+          if (window.Ingresos) window.Ingresos.marcarLogin(c.vc);
+          entrarComo(c.vc);
+        } else { $('elErr').hidden = false; inp.select(); f.classList.remove('tiembla'); void f.offsetWidth; f.classList.add('tiembla'); }
+      };
+    };
     $('elVolver').onclick = () => { box.remove(); document.querySelectorAll('.po-btn').forEach(x => x.classList.remove('on')); };
   }
 
@@ -941,8 +1011,12 @@
   });
   // Portada al abrir (salvo recargas internas de la app)
   let saltar = false; try { saltar = sessionStorage.getItem(SALTAR) === '1'; sessionStorage.removeItem(SALTAR); } catch(e){}
-  if (PREGUNTAR || !saltar) mostrarPortada();
+  // al volver de la cámara (si el celular recargó la app) se sigue donde estaba, sin portada
+  const RET = window.Retomar ? window.Retomar.leer() : null;
+  if (RET && !VEND_PIDE && !PREGUNTAR) saltar = true;
+  if (PREGUNTAR || !saltar || VEND_PIDE) mostrarPortada();
   else { let recien = false; try { recien = sessionStorage.getItem('ruteoTR1_recienEntro') === '1'; sessionStorage.removeItem('ruteoTR1_recienEntro'); } catch(e){} if (recien) setTimeout(bienvenida, 500); }
+  if (RET && !VEND_PIDE && !PREGUNTAR && window.Retomar) setTimeout(() => window.Retomar.seguir(RET), 600);
   const spl = $('splash'); if (spl){ spl.classList.add('fuera'); setTimeout(() => spl.remove(), 600); }
   // Potencial de cada cliente (se carga sin frenar la app)
   if (window.Potencial) window.Potencial.cargar().then(() => refresh(false));
