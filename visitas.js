@@ -407,7 +407,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
-        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Datos hasta el ${largo(ultimoCompleto)}</p>${barraArchivo()}</div>
+        <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Datos hasta el ${largo(ultimoCompleto)}</p>${barraArchivo()}${RU.modo === 'supervisor' && window.Exportar ? '<button type="button" class="vs-irexp" onclick="var e=document.getElementById(\'ctExportar\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'start\'})">📤 Exportar fotos y visitas ›</button>' : ''}</div>
         <div class="vs-seg" role="tablist"><button type="button" data-modo="dia" class="${esDia ? 'on' : ''}">Día</button><button type="button" data-modo="semana" class="${esSem ? 'on' : ''}">Semana</button><button type="button" data-modo="mes" class="${!esDia && !esSem ? 'on' : ''}">Mes</button></div>
       </div>
       ${avisoApolo(yo)}
@@ -425,6 +425,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
       <div class="vs-lista-h">${esDia ? 'Tocá un vendedor para ver a quién no visitó' : 'Tocá un vendedor para ver qué clientes le faltan'}</div>
       ${vend || `<div class="tv-state"><b>Ningún vendedor tenía ruteo ${esDia ? 'este día' : esSem ? 'esta semana' : 'este mes'}</b></div>`}`}
+      ${RU.modo === 'supervisor' && window.Exportar ? '<div id="vsExp"></div>' : ''}
     </div>`;
 
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abiertos.clear(); pintar(); });
@@ -438,6 +439,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       pintar();
     });
     if (window.Anomalias && $('anVis')) window.Anomalias.en($('anVis'));
+    if (window.Exportar && $('vsExp')) window.Exportar.tarjeta($('vsExp'));
     const chipOn = box.querySelector('.vs-dchip.on'); if (chipOn) chipOn.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 
@@ -476,6 +478,27 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       return out.sort((a, b) => String(a.h1 || '99').localeCompare(String(b.h1 || '99')));
     },
     tieneDia(d){ return estado === 'ok' && DATES.includes(d); },
+    // Para exportar a Excel: días con datos dentro del rango, resumen por vendedor y detalle por cliente y día
+    fechas(){ return estado === 'ok' ? DATES.slice() : []; },
+    exportar(carts, desde, hasta){
+      if (estado !== 'ok') return null;
+      const ds = DATES.filter(d => d >= desde && d <= hasta && !enCurso(d));
+      const RU = window.RUTEO, res = [], det = [];
+      carts.filter(c => !RU.isVacante(c)).forEach(c => {
+        const x = delRango(c, ds);
+        res.push({c, prog: x.prog, hechas: x.hechas, enDia: x.enDia, otroDia: x.otroDia, cli: x.cli, cliVis: x.cliVis, visitas: x.visitas, conVenta: x.conVenta, monto: x.monto, dias: x.dias});
+        ds.forEach(d => {
+          if (d < inicioDe(c)) return;
+          const y = delDia(c, d);
+          const fila = (o, toca, est) => det.push({d, c, cl: o.cl, toca, est, h1: o.hit ? o.hit[0] : '', h2: o.hit ? o.hit[1] : '', venta: o.hit ? (o.hit[3] || 0) : 0});
+          y.si.forEach(o => fila(o, true, 'Visitado'));
+          y.no.forEach(o => fila(o, true, 'No visitado'));
+          y.otro.forEach(o => fila(o, false, 'Visitado (otro día)'));
+          y.fuera.forEach(o => fila(o, false, 'Fuera de ruta'));
+        });
+      });
+      return {dias: ds, res, det, largo, DIAS};
+    },
     // Primer día con marcaciones del vendedor actual ('' = sin datos; '9999-12-31' = nuevo, todavía sin marcar)
     inicio(vc){ return estado === 'ok' ? (inicioCart.get(vc) || (DATES[0] ? NUEVO : '')) : ''; },
     resumenUltimoDia(carts){

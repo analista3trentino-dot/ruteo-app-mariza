@@ -676,5 +676,5 @@
   }
 
   const compeSemana = () => { const desde = lunes(new Date()); return compe().filter(r => r.Fecha >= desde); };
-  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, todasFotos: () => fotos(), fichaDe, compeSemana, anomalias, enviarAnomalia, base64: aBase64, listo: () => !!datos};
+  window.Fotos = {enTop, mostrarCompe, iniciar, cargar, filaCli, bannerRuta, enlazar, semanaDe, icono: IC.cam, tomarFoto, subirFoto: subirFotoApi, enviarGestion, gestion, todasFotos: () => fotos(), todasCompe: () => compe(), fichaDe, compeSemana, anomalias, enviarAnomalia, base64: aBase64, listo: () => !!datos};
 })();

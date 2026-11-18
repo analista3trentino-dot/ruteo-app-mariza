@@ -199,13 +199,14 @@
 
     box.innerHTML = `<div class="ct">
       <div class="ct-cab"><div><h2>Control</h2><p>${esc(largo(HOY).replace(/^./, c => c.toUpperCase()))}</p></div><button type="button" class="ar-act" data-ct-act>↻ Actualizar</button></div>
-      ${rev}<div id="ctRec"></div><div id="ctIng"></div>${anom || esq('Anomalías de vendedores')}${sup || esq('Supervisores en la calle')}${vis || esq('Visitas de vendedores')}${top}${otros}
+      ${rev}<div id="ctRec"></div><div id="ctIng"></div><div id="ctExp"></div>${anom || esq('Anomalías de vendedores')}${sup || esq('Supervisores en la calle')}${vis || esq('Visitas de vendedores')}${top}${otros}
     </div>`;
     box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ir(b.dataset.go));
     box.querySelector('[data-ct-act]').onclick = () => { if (window.Archivos && window.Archivos.olvidar) window.Archivos.olvidar(); if (window.Encuesta && window.Encuesta.cargar) window.Encuesta.cargar(true).catch(() => {}); cargar(true); };
     if (window.Encuesta && $('ctEnc')) window.Encuesta.tarjeta($('ctEnc'));
     if (window.Recibidos && $('ctRec')) window.Recibidos.en($('ctRec'));
     if (window.Ingresos && $('ctIng')) window.Ingresos.tarjeta($('ctIng'));
+    if (window.Exportar && $('ctExp')) window.Exportar.tarjeta($('ctExp'));
     box.querySelectorAll('#ctAnom [data-an]').forEach(b => b.onclick = () => { const r = (window.Fotos.anomalias() || []).find(x => x.ID === b.dataset.an); if (r && window.Anomalias.ver) window.Anomalias.ver(r); });
     if (window.Avisos && window.Avisos.refrescar) window.Avisos.refrescar();
   }

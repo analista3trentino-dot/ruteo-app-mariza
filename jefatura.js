@@ -284,6 +284,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
           </button>
           <div class="vs-v-body">${abierto && x.visitas ? (esDia ? detalleDia(x) : detalleMes(x)) : abierto ? '<p class="vs-nada">Sin marcaciones.</p>' : ''}</div>
         </article>`; }).join('')}
+      ${window.Exportar ? '<div id="jfExp" class="jf-exp"></div>' : ''}
       <p class="tv-note">Tiempo en clientes = desde que el supervisor marca la entrada hasta la salida de cada cliente. Las visitas de menos de ${VISITA_CORTA_MINUTOS} minutos se marcan como cortas.</p>
     </div>`;
     box.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { ui.modo = b.dataset.modo; ui.abierto = ''; pintar(); });
@@ -294,6 +295,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     box.querySelectorAll('.jf-v .vs-v-head').forEach(b => b.onclick = () => { const k = b.closest('.jf-v').dataset.sup; ui.abierto = ui.abierto === k ? '' : k; pintar(); });
     if (window.Anomalias && $('anJef')) window.Anomalias.en($('anJef'));
     if (window.Encuesta && $('enJef')) window.Encuesta.tarjeta($('enJef'));
+    if (window.Exportar && $('jfExp')) window.Exportar.tarjeta($('jfExp'));
     const on = box.querySelector('.vs-dchip.on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   }
 

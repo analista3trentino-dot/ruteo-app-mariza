@@ -134,6 +134,14 @@ function doGet(e) {
   const q = e.parameter || {};
   if (q.clave !== CLAVE_APP) return json({ok: false, error: 'clave'});
   if (q.accion === 'marcas') return json(imagenesMarcas(q.carpeta));
+  // Fotos para armar el PowerPoint en la app (hasta 6 por pedido)
+  if (q.accion === 'fotos64'){
+    const out = {};
+    String(q.ids || '').split(',').filter(Boolean).slice(0, 6).forEach(id => {
+      try { const b = DriveApp.getFileById(id).getBlob(); out[id] = {mime: b.getContentType(), b64: Utilities.base64Encode(b.getBytes())}; } catch (err) { out[id] = null; }
+    });
+    return json({ok: true, fotos: out});
+  }
   if (q.accion === 'ingresos'){
     const sh = planilla().getSheetByName('Ingresos'); if (!sh || sh.getLastRow() < 2) return json({ok: true, ingresos: []});
     const desdeI = Utilities.formatDate(new Date(Date.now() - (+q.dias || 35) * 864e5), tz(), 'yyyy-MM-dd');
