@@ -1,15 +1,18 @@
-// =====================================================================
-//  CLAVES DE ACCESO
-// ---------------------------------------------------------------------
-//  SUPERVISORES: cada uno entra con SU clave y ve solo su equipo
-//  (sus vendedores, sus visitas y sus avisos).
-//  JEFATURA: ve todo, todos los equipos y el control de supervisores.
-//  Los vendedores no tienen clave: solo ven su cartera.
-//
-//  Para cambiar una clave: editá el texto entre comillas y confirmá los
-//  cambios. Ese supervisor tendrá que escribir la clave nueva.
-//  No borres las comillas " " ni la coma , del final.
-// =====================================================================
+const CLAVES_VENDEDORES = {
+  "TR1233": "mercadosl",      
+  "TR1234": "mercadoluque",       
+  "TR1331": "asulambare",      
+  "TR1332": "asuncion",      
+  "TR1336": "villaelisa",        
+  "TR1337": "juansilvano",
+  "TR1338": "sanlorenzo",
+  "TR1531": "guarambare1",
+  "TR1532": "ypane2",
+  "TR1534": "italeiva",
+  "TR1535": "ypakarai3",
+  "TR1536": "itauguamaria",
+  "TR1621": "lorenamendez",
+};
 
 const CLAVES_SUPERVISORES = {
   "TR12": "aygas12",        // ST. MAY. AYGAS
