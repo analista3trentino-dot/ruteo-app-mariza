@@ -76,6 +76,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         if (cS < 0 || cC < 0 || cD < 0) continue;
         const c1 = h.findIndex(x => x.startsWith('primera') || x.startsWith('minhora')), c2 = h.findIndex(x => x.startsWith('ultima') || x.startsWith('maxhora'));
         const cP = h.findIndex(x => x === 'cod persona'), cN = h.findIndex(x => x === 'nombre' || x === 'nombre vendedor');
+        const cM = h.findIndex(x => x.startsWith('monto venta')), cV = h.findIndex(x => x.startsWith('cant clientes con ventas'));
         const out = [];
         for (let k = i + 1; k < rows.length; k++){
           const r = rows[k]; if (!r) continue;
@@ -83,7 +84,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
           const vc = (vtxt.match(/\b((?:TR|TM|AR)\d{4})\b/) || [])[1] || vtxt;
           if (!vc || !sub || !d) continue;
           const m = sub.match(CODE_RX);
-          out.push({vc, emp: /^AR/.test(vc) ? 'A' : 'T', nom: cN >= 0 && r[cN] != null ? String(r[cN]).trim() : '', p: cP >= 0 && r[cP] != null ? String(r[cP]).trim() : '', code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : ''});
+          out.push({vc, emp: /^AR/.test(vc) ? 'A' : 'T', nom: cN >= 0 && r[cN] != null ? String(r[cN]).trim() : '', p: cP >= 0 && r[cP] != null ? String(r[cP]).trim() : '', code: m ? m[1] + '-' + m[2] : '', name: sub.replace(CODE_RX, '').trim(), d, h1: c1 >= 0 ? aHora(r[c1]) : '', h2: c2 >= 0 ? aHora(r[c2]) : '', v: cM >= 0 ? (+r[cM] || 0) : 0, cv: cV >= 0 ? (+r[cV] || 0) : 0});
         }
         if (out.length) return out;
       }
@@ -119,7 +120,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
 
   // --- Índice: visitas cruzadas con el ruteo por código (si no hay código, por nombre) ---
   let estado = 'sin-cargar', error = '', R = null;
-  let DATES = [], porCartera = new Map(), fuera = new Map(), huerfanas = new Set();
+  let DATES = [], porCartera = new Map(), fuera = new Map(), huerfanas = new Set(), VMES = null;
+  const HOYV = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
   let EN_CURSO = '';                     // último día exportado a medias (todavía en curso)
   let marcasCartera = new Map();         // cartera -> Map(mes -> cantidad de marcaciones)
   let ULT_T = '', ULT_A = '';
@@ -169,8 +171,9 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       // Cada visita viene en dos filas (entrada y salida): se junta en una sola por cliente y día
       const guardar = (map, d) => {
         const p = map.get(d);
-        if (!p) map.set(d, [r.h1, r.h2, 0, 0, r.emp]);
-        else { if (r.h1 && (!p[0] || r.h1 < p[0])) p[0] = r.h1; if (r.h2 && (!p[1] || r.h2 > p[1])) p[1] = r.h2; if (!String(p[4] || '').includes(r.emp)) p[4] = (p[4] || '') + r.emp; }
+        // el monto de venta viene repetido en las filas de entrada y salida: se toma una sola vez (el mayor)
+        if (!p) map.set(d, [r.h1, r.h2, r.cv || r.v > 0 ? 1 : 0, r.v || 0, r.emp]);
+        else { if (r.h1 && (!p[0] || r.h1 < p[0])) p[0] = r.h1; if (r.h2 && (!p[1] || r.h2 > p[1])) p[1] = r.h2; if (!String(p[4] || '').includes(r.emp)) p[4] = (p[4] || '') + r.emp; if (r.cv || r.v > 0) p[2] = 1; if ((r.v || 0) > p[3]) p[3] = r.v; }
       };
       if (i !== undefined){
         const m = porCartera.get(ru.c.vc); if (!m.has(i)) m.set(i, new Map()); guardar(m.get(i), r.d);
@@ -452,7 +455,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
   const nomT = c => String(c.vn || '').toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase()).split(' ').filter(Boolean).slice(0, 2).join(' ');
   const diaC = d => DIAS_C[wday(d)] + ' ' + (+d.slice(8));
   let potPedido = false;
-  function resumenEquipo(carts, dias, esDia, esSem){
+  function resumenEquipo(carts, dias, esDia, esSem, ops){
+    ops = ops || {};
     const R = window.Resumen, L = R.LIM, G = {anom: [], tarde: [], temp: [], inc: [], sinm: [], comp: [], nunca: []};
     const vcs = new Set(carts.map(c => c.vc)), ds = new Set(dias);
     const F = window.Fotos && window.Fotos.anomalias ? window.Fotos.anomalias() || [] : [];
@@ -476,7 +480,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     });
     const S = R.sinCompra(carts);
     if (S){
-      const por = (xs, k) => { const m = new Map(); xs.forEach(x => { if (!m.has(x.c.vc)) m.set(x.c.vc, {c: x.c, n: 0, p: 0}); const o = m.get(x.c.vc); o.n++; o.p += x.p || 0; }); return [...m.values()].sort((a, b) => b.n - a.n).map(o => ({n: nomT(o.c), s: o.c.vc + (o.p ? ' · pueden comprar ' + (o.p / 1e6).toLocaleString('es-PY', {maximumFractionDigits: 1}) + ' M' : ''), b: o.n + (o.n === 1 ? ' cliente' : ' clientes'), go: k + ':' + o.c.vc})); };
+      const hoyC = R.hoyCorto();
+      const por = (xs, k) => { const m = new Map(); xs.forEach(x => { if (!m.has(x.c.vc)) m.set(x.c.vc, {c: x.c, n: 0, h: 0, p: 0}); const o = m.get(x.c.vc); o.n++; if (R.diasDe(x.cl).includes(hoyC)) o.h++; o.p += x.p || 0; }); return [...m.values()].sort((a, b) => b.n - a.n).map(o => ({n: nomT(o.c), s: `${o.c.vc} · ${o.n} en la semana · ${o.h} de hoy` + (o.p ? ' · potencial ' + (o.p / 1e6).toLocaleString('es-PY', {maximumFractionDigits: 1}) + ' M' : ''), b: o.n + (o.n === 1 ? ' cliente' : ' clientes'), go: k + ':' + o.c.vc})); };
       G.comp = por(S.sin, 'sc'); G.nunca = por(S.nunca, 'sn');
     } else if (window.Potencial && !potPedido){ potPedido = true; window.Potencial.cargar().then(() => { if (estado === 'ok') pintar(); }); }
     const porT = g => g.sort((a, b) => (parseInt(b.b) || 0) - (parseInt(a.b) || 0));
@@ -487,19 +492,21 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       {k: 'temp', ic: '🏃', t: `Salieron temprano (antes de las ${HORA_SALIDA_MINIMA})`, tono: 'mid', vacio: 'Nadie salió temprano', items: G.temp},
       {k: 'inc', ic: '🚶', t: `No completaron la ruta (menos del ${RUTA_MINIMA}%)`, tono: 'mid', vacio: 'Todos completaron la ruta', items: G.inc},
       {k: 'sinm', ic: '📵', t: 'No marcaron visitas', tono: 'bad', vacio: 'Todos marcaron', items: G.sinm},
-      {k: 'comp', ic: '🛒', t: 'Clientes que todavía no compraron este mes', tono: 'info', vacio: S ? '¡Todos compraron!' : 'Cargando potencial…', items: G.comp},
-      {k: 'nunca', ic: '🚫', t: 'Clientes sin ninguna compra', tono: 'info', vacio: S ? 'Ninguno' : 'Cargando potencial…', items: G.nunca}
+      {k: 'comp', ic: '🛒', t: `Todavía no compraron en ${window.Potencial && window.Potencial.listo ? window.Potencial.mes() : 'el mes'} (semana completa, por día)`, tono: 'info', vacio: S ? '¡Todos compraron!' : 'Cargando potencial…', items: G.comp},
+      {k: 'nunca', ic: '🚫', t: 'Clientes sin historial de compras', tono: 'info', vacio: S ? 'Ninguno' : 'Cargando potencial…', items: G.nunca}
     ];
-    const tit = esDia ? 'Resumen del ' + largo(dias[0]) : esSem ? 'Resumen de la semana' : 'Resumen del mes';
+    const tit = ops.titulo || (esDia ? 'Resumen del ' + largo(dias[0]) : esSem ? 'Resumen de la semana' : 'Resumen del mes');
+    if (ops.sinCompras === false) grupos.splice(grupos.findIndex(g => g.k === 'comp'), 2);
+    if (ops.soloGrupos) return grupos;
     return R.html(tit, `${carts.length} vendedores · tocá cada fila para ver los nombres`, grupos, {nota: 'Llegada = primera visita marcada · salida = última visita marcada. Las horas límite se cambian en resumen.js.'});
   }
   function irResumen(go){
     const [k, vc, d] = go.split(':'), RU = window.RUTEO;
-    if (k === 'v'){ ui.modo = 'dia'; if (d){ ui.dia = d; ui.mes = d.slice(0, 7); } ui.abiertos = new Set([vc]); pintar();
+    if (k === 'v'){ ui.modo = 'dia'; if (d){ ui.dia = d; ui.mes = d.slice(0, 7); } ui.abiertos = new Set([vc]); if (document.body.dataset.seccion !== 'visitas') RU.setSeccion('visitas'); else pintar();
       setTimeout(() => { const el = document.querySelector('#visitasView .vs-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 80); return; }
     const c = RU.carteras.find(x => x.vc === vc); if (!c || !window.Resumen) return;
     const S = window.Resumen.sinCompra([c]); if (!S) return;
-    window.Resumen.abrirLista(S, k === 'sn' ? 'nunca' : 'sin', (k === 'sn' ? 'Sin compras · ' : 'No compraron · ') + nomT(c), false);
+    window.Resumen.abrirLista(S, k === 'sn' ? 'nunca' : 'sin', (k === 'sn' ? 'Sin historial · ' : 'No compraron · ') + nomT(c), false);
   }
 
   function barraArchivo(){
@@ -538,6 +545,28 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     },
     tieneDia(d){ return estado === 'ok' && DATES.includes(d); },
     // Para exportar a Excel: días con datos dentro del rango, resumen por vendedor y detalle por cliente y día
+    // Ventas del mes (monto de los pedidos en visitas) por código de cliente: {por: {codigo: monto}, hasta: 'AAAA-MM-DD'}
+    ventasMes(){
+      if (estado !== 'ok') return null;
+      const mes = HOYV.slice(0, 7);
+      if (VMES && VMES.n === DATES.length && VMES.mes === mes) return VMES;
+      const por = {}, RU = window.RUTEO, suma = (code, dias) => { if (!code) return; dias.forEach((x, d) => { if (d.startsWith(mes) && x[3]) por[code] = (por[code] || 0) + x[3]; }); };
+      porCartera.forEach((m, vc) => { const c = RU.carteras.find(x => x.vc === vc); if (c) m.forEach((dias, i) => suma(c.cl[i] && c.cl[i][6], dias)); });
+      fuera.forEach(m => m.forEach(o => suma(o.code, o.dias)));
+      const ds = DATES.filter(d => d.startsWith(mes));
+      VMES = {por, hasta: ds[ds.length - 1] || '', n: DATES.length, mes};
+      return VMES;
+    },
+    // Resumen del día anterior (para la pantalla principal)
+    diaAnterior(){ if (estado !== 'ok') return ''; const ds = DATES.filter(d => d < HOYV); return ds[ds.length - 1] || ''; },
+    resumenDe(carts, d, ops){
+      if (estado !== 'ok' || !window.Resumen || !d) return '';
+      const cs = carts.filter(c => !window.RUTEO.isVacante(c) && (marcasCartera.get(c.vc) || new Map()).get(d.slice(0, 7)));
+      return resumenEquipo(cs, [d], true, false, ops || {});
+    },
+    largo: d => largo(d),
+
+    irResumen: go => irResumen(go),
     fechas(){ return estado === 'ok' ? DATES.slice() : []; },
     exportar(carts, desde, hasta){
       if (estado !== 'ok') return null;

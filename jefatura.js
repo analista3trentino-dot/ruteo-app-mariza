@@ -223,7 +223,8 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
 
 
   // Resumen de supervisores: llegaron tarde, salieron temprano, pocas visitas, no marcaron, poco con vendedor y anomalías de su equipo
-  function resumenSups(filas, dias, esDia, esSem){
+  function resumenSups(filas, dias, esDia, esSem, ops){
+    ops = ops || {};
     const R = window.Resumen, L = R.LIM, RU = window.RUTEO, G = {tarde: [], temp: [], pocas: [], sinm: [], cruce: [], anom: []};
     const corto = d => DIAS_C[fromISO(d).getDay()] + ' ' + (+d.slice(8));
     const enC = d => d === HOY && new Date().getHours() < 17;
@@ -258,6 +259,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
       {k: 'cruce', ic: '🤝', t: 'Poco tiempo junto a sus vendedores', tono: 'mid', vacio: 'Todos acompañaron bien', items: G.cruce},
       {k: 'anom', ic: '⚠️', t: 'Anomalías de sus vendedores', tono: 'info', vacio: 'Sin anomalías', items: G.anom}
     ];
+    if (ops.soloGrupos) return grupos;
     return R.html(esDia ? 'Resumen del ' + largo(dias[0]) : esSem ? 'Resumen de la semana' : 'Resumen del mes', `${filas.length} supervisores · tocá cada fila para ver los nombres`, grupos, {nota: 'Empezó = primera visita marcada · terminó = última visita marcada.'});
   }
 
@@ -353,6 +355,13 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
   let cargaJ = null;
   window.Jefatura = {
     mostrar(){ cargar(); pintar(); },
+    // Resumen de supervisores de un día (para la pantalla Control)
+    async resumenDe(d, ops){
+      if (estado !== 'ok'){ if (!cargaJ) cargaJ = cargarDatos().then(() => { estado = 'ok'; }); await cargaJ; }
+      if (!d || !window.Resumen) return '';
+      return resumenSups(SUPS.map(s => ({s, x: resumen(s.k, new Set([d]))})), [d], true, false, ops || {});
+    },
+    irResumen(go){ const [, k, d] = go.split(':'); ui.modo = 'dia'; if (d){ ui.dia = d; ui.mes = d.slice(0, 7); } ui.abierto = k; if (window.RUTEO) window.RUTEO.setSeccion('jefatura'); setTimeout(() => { const el = document.querySelector('#jefaturaView .jf-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 250); },
     // Para los avisos de jefatura: resumen del último día con marcaciones
     async resumenUltimo(){
       if (estado !== 'ok'){ if (!cargaJ) cargaJ = cargarDatos().then(() => { estado = 'ok'; }); await cargaJ; }

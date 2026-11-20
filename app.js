@@ -216,20 +216,24 @@
   const DIA_UNO = () => state.days.size === 1 ? [...state.days][0] : null;
   // Suma del potencial de los clientes que se ven (cada cliente una vez)
   let POT_LISTAS = null;
-  document.addEventListener('click', e => { const b = e.target.closest('[data-potl]'); if (!b || !POT_LISTAS || !window.Resumen) return; const k = b.dataset.potl; window.Resumen.abrirLista(POT_LISTAS, k, k === 'nunca' ? 'Clientes sin ninguna compra' : 'Todavía no compraron este mes', POT_LISTAS.varias); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-potl]'); if (!b || !POT_LISTAS || !window.Resumen) return; const k = b.dataset.potl; window.Resumen.abrirLista(POT_LISTAS, k, k === 'nunca' ? 'Clientes sin historial de compras' : 'Todavía no compraron este mes', POT_LISTAS.varias); });
   function sumaPot(vis){
     const P = POT(); if (!P) return null;
     const vistos = new Set(); let pot = 0, ven = 0, n = 0, sin = 0;
     const L = {sin: [], nunca: []};
     vis.forEach(v => v.idx.forEach(i => {
       const cl = v.c.cl[i], k = claveCli(v.c, cl); if (vistos.has(k) || !cl[6]) return; vistos.add(k);
-      if (!P.tiene(cl[6]) || (!P.potDe(cl[6]) && !P.ventaDe(cl[6]))){ L.nunca.push({cl, c: v.c}); return; }
+      if (P.sinHistorial(cl[6])){ L.nunca.push({cl, c: v.c}); return; }
+      if (!P.tiene(cl[6])) return;
       const p = P.potDe(cl[6]), s = P.ventaDe(cl[6]); pot += p; ven += s; n++; if (s <= 0 && p > 0){ sin++; L.sin.push({cl, c: v.c, p}); }
     }));
     L.sin.sort((a, b) => b.p - a.p); L.nunca.sort((a, b) => String(a.cl[2]).localeCompare(String(b.cl[2]), 'es'));
-    POT_LISTAS = {sin: L.sin, nunca: L.nunca, mes: P.mes(), fuente: P.fuente(), varias: vis.length > 1};
+    POT_LISTAS = {sin: L.sin, nunca: L.nunca, mes: P.mes(), fuente: P.fuente(), varias: vis.length > 1, soloDia: state.days.size === 1 ? 'del ' + ([...state.days][0] === TODAY_LBL ? 'día de hoy' : [...state.days][0]) : state.days.size ? 'de los días elegidos' : ''};
     return {pot, ven, n, sin, nunca: L.nunca.length};
   }
+  // Resumen del día anterior arriba de la Ruta (solo supervisores, sin búsqueda ni cartera abierta)
+  const ayerHtml = () => !MODO_VENDEDOR && !MODO_JEFATURA && window.Resumen && !state.query ? '<div id="rzAyer" class="rz-ayer"></div>' : '';
+  function llenarAyer(){ const b = $('rzAyer'); if (b && window.Resumen) window.Resumen.ayer(b, 'supervisor'); }
   function potDiaHtml(vis){
     const d = DIA_UNO(); if (!d || d === 'S/Cal' || state.soloTop || state.query) return '';
     if (window.Potencial && !window.Potencial.listo){
@@ -246,7 +250,7 @@
       </div>
       <div class="pot-bar"><i class="${ton}" style="width:${Math.min(100, a)}%"></i></div>
       <p class="pot-linea"><b class="${ton}">${a}%</b> del potencial${falta ? ` · faltan <b>${gsN(falta)}</b>` : ' · <b class="good">¡completo!</b>'}${falta && q ? ` <span>(${q === 1 ? 'queda 1 ' + DIA_LARGO_[d] : 'quedan ' + q + ' ' + DIA_LARGO_[d] + (d === 'Sáb' ? 's' : '')} en el mes)</span>` : ''}</p>
-      ${s.sin || s.nunca ? `<div class="pot-ls">${s.sin ? `<button type="button" class="pot-l" data-potl="sin"><span>🛒</span><span><b>${s.sin}</b> ${s.sin === 1 ? 'cliente todavía no compró' : 'clientes todavía no compraron'} este mes</span><i>Ver lista ›</i></button>` : ''}${s.nunca ? `<button type="button" class="pot-l" data-potl="nunca"><span>🚫</span><span><b>${s.nunca}</b> ${s.nunca === 1 ? 'cliente no tiene' : 'clientes no tienen'} ninguna compra</span><i>Ver lista ›</i></button>` : ''}</div>` : ''}
+      ${s.sin || s.nunca ? `<div class="pot-ls">${s.sin ? `<button type="button" class="pot-l" data-potl="sin"><span>🛒</span><span><b>${s.sin}</b> ${s.sin === 1 ? 'cliente todavía no compró' : 'clientes todavía no compraron'} este mes</span><i>Ver lista ›</i></button>` : ''}${s.nunca ? `<button type="button" class="pot-l" data-potl="nunca"><span>🚫</span><span><b>${s.nunca}</b> ${s.nunca === 1 ? 'cliente sin historial' : 'clientes sin historial'} de compras</span><i>Ver lista ›</i></button>` : ''}</div>` : ''}
     </div>`;
   }
   const DIA_LARGO_ = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'};
@@ -304,9 +308,11 @@
       ? `<a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener" aria-label="Cómo llegar a ${esc(nombre)}">${ICON.nav}<span>Ir</span></a>`
       : `<span class="nogps">Sin GPS</span>`;
     const lpBtn = `<button type="button" class="lpbtn ${lp ? '' : 'nolp'}" data-lpi="${i}" aria-label="Lista de precios de ${esc(nombre)}"><b>LP</b><span>${esc(lp || '—')}</span></button>`;
-    return `<div class="client ${cl._top ? 'is-top' : ''}">
-      <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}${hl(nombre)}${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
-        <div class="meta">${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}${window.Tacticos ? window.Tacticos.chip(cl) : ''}</div>
+    const PP = POT(), sinHist = PP && codigo && PP.sinHistorial(codigo), sinCompra = PP && codigo && !sinHist && PP.tiene(codigo) && PP.potDe(codigo) > 0 && PP.ventaDe(codigo) <= 0;
+    const marcaC = sinHist ? `<span class="sc-tag">Sin historial</span>` : sinCompra ? `<span class="sc-tag">Sin compra en ${esc(PP.mes())}</span>` : '';
+    return `<div class="client ${cl._top ? 'is-top' : ''} ${sinHist || sinCompra ? 'sincompra' : ''}">
+      <div class="cbody"><div class="cname">${cl._top ? `<span class="topbadge" title="Cliente top">${ICON.star}TOP</span>` : ''}<span class="cnom">${hl(nombre)}</span>${codigo ? ` <span class="ccode">${hl(codigo)}</span>` : ''}</div>
+        <div class="meta">${marcaC}${hl(ciudad)}<span class="sep"></span>${dd}${pm ? `<span class="sep"></span><span class="pmtag">PM ${esc(pm)}</span>` : ''}${window.Tacticos ? window.Tacticos.chip(cl) : ''}</div>
       </div><div class="acts">${lpBtn}${go}</div>${potCliHtml(codigo)}${cl._top && window.Fotos ? window.Fotos.filaCli(cl, c) : ''}</div>`;
   }
   function bodyHtml(v){
@@ -431,7 +437,7 @@
     const hint = `<div class="hint"><span>${cuando}: <b>${unicos.size.toLocaleString('es-PY')}</b> ${unicos.size === 1 ? 'cliente' : 'clientes'}${MODO_VENDEDOR ? '' : ` en <b>${current.length}</b> ${current.length === 1 ? 'cartera' : 'carteras'}`}${topEstado === 'ok' && nTop ? `, <b class="hint-top">${nTop} top</b>` : ''}</span></div>`;
     // Jefatura: primero los supervisores; al tocar uno, sus vendedores
     if (MODO_JEFATURA && state.spv === 'TODOS' && !searching()){
-      main.innerHTML = hint + potDiaHtml(current) + bannerFotos() + `<div class="vs-lista-h">Tocá un supervisor para ver sus vendedores</div>` + sups.map((s, k) => {
+      main.innerHTML = ayerHtml() + hint + potDiaHtml(current) + bannerFotos() + `<div class="vs-lista-h">Tocá un supervisor para ver sus vendedores</div>` + sups.map((s, k) => {
         const vs = current.filter(v => v.c.sup === s.k); if (!vs.length) return '';
         const cl = new Set(); vs.forEach(v => v.idx.forEach(i => cl.add(claveCli(v.c, v.c.cl[i]))));
         const sp = DIA_UNO() && POT() ? sumaPot(vs) : null, a = sp && sp.pot ? Math.round(sp.ven / sp.pot * 100) : null;
@@ -448,7 +454,7 @@
       return;
     }
     const volver = MODO_JEFATURA && state.spv !== 'TODOS' ? `<button type="button" class="pt-volver jf-volver" id="jfVolver">‹ Todos los supervisores</button>` : '';
-    main.innerHTML = volver + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
+    main.innerHTML = volver + ayerHtml() + hint + potDiaHtml(current) + bannerFotos() + current.map(cardHtml).join('');
     if (window.Fotos) window.Fotos.enlazar(main); if (window.Encuesta) window.Encuesta.enlazar(main); if (window.Foco) window.Foco.enlazar(main);
     if (volver) $('jfVolver').onclick = () => { if (PILA.some(p => p.clave === 'sup')){ while (tope() && tope() !== 'sup') PILA.pop(); volver(); } else window.RUTEO.setSpv('TODOS'); };
     main.querySelectorAll('.cartera').forEach(el => {
@@ -965,6 +971,7 @@
     syncDays();
     $('clearSearch').classList.toggle('show', !!state.query);
     renderList();
+    llenarAyer();
     if (state.vista === 'mapa') renderMap();
     if (resetScroll) keepTop();
   }
@@ -1006,20 +1013,41 @@
   }
   if ($('btnVolver')) $('btnVolver').onclick = volver;
   cargarTop();
-  setSeccion(MODO_JEFATURA && $('controlView') && window.Control ? 'control' : 'ruta');
+  // ---- Seguir donde estaba: si el celular cierra la app en segundo plano (otra app, otra pestaña, salió sin querer),
+  //      al volver se abre en la misma pestaña, con los mismos filtros, el cliente abierto y la misma posición ----
+  const KP = 'ruteoTR1_pantalla', VIG_P = 4 * 3600e3, MODO_P = MODO_JEFATURA ? 'J' : MODO_VENDEDOR ? 'V:' + (MI_CARTERA ? MI_CARTERA.vc : '') : 'S:' + MI_SUP;
+  const guardarPantalla = () => { try {
+    const o = JSON.stringify({t: Date.now(), m: MODO_P, sec: state.seccion, spv: state.spv, days: [...state.days], openId: state.openId, vista: state.vista, soloTop: state.soloTop, topDay: state.topDay, query: state.query, y: window.scrollY});
+    sessionStorage.setItem(KP, o); localStorage.setItem(KP, o); } catch(e){} };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) guardarPantalla(); });
+  window.addEventListener('pagehide', guardarPantalla);
+  let PANT = null; try { PANT = JSON.parse(sessionStorage.getItem(KP) || localStorage.getItem(KP) || 'null'); } catch(e){}
+  if (PANT && (Date.now() - (PANT.t || 0) > VIG_P || PANT.m !== MODO_P || VEND_PIDE || PREGUNTAR)) PANT = null;
+  if (PANT){
+    if (PANT.spv && (!SUP_FIJO || PANT.spv === MI_SUP) && (PANT.spv === 'TODOS' || sups.some(x => x.k === PANT.spv))) state.spv = PANT.spv;
+    if (Array.isArray(PANT.days)) state.days = new Set(PANT.days);
+    state.openId = PANT.openId || null; state.soloTop = !!PANT.soloTop; state.topDay = PANT.topDay || null;
+    if (PANT.query){ state.query = PANT.query; $('searchInput').value = PANT.query; }
+  }
+  const secOk = s => s && document.querySelector('.tabbar-btn[data-sec="' + s + '"]') && !document.querySelector('.tabbar-btn[data-sec="' + s + '"]').hidden;
+  setSeccion(PANT && secOk(PANT.sec) ? PANT.sec : MODO_JEFATURA && $('controlView') && window.Control ? 'control' : 'ruta');
+  if (PANT && PANT.vista && PANT.vista !== state.vista && typeof setVista === 'function') try { setVista(PANT.vista); } catch(e){}
   refresh(false);
+  if (PANT && PANT.y) [300, 1200, 2500].forEach(ms => setTimeout(() => { if (Math.abs(window.scrollY - PANT.y) > 40 && !document.documentElement.classList.contains('cat-abierto')) window.scrollTo(0, PANT.y); }, ms));
   if (window.Fotos) window.Fotos.iniciar();
-  // Si la app estuvo más de 20 minutos en segundo plano, al volver se recarga (trae lo último subido)
+  // Si la app estuvo mucho tiempo en segundo plano, al volver se recarga (trae lo último subido) y sigue donde estaba
   let oculto = 0;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden){ oculto = Date.now(); return; }
-    if (oculto && Date.now() - oculto > 20 * 60000){ try { sessionStorage.setItem(SALTAR, '1'); } catch(e){} location.reload(); }
+    // después de mucho tiempo (más de 3 horas) se recarga para traer lo último, pero vuelve a la misma pantalla
+    if (oculto && Date.now() - oculto > 3 * 3600e3){ guardarPantalla(); try { sessionStorage.setItem(SALTAR, '1'); } catch(e){} location.reload(); }
   });
   // Portada al abrir (salvo recargas internas de la app)
   let saltar = false; try { saltar = sessionStorage.getItem(SALTAR) === '1'; sessionStorage.removeItem(SALTAR); } catch(e){}
   // al volver de la cámara (si el celular recargó la app) se sigue donde estaba, sin portada
   const RET = window.Retomar ? window.Retomar.leer() : null;
   if (RET && !VEND_PIDE && !PREGUNTAR) saltar = true;
+  if (PANT) saltar = true;   // el celular cerró la app en segundo plano: sin portada, sigue donde estaba
   if (PREGUNTAR || !saltar || VEND_PIDE) mostrarPortada();
   else { let recien = false; try { recien = sessionStorage.getItem('ruteoTR1_recienEntro') === '1'; sessionStorage.removeItem('ruteoTR1_recienEntro'); } catch(e){} if (recien) setTimeout(bienvenida, 500); }
   if (RET && !VEND_PIDE && !PREGUNTAR && window.Retomar) setTimeout(() => window.Retomar.seguir(RET), 600);

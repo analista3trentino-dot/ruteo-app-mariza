@@ -167,7 +167,8 @@
       ${boton('sups', '🧭', 'Recorridos', 'Mapa de supervisores', 'ce')}
       ${boton('mas', '📦', 'Más', 'Stock, competencia, encuesta', 'gr')}
     </div></section>`;
-    box.innerHTML = `<div class="ct cx">${cab}${hero}${aviso}${mirar}${sups}${herr}</div>`;
+    box.innerHTML = `<div class="ct cx">${cab}${hero}${aviso}<div id="cxAyer" class="rz-ayer"></div>${mirar}${sups}${herr}</div>`;
+    if (window.Resumen && $('cxAyer')) window.Resumen.ayer($('cxAyer'), 'jefatura');
     box.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ir(b.dataset.go));
     box.querySelector('[data-ct-act]').onclick = () => { if (window.Archivos && window.Archivos.olvidar) window.Archivos.olvidar(); if (window.Encuesta && window.Encuesta.cargar) window.Encuesta.cargar(true).catch(() => {}); cargar(true); };
     if (window.Avisos && window.Avisos.refrescar) window.Avisos.refrescar();
