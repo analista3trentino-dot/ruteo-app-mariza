@@ -2759,3 +2759,49 @@ body.modo-jefatura #jefaturaView .vs-lista-h{font-weight:700; color:#0A1628;}
 body.modo-jefatura .ct-card{border-radius:20px; border-color:#ECE7DC;}
 .cx-hoja-cu .ig-cab, .cx-hoja-cu .ex-cab, .cx-hoja-cu .rc-cab{display:none;}
 body.modo-jefatura #jefaturaView .vs-head{flex-wrap:wrap; row-gap:10px;}
+
+/* ---- Resumen (Visitas y Supervisores) ---- */
+.rz{margin:0 0 14px; padding:16px; border-radius:22px; background:var(--card, #fff); border:1px solid var(--line, #E6EAF0); box-shadow:0 1px 2px rgba(10,22,40,.05); display:flex; flex-direction:column; gap:12px;}
+.rz-cab{display:flex; gap:12px; align-items:flex-start;}
+.rz-luz{flex:none; width:12px; height:12px; margin-top:6px; border-radius:50%; background:#12A06B; box-shadow:0 0 0 5px rgba(18,160,107,.15);}
+.rz.mid .rz-luz{background:#E59A0B; box-shadow:0 0 0 5px rgba(229,154,11,.16);}
+.rz.bad .rz-luz{background:#E0484D; box-shadow:0 0 0 5px rgba(224,72,77,.15);}
+.rz-cab b{display:block; font-family:var(--f-tit); font-size:1.08rem; font-weight:800; letter-spacing:-.02em; color:var(--txt);}
+.rz-cab small{display:block; font-size:.8rem; color:var(--txt-3); margin-top:2px;}
+.rz-chips{display:flex; flex-wrap:wrap; gap:6px;}
+.rz-chip{display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; font-size:.82rem; background:#F1F3F7; color:var(--txt-2);}
+.rz-chip b{font-weight:800;}
+.rz-chip.bad{background:#FDE7E7; color:#B4262B;} .rz-chip.mid{background:#FFF1D2; color:#8A5A00;} .rz-chip.info{background:#E7EEFF; color:#2443B8;} .rz-chip.cero{opacity:.55;}
+.rz-gs{display:flex; flex-direction:column; gap:6px;}
+.rz-g{border-radius:16px; background:#F8F9FB; border:1px solid #EEF1F5; overflow:hidden;}
+.rz-g summary{list-style:none; display:flex; align-items:center; gap:10px; padding:11px 12px; cursor:pointer;}
+.rz-g summary::-webkit-details-marker{display:none;}
+.rz-ic{flex:none; width:36px; height:36px; display:grid; place-items:center; border-radius:12px; font-size:1.1rem; background:#fff;}
+.rz-g.bad .rz-ic{background:#FDECEC;} .rz-g.mid .rz-ic{background:#FFF4DB;} .rz-g.info .rz-ic{background:#E9EFFF;}
+.rz-t{flex:1; min-width:0;}
+.rz-t b{display:block; font-size:.9rem; line-height:1.25; color:var(--txt);}
+.rz-t small{display:block; font-size:.78rem; color:var(--txt-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;}
+.rz-g.cero .rz-t small{color:#12A06B;}
+.rz-n{flex:none; min-width:30px; height:30px; padding:0 8px; border-radius:999px; display:grid; place-items:center; font-weight:800; font-size:.9rem; background:#E9ECF2; color:var(--txt-2);}
+.rz-g.bad .rz-n{background:#E0484D; color:#fff;} .rz-g.mid .rz-n{background:#E59A0B; color:#fff;} .rz-g.info .rz-n{background:#2E5BFF; color:#fff;}
+.rz-g.cero .rz-n{background:#E3F6EE; color:#0B7A51;}
+.rz-g[open] summary{border-bottom:1px solid #EEF1F5;}
+.rz-lista{display:flex; flex-direction:column; padding:4px 6px 6px;}
+.rz-it{display:flex; align-items:center; gap:10px; width:100%; padding:9px 8px; border:none; border-bottom:1px solid #EEF1F5; background:none; text-align:left; color:var(--txt);}
+.rz-it:last-child{border-bottom:none;}
+.rz-it > span{flex:1; min-width:0;}
+.rz-it b{display:block; font-size:.88rem;} .rz-it small{display:block; font-size:.76rem; color:var(--txt-3); margin-top:1px;}
+.rz-it em{flex:none; font-style:normal; font-weight:800; font-size:.82rem; color:var(--txt); background:#fff; border:1px solid #E6EAF0; padding:3px 8px; border-radius:999px;}
+.rz-it i{font-style:normal; color:#B7BECB; font-size:1.2rem;}
+.rz-nota{margin:0; font-size:.74rem; color:var(--txt-3); line-height:1.4;}
+.rz-clis{display:flex; flex-direction:column; gap:6px;}
+.rz-cli{display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:16px; background:#fff; border:1px solid #ECE7DC;}
+.rz-cli > span{flex:1; min-width:0;}
+.rz-cli b{display:block; font-size:.9rem;} .rz-cli small{display:block; font-size:.76rem; color:var(--txt-3); margin-top:2px;}
+.rz-cli em{flex:none; font-style:normal; font-weight:800; font-size:.82rem; color:#0A1628;}
+/* Potencial: listas de clientes sin compra */
+.pot-ls{position:relative; z-index:1; display:flex; flex-direction:column; gap:6px; margin-top:10px;}
+.pot-l{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.07); color:#fff; text-align:left; font-size:.85rem;}
+.pot-l > span:nth-child(2){flex:1; min-width:0;}
+.pot-l b{color:#FFC86B;}
+.pot-l i{flex:none; font-style:normal; font-size:.75rem; font-weight:700; color:#B7C3D8;}

@@ -405,6 +405,8 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       </article>`;
     }).join('');
 
+    // ---- Resumen del equipo (supervisores y jefatura) ----
+    const resHtml = yo || !window.Resumen ? '' : resumenEquipo(carts.filter(conMarcas), esDia ? [ui.dia] : esSem ? DSEM : DATES.filter(d => d.startsWith(ui.mes)), esDia, esSem);
     box.innerHTML = `<div class="vs-wrap">
       <div class="vs-head">
         <div><h2>${yo ? 'Tus visitas' : 'Visitas'}</h2><p>Datos hasta el ${largo(ultimoCompleto)}</p>${barraArchivo()}${RU.modo === 'supervisor' && window.Exportar ? '<button type="button" class="vs-irexp" onclick="var e=document.getElementById(\'ctExportar\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'start\'})">📤 Exportar fotos y visitas ›</button>' : ''}</div>
@@ -420,6 +422,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
         <div class="vs-bar big"><i class="${tono(P)}" style="width:${P || 0}%"></i></div>
         <p class="vs-linea">${linea}</p>
       </div>
+      ${resHtml}
       ${yo || (RU.modo === 'jefatura' && window.Control) ? '' : '<div id="anVis"></div>'}
       ${supHtml}
       ${yo ? (filas[0] ? `<div class="vs-mis">${esDia ? detalleDia(filas[0].x) : detalleMes(filas[0].x)}</div>` : `<div class="tv-state"><b>${esDia ? 'No tenías clientes de ruteo este día' : (esSem ? 'Todavía no hay visitas tuyas esta semana' : 'Todavía no hay visitas tuyas este mes')}</b></div>`) : `
@@ -439,8 +442,64 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
       pintar();
     });
     if (window.Anomalias && $('anVis')) window.Anomalias.en($('anVis'));
+    if (window.Resumen) window.Resumen.activar(box, irResumen);
     if (window.Exportar && $('vsExp')) window.Exportar.tarjeta($('vsExp'));
     const chipOn = box.querySelector('.vs-dchip.on'); if (chipOn) chipOn.scrollIntoView({inline: 'center', block: 'nearest'});
+  }
+
+
+  // Resumen: anomalías, llegadas tarde, salidas temprano, rutas incompletas y clientes sin compra
+  const nomT = c => String(c.vn || '').toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase()).split(' ').filter(Boolean).slice(0, 2).join(' ');
+  const diaC = d => DIAS_C[wday(d)] + ' ' + (+d.slice(8));
+  let potPedido = false;
+  function resumenEquipo(carts, dias, esDia, esSem){
+    const R = window.Resumen, L = R.LIM, G = {anom: [], tarde: [], temp: [], inc: [], sinm: [], comp: [], nunca: []};
+    const vcs = new Set(carts.map(c => c.vc)), ds = new Set(dias);
+    const F = window.Fotos && window.Fotos.anomalias ? window.Fotos.anomalias() || [] : [];
+    F.filter(r => vcs.has(r.Vendedor) && ds.has(r.Fecha)).sort((a, b) => String(b.Fecha).localeCompare(String(a.Fecha))).forEach(r => {
+      const c = carts.find(x => x.vc === r.Vendedor), e = window.Anomalias && window.Anomalias.estado ? window.Anomalias.estado(r).k : '';
+      G.anom.push({n: c ? nomT(c) : r.Vendedor, s: `${r['Anomalía'] || ''}${e === 'pen' ? ' · pendiente' : e === 'si' ? ' · justificó' : e ? ' · no justificó' : ''}`, b: esDia ? '' : diaC(r.Fecha), go: 'v:' + r.Vendedor + ':' + r.Fecha});
+    });
+    carts.forEach(c => {
+      const t = [], tp = [], inc = [], sm = [];
+      dias.forEach(d => {
+        const x = delDia(c, d); if (x.nuevo) return;
+        const hd = horasDia(c, d), cur = enCurso(d);
+        if (hd.visitas && hd.ini != null && hd.ini > L.tarde) t.push([d, hhmm(hd.ini)]);
+        if (cur) return;
+        if (hd.visitas && hd.fin != null && hd.fin < L.salida(d)) tp.push([d, hhmm(hd.fin)]);
+        if (x.toca && !hd.visitas) sm.push([d, '']);
+        else if (x.toca){ const q = pct(x.si.length, x.toca); if (q < L.ruta) inc.push([d, q + '%']); }
+      });
+      const item = (xs, txt) => xs.length ? {n: nomT(c), s: c.vc + (esDia ? '' : ' · ' + xs.map(([d, h]) => diaC(d) + (h ? ' ' + h : '')).join(', ')), b: esDia ? (xs[0][1] || txt) : xs.length + (xs.length === 1 ? ' día' : ' días'), go: 'v:' + c.vc + ':' + xs[xs.length - 1][0]} : null;
+      [[t, G.tarde], [tp, G.temp], [inc, G.inc], [sm, G.sinm]].forEach(([xs, g]) => { const it = item(xs, 'sin marcar'); if (it) g.push(it); });
+    });
+    const S = R.sinCompra(carts);
+    if (S){
+      const por = (xs, k) => { const m = new Map(); xs.forEach(x => { if (!m.has(x.c.vc)) m.set(x.c.vc, {c: x.c, n: 0, p: 0}); const o = m.get(x.c.vc); o.n++; o.p += x.p || 0; }); return [...m.values()].sort((a, b) => b.n - a.n).map(o => ({n: nomT(o.c), s: o.c.vc + (o.p ? ' · pueden comprar ' + (o.p / 1e6).toLocaleString('es-PY', {maximumFractionDigits: 1}) + ' M' : ''), b: o.n + (o.n === 1 ? ' cliente' : ' clientes'), go: k + ':' + o.c.vc})); };
+      G.comp = por(S.sin, 'sc'); G.nunca = por(S.nunca, 'sn');
+    } else if (window.Potencial && !potPedido){ potPedido = true; window.Potencial.cargar().then(() => { if (estado === 'ok') pintar(); }); }
+    const porT = g => g.sort((a, b) => (parseInt(b.b) || 0) - (parseInt(a.b) || 0));
+    if (!esDia) [G.tarde, G.temp, G.inc, G.sinm].forEach(porT);
+    const grupos = [
+      {k: 'anom', ic: '⚠️', t: 'Anomalías', tono: 'bad', vacio: 'Sin anomalías', items: G.anom},
+      {k: 'tarde', ic: '⏰', t: `Llegaron tarde (después de las ${HORA_LLEGADA_TARDE})`, tono: 'mid', vacio: 'Todos llegaron a horario', items: G.tarde},
+      {k: 'temp', ic: '🏃', t: `Salieron temprano (antes de las ${HORA_SALIDA_MINIMA})`, tono: 'mid', vacio: 'Nadie salió temprano', items: G.temp},
+      {k: 'inc', ic: '🚶', t: `No completaron la ruta (menos del ${RUTA_MINIMA}%)`, tono: 'mid', vacio: 'Todos completaron la ruta', items: G.inc},
+      {k: 'sinm', ic: '📵', t: 'No marcaron visitas', tono: 'bad', vacio: 'Todos marcaron', items: G.sinm},
+      {k: 'comp', ic: '🛒', t: 'Clientes que todavía no compraron este mes', tono: 'info', vacio: S ? '¡Todos compraron!' : 'Cargando potencial…', items: G.comp},
+      {k: 'nunca', ic: '🚫', t: 'Clientes sin ninguna compra', tono: 'info', vacio: S ? 'Ninguno' : 'Cargando potencial…', items: G.nunca}
+    ];
+    const tit = esDia ? 'Resumen del ' + largo(dias[0]) : esSem ? 'Resumen de la semana' : 'Resumen del mes';
+    return R.html(tit, `${carts.length} vendedores · tocá cada fila para ver los nombres`, grupos, {nota: 'Llegada = primera visita marcada · salida = última visita marcada. Las horas límite se cambian en resumen.js.'});
+  }
+  function irResumen(go){
+    const [k, vc, d] = go.split(':'), RU = window.RUTEO;
+    if (k === 'v'){ ui.modo = 'dia'; if (d){ ui.dia = d; ui.mes = d.slice(0, 7); } ui.abiertos = new Set([vc]); pintar();
+      setTimeout(() => { const el = document.querySelector('#visitasView .vs-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 80); return; }
+    const c = RU.carteras.find(x => x.vc === vc); if (!c || !window.Resumen) return;
+    const S = window.Resumen.sinCompra([c]); if (!S) return;
+    window.Resumen.abrirLista(S, k === 'sn' ? 'nunca' : 'sin', (k === 'sn' ? 'Sin compras · ' : 'No compraron · ') + nomT(c), false);
   }
 
   function barraArchivo(){

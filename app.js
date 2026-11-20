@@ -215,14 +215,20 @@
   const gsN = n => 'Gs. ' + Math.round(n || 0).toLocaleString('es-PY');
   const DIA_UNO = () => state.days.size === 1 ? [...state.days][0] : null;
   // Suma del potencial de los clientes que se ven (cada cliente una vez)
+  let POT_LISTAS = null;
+  document.addEventListener('click', e => { const b = e.target.closest('[data-potl]'); if (!b || !POT_LISTAS || !window.Resumen) return; const k = b.dataset.potl; window.Resumen.abrirLista(POT_LISTAS, k, k === 'nunca' ? 'Clientes sin ninguna compra' : 'Todavía no compraron este mes', POT_LISTAS.varias); });
   function sumaPot(vis){
     const P = POT(); if (!P) return null;
     const vistos = new Set(); let pot = 0, ven = 0, n = 0, sin = 0;
+    const L = {sin: [], nunca: []};
     vis.forEach(v => v.idx.forEach(i => {
-      const cl = v.c.cl[i], k = claveCli(v.c, cl); if (vistos.has(k) || !cl[6] || !P.tiene(cl[6])) return; vistos.add(k);
-      const p = P.potDe(cl[6]), s = P.ventaDe(cl[6]); pot += p; ven += s; n++; if (s <= 0 && p > 0) sin++;
+      const cl = v.c.cl[i], k = claveCli(v.c, cl); if (vistos.has(k) || !cl[6]) return; vistos.add(k);
+      if (!P.tiene(cl[6]) || (!P.potDe(cl[6]) && !P.ventaDe(cl[6]))){ L.nunca.push({cl, c: v.c}); return; }
+      const p = P.potDe(cl[6]), s = P.ventaDe(cl[6]); pot += p; ven += s; n++; if (s <= 0 && p > 0){ sin++; L.sin.push({cl, c: v.c, p}); }
     }));
-    return {pot, ven, n, sin};
+    L.sin.sort((a, b) => b.p - a.p); L.nunca.sort((a, b) => String(a.cl[2]).localeCompare(String(b.cl[2]), 'es'));
+    POT_LISTAS = {sin: L.sin, nunca: L.nunca, mes: P.mes(), fuente: P.fuente(), varias: vis.length > 1};
+    return {pot, ven, n, sin, nunca: L.nunca.length};
   }
   function potDiaHtml(vis){
     const d = DIA_UNO(); if (!d || d === 'S/Cal' || state.soloTop || state.query) return '';
@@ -240,7 +246,7 @@
       </div>
       <div class="pot-bar"><i class="${ton}" style="width:${Math.min(100, a)}%"></i></div>
       <p class="pot-linea"><b class="${ton}">${a}%</b> del potencial${falta ? ` · faltan <b>${gsN(falta)}</b>` : ' · <b class="good">¡completo!</b>'}${falta && q ? ` <span>(${q === 1 ? 'queda 1 ' + DIA_LARGO_[d] : 'quedan ' + q + ' ' + DIA_LARGO_[d] + (d === 'Sáb' ? 's' : '')} en el mes)</span>` : ''}</p>
-      ${s.sin ? `<p class="pot-sin"><b>${s.sin}</b> ${s.sin === 1 ? 'cliente todavía no compró' : 'clientes todavía no compraron'} este mes</p>` : ''}
+      ${s.sin || s.nunca ? `<div class="pot-ls">${s.sin ? `<button type="button" class="pot-l" data-potl="sin"><span>🛒</span><span><b>${s.sin}</b> ${s.sin === 1 ? 'cliente todavía no compró' : 'clientes todavía no compraron'} este mes</span><i>Ver lista ›</i></button>` : ''}${s.nunca ? `<button type="button" class="pot-l" data-potl="nunca"><span>🚫</span><span><b>${s.nunca}</b> ${s.nunca === 1 ? 'cliente no tiene' : 'clientes no tienen'} ninguna compra</span><i>Ver lista ›</i></button>` : ''}</div>` : ''}
     </div>`;
   }
   const DIA_LARGO_ = {Lun:'lunes', Mar:'martes', 'Mié':'miércoles', Jue:'jueves', Vie:'viernes', 'Sáb':'sábado'};

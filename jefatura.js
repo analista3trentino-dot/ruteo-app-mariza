@@ -221,6 +221,46 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     return h;
   }
 
+
+  // Resumen de supervisores: llegaron tarde, salieron temprano, pocas visitas, no marcaron, poco con vendedor y anomalías de su equipo
+  function resumenSups(filas, dias, esDia, esSem){
+    const R = window.Resumen, L = R.LIM, RU = window.RUTEO, G = {tarde: [], temp: [], pocas: [], sinm: [], cruce: [], anom: []};
+    const corto = d => DIAS_C[fromISO(d).getDay()] + ' ' + (+d.slice(8));
+    const enC = d => d === HOY && new Date().getHours() < 17;
+    const nom = s => (RU && RU.supLabel[s.k] ? RU.supLabel[s.k] + ' · ' : '') + titulo(s.n.split(' ').length > 3 ? s.n.split(' ').slice(0, 1).concat(s.n.split(' ').slice(-2, -1)).join(' ') : s.n);
+    const F = window.Fotos && window.Fotos.anomalias ? window.Fotos.anomalias() || [] : [];
+    filas.forEach(({s, x}) => {
+      const t = [], tp = [], po = [], sm = [];
+      dias.forEach(d => {
+        if (esNuevo(s.k, d)) return;
+        const rs = x.porDia.get(d) || [];
+        if (!rs.length){ if (!enC(d)) sm.push([d, '']); return; }
+        const i = Math.min(...rs.map(r => __nz(r.ini, Infinity))), f = Math.max(...rs.map(r => __nz(r.fin, -Infinity)));
+        if (isFinite(i) && i / 60 > L.tarde) t.push([d, hora(i)]);
+        if (enC(d)) return;
+        if (isFinite(f) && f / 60 < L.salida(d)) tp.push([d, hora(f)]);
+        if (rs.length < L.visSup) po.push([d, rs.length + ' visitas']);
+      });
+      const item = xs => xs.length ? {n: nom(s), s: esDia ? '' : xs.map(([d, h]) => corto(d) + (h ? ' ' + h : '')).join(', '), b: esDia ? (xs[0][1] || 'sin marcar') : xs.length + (xs.length === 1 ? ' día' : ' días'), go: 's:' + s.k + ':' + xs[xs.length - 1][0]} : null;
+      [[t, G.tarde], [tp, G.temp], [po, G.pocas], [sm, G.sinm]].forEach(([xs, g]) => { const it = item(xs); if (it) g.push(it); });
+      const cc = cuentaCruce(x.rs); if (cc.base >= 3 && cc.ok / cc.base < .4) G.cruce.push({n: nom(s), s: `${cc.ok} de ${cc.base} visitas junto a su vendedor`, b: Math.round(cc.ok / cc.base * 100) + '%', go: 's:' + s.k + ':' + (esDia ? dias[0] : [...x.porDia.keys()].sort().pop() || dias[0])});
+      const vcs = new Set(RU ? RU.carteras.filter(c => c.sup === s.k).map(c => c.vc) : []);
+      const an = F.filter(r => vcs.has(r.Vendedor) && dias.includes(r.Fecha));
+      if (an.length){ const tipos = {}; an.forEach(r => { const k = r['Anomalía'] || 'Anomalía'; tipos[k] = (tipos[k] || 0) + 1; }); G.anom.push({n: nom(s), s: Object.keys(tipos).map(k => tipos[k] + ' ' + k.toLowerCase()).join(' · '), b: an.length + (an.length === 1 ? ' anomalía' : ' anomalías')}); }
+    });
+    const ord = g => g.sort((a, b) => (parseInt(b.b) || 0) - (parseInt(a.b) || 0));
+    if (!esDia) [G.tarde, G.temp, G.pocas, G.sinm].forEach(ord);
+    const grupos = [
+      {k: 'sinm', ic: '📵', t: 'No marcaron visitas', tono: 'bad', vacio: 'Todos marcaron', items: G.sinm},
+      {k: 'tarde', ic: '⏰', t: `Empezaron tarde (después de las ${HORA_LLEGADA_TARDE})`, tono: 'mid', vacio: 'Todos empezaron a horario', items: G.tarde},
+      {k: 'temp', ic: '🏃', t: `Terminaron temprano (antes de las ${HORA_SALIDA_MINIMA})`, tono: 'mid', vacio: 'Nadie terminó temprano', items: G.temp},
+      {k: 'pocas', ic: '📍', t: `Pocas visitas (menos de ${VISITAS_MINIMAS_SUPERVISOR})`, tono: 'mid', vacio: 'Todos hicieron sus visitas', items: G.pocas},
+      {k: 'cruce', ic: '🤝', t: 'Poco tiempo junto a sus vendedores', tono: 'mid', vacio: 'Todos acompañaron bien', items: G.cruce},
+      {k: 'anom', ic: '⚠️', t: 'Anomalías de sus vendedores', tono: 'info', vacio: 'Sin anomalías', items: G.anom}
+    ];
+    return R.html(esDia ? 'Resumen del ' + largo(dias[0]) : esSem ? 'Resumen de la semana' : 'Resumen del mes', `${filas.length} supervisores · tocá cada fila para ver los nombres`, grupos, {nota: 'Empezó = primera visita marcada · terminó = última visita marcada.'});
+  }
+
   function pintar(){
     const box = $('jefaturaView'); if (!box) return;
     if (estado !== 'ok'){
@@ -267,6 +307,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
         ${CT.base ? `<div class="jd-cruce"><small>Cruce con vendedores</small>${barraCruce(CT)}</div>` : ''}
         ${T.j ? `<div class="jf-uso"><div class="vs-bar big"><i class="good" style="width:${Math.min(100, Math.round(T.e / T.j * 100))}%"></i></div><p class="vs-linea"><b>${Math.round(T.e / T.j * 100)}%</b> de la jornada dentro de clientes (de la primera entrada a la última salida)</p></div>` : ''}
       </div>
+      ${window.Resumen ? resumenSups(filas, [...dias].sort(), esDia, esSem) : ''}
       ${window.Control ? '' : '<div id="anJef"></div><div id="enJef"></div>'}
       <div class="vs-lista-h">Tocá un supervisor para ver ${esDia ? 'su recorrido del día' : esSem ? 'el detalle de la semana' : 'el detalle del mes'}</div>
       ${filas.map(f => { const x = f.x, abierto = ui.abierto === f.s.k;
@@ -293,6 +334,7 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     box.querySelectorAll('[data-mes]').forEach(b => b.onclick = () => { ui.mes = b.dataset.mes; const ds = DATES.filter(d => d.startsWith(ui.mes)); ui.dia = ds[ds.length - 1] || ui.dia; ui.sem = ''; ui.abierto = ''; pintar(); });
     box.querySelectorAll('[data-ir]').forEach(b => b.onclick = () => { ui.modo = 'dia'; ui.dia = b.dataset.ir; pintar(); window.scrollTo({top: 0, behavior: 'smooth'}); });
     box.querySelectorAll('.jf-v .vs-v-head').forEach(b => b.onclick = () => { const k = b.closest('.jf-v').dataset.sup; ui.abierto = ui.abierto === k ? '' : k; pintar(); });
+    if (window.Resumen) window.Resumen.activar(box, go => { const [, k, d] = go.split(':'); ui.modo = 'dia'; if (d){ ui.dia = d; ui.mes = d.slice(0, 7); } ui.abierto = k; pintar(); setTimeout(() => { const el = document.querySelector('#jefaturaView .jf-v.open'); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'}); }, 80); });
     if (window.Anomalias && $('anJef')) window.Anomalias.en($('anJef'));
     if (window.Encuesta && $('enJef')) window.Encuesta.tarjeta($('enJef'));
     if (window.Exportar && $('jfExp')) window.Exportar.tarjeta($('jfExp'));
