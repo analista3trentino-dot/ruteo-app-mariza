@@ -248,7 +248,29 @@
    * leerFn(buf) devuelve registros con .d = 'AAAA-MM-DD'. Devuelve {regs, usados}.
    */
   const ym = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  async function porMes(tipo, leerFn, meses){
+  // ---- Lo ya leído de cada Excel se guarda en el celular (IndexedDB) ----
+  // Así, al volver a abrir la app no se vuelve a leer el mismo Excel (eso era lo que trababa los celulares viejos).
+  let idb = null;
+  function abrirIDB(){
+    if (idb) return idb;
+    idb = new Promise((ok, no) => { try { const r = indexedDB.open('ruteo-leidos', 1); r.onupgradeneeded = () => r.result.createObjectStore('l'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch(e){ no(e); } });
+    idb.catch(() => { idb = null; });
+    return idb;
+  }
+  const idbGet = k => abrirIDB().then(d => new Promise(ok => { try { const q = d.transaction('l', 'readonly').objectStore('l').get(k); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); } catch(e){ ok(null); } })).catch(() => null);
+  const idbPut = (k, v) => abrirIDB().then(d => { try { d.transaction('l', 'readwrite').objectStore('l').put(v, k); } catch(e){} }).catch(() => {});
+  function limpiarLeidos(vivos){   // borra lo guardado de archivos que ya no están
+    abrirIDB().then(d => { try { const st = d.transaction('l', 'readwrite').objectStore('l'); const q = st.getAllKeys ? st.getAllKeys() : null; if (!q) return; q.onsuccess = () => (q.result || []).forEach(k => { if (!vivos.has(String(k).split('|')[1])) st.delete(k); }); } catch(e){} }).catch(() => {});
+  }
+  async function leerGuardado(tipo, f, ver, leerFn){
+    const k = tipo + '|' + f.sha + '|' + (ver || '1');
+    const c = await idbGet(k); if (c && Array.isArray(c.r)) return c.r;
+    const rs = await leerFn(await bajar(f));
+    if (rs && rs.length) idbPut(k, {r: rs, t: Date.now()});
+    return rs;
+  }
+  let limpiado = false;
+  async function porMes(tipo, leerFn, meses, ver){
     const tipo_ = window.Archivos.tipo;
     meses = meses || 3;
     let lista = [];
@@ -257,6 +279,7 @@
     const tomados = new Set(), regs = [], usados = [];
     let abiertos = 0;
     for (const f of lista){
+      if (!limpiado){ limpiado = true; limpiarLeidos(new Set(lista.map(x => x.sha))); }
       if (tomados.size >= meses || abiertos >= 8) break;
       // meses que puede traer el archivo: el de su fecha y, si se subió en la primera semana, también el anterior
       const cand = [];
@@ -271,7 +294,7 @@
       const sabidos = tipo_.leer(f.sha, 'meses');
       if (sabidos !== null && !sabidos.split(',').some(m => m && !tomados.has(m) && m >= minMes)) continue;
       abiertos++;
-      let rs = null; try { rs = await leerFn(await bajar(f)); } catch(e){ rs = null; }
+      let rs = null; try { rs = await leerGuardado(tipo, f, ver, leerFn); } catch(e){ rs = null; }
       if (!rs || !rs.length) continue;
       const ms = new Set(rs.map(r => String(r.d).slice(0, 7)));
       tipo_.guardar(f.sha, 'meses', [...ms].sort().join(','));

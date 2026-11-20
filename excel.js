@@ -76,7 +76,44 @@
     throw new Error(`El archivo "${url}" no tiene las columnas: ${columnas.join(', ')}`);
   }
 
+
+  // ---- Leer Excel grandes EN SEGUNDO PLANO (Web Worker) ----
+  // Así la pantalla no se congela mientras se lee un Excel de miles de filas (celulares viejos).
+  // Devuelve {SheetNames, filas: {hoja: [[...], ...]}} con las filas tal cual (header:1, raw).
+  let worker = null, sinWorker = false, nId = 0; const pend = new Map();
+  function crearWorker(){
+    if (worker || sinWorker) return worker;
+    try {
+      const url = new URL('xlsx.mini.min.js?v=0.18.5', location.href).href;
+      const code = "importScripts(" + JSON.stringify(url) + ");" +
+        "onmessage=function(e){var d=e.data;try{var wb=XLSX.read(d.buf,{type:'array',cellDates:false});var o={SheetNames:wb.SheetNames,filas:{}};" +
+        "wb.SheetNames.forEach(function(sn){o.filas[sn]=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null,blankrows:false});});" +
+        "postMessage({id:d.id,ok:o});}catch(err){postMessage({id:d.id,err:String(err&&err.message||err)});}};";
+      worker = new Worker(URL.createObjectURL(new Blob([code], {type: 'application/javascript'})));
+      worker.onmessage = e => { const p = pend.get(e.data.id); if (!p) return; pend.delete(e.data.id); e.data.err ? p.no(new Error(e.data.err)) : p.ok(e.data.ok); };
+      worker.onerror = () => { sinWorker = true; worker = null; pend.forEach(p => p.no(new Error('worker'))); pend.clear(); };
+    } catch(e){ sinWorker = true; worker = null; }
+    return worker;
+  }
+  function esTablaWeb(buf){
+    const ini = new Uint8Array(buf.slice(0, 512)); let txt = ''; for (const b of ini) txt += String.fromCharCode(b);
+    return /^\s*(﻿|\xef\xbb\xbf)?\s*</.test(txt) || /<(html|table)/i.test(txt);
+  }
+  async function enHilo(buf){   // respaldo: en la misma pantalla (como antes)
+    const XLSX = await cargarLibreria(), wb = abrirLibro(XLSX, buf), o = {SheetNames: wb.SheetNames, filas: {}};
+    wb.SheetNames.forEach(sn => { o.filas[sn] = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false}); });
+    return o;
+  }
+  function filasLibro(buf){
+    if (esTablaWeb(buf) || !window.Worker || !crearWorker()) return enHilo(buf);
+    return new Promise((ok, no) => {
+      const id = ++nId; pend.set(id, {ok, no});
+      try { worker.postMessage({id, buf: buf.slice(0)}); } catch(e){ pend.delete(id); no(e); }
+    }).catch(() => enHilo(buf));
+  }
+
   window.leerExcel = leerExcel;
+  window.filasLibro = filasLibro;
   window.cargarExcelLib = cargarLibreria;
   window.abrirLibro = abrirLibro;
   window.normCol = norm;

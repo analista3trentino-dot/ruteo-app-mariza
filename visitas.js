@@ -64,10 +64,10 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     if (typeof v === 'number'){ const s = Math.round((v - Math.floor(v)) * 86400); return pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s % 3600 / 60)); }
     const m = String(v).match(/(\d{1,2}):(\d{2})/); return m ? pad(m[1]) + ':' + m[2] : '';
   }
-  function procesar(XLSX, buf){
-    const wb = window.abrirLibro ? window.abrirLibro(XLSX, buf) : XLSX.read(buf, {type: 'array'});
-    for (const sn of wb.SheetNames){
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false});
+  async function procesar(XLSX, buf){
+    const L = await window.filasLibro(buf);   // se lee en segundo plano: la pantalla no se congela
+    for (const sn of L.SheetNames){
+      const rows = L.filas[sn] || [];
       for (let i = 0; i < Math.min(rows.length, 40); i++){
         const h = (rows[i] || []).map(x => norm(x).replace(/[^a-z0-9]+/g, ' ').trim());
         let cS = h.findIndex(x => x === 'subcliente' || x === 'cliente'); if (cS < 0) cS = h.findIndex(x => x.includes('subcliente'));
@@ -98,12 +98,12 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     // 1) Los Excel de visitas (con cualquier nombre): cada mes del más nuevo que lo trae
     if (window.Archivos && window.Archivos.porMes){
       try {
-        const r = await window.Archivos.porMes('visitas', buf => procesar(XLSX, buf));
+        const r = await window.Archivos.porMes('visitas', buf => procesar(XLSX, buf), 3, 'v2');
         if (r.regs.length){
           usados = r.usados; usado = r.usados[0];
           // + marcaciones por Apolo de los vendedores mixtos (si se subió ese Excel)
           try {
-            const ra = await window.Archivos.porMes('apolo', buf => procesar(XLSX, buf));
+            const ra = await window.Archivos.porMes('apolo', buf => procesar(XLSX, buf), 3, 'v2');
             if (ra.regs.length){ usadoApolo = ra.usados[0]; ra.regs.forEach(x => x.emp = 'A'); return r.regs.concat(ra.regs); }
           } catch(e){}
           return r.regs;
@@ -113,7 +113,7 @@ const ARCHIVO_VISITAS = 'visitas.xlsx';   // respaldo: si no hay carpeta, busca 
     // 2) Respaldo: visitas.xlsx en la raíz
     const r = await fetch(ARCHIVO_VISITAS, {cache: 'no-cache'});
     if (!r.ok) throw new Error('Todavía no se subió ningún Excel de visitas');
-    const regs = procesar(XLSX, await r.arrayBuffer());
+    const regs = await procesar(XLSX, await r.arrayBuffer());
     if (!regs) throw new Error('El Excel de visitas no tiene las columnas Cartera, Subcliente y Date');
     return regs;
   }

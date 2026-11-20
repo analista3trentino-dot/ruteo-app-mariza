@@ -63,4 +63,13 @@
   } catch (e) {}
   // El celular con poca memoria o datos en modo ahorro: también
   try { if (navigator.connection && navigator.connection.saveData) ahorro(true); } catch (e) {}
+  // ---- Modo liviano para celulares básicos o viejos ----
+  // (poca memoria, procesador de pocos núcleos, Android 9 o anterior, o Chrome viejo):
+  // sin animaciones, sin sombras ni desenfoques pesados. Se ve igual de claro, pero no se traba y gasta menos batería.
+  try {
+    var mem = navigator.deviceMemory || 0, cores = navigator.hardwareConcurrency || 0;
+    var andr = +((navigator.userAgent.match(/Android (\d+)/) || [])[1] || 0);
+    var liviano = (mem && mem <= 3) || (cores && cores <= 4) || (andr && andr <= 9) || (chrome && +chrome < 90);
+    if (liviano) { document.documentElement.classList.add('liviano'); ahorro(true); }
+  } catch (e) {}
 })();

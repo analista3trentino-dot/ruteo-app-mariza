@@ -58,10 +58,10 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const m = String(v).match(/(\d+):(\d{2})(?::(\d{2}))?/); return m ? +m[1] * 3600 + +m[2] * 60 + (+m[3] || 0) : null;
   }
 
-  function procesar(XLSX, buf){
-    const wb = window.abrirLibro ? window.abrirLibro(XLSX, buf) : XLSX.read(buf, {type: 'array'});
-    for (const sn of wb.SheetNames){
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1, raw: true, defval: null, blankrows: false});
+  async function procesar(XLSX, buf){
+    const L = await window.filasLibro(buf);   // se lee en segundo plano: la pantalla no se congela
+    for (const sn of L.SheetNames){
+      const rows = L.filas[sn] || [];
       for (let i = 0; i < Math.min(rows.length, 30); i++){
         const h = (rows[i] || []).map(norm);
         const cSpv = h.indexOf('spv'), cSub = h.findIndex(x => x.includes('subcliente')), cD = h.findIndex(x => x === 'date' || x === 'fecha');
@@ -99,11 +99,11 @@ const TOLERANCIA_MINUTOS = 30;    // cruce con el vendedor: diferencia de hora q
     const XLSX = await window.cargarExcelLib();
     // cada mes sale del Excel más nuevo que lo trae (los meses cerrados quedan como histórico)
     let regs = null, f = null;
-    if (window.Archivos.porMes){ const r = await window.Archivos.porMes('supervisores', buf => procesar(XLSX, buf)); if (r.regs.length){ regs = r.regs; f = r.usados[0]; } }
+    if (window.Archivos.porMes){ const r = await window.Archivos.porMes('supervisores', buf => procesar(XLSX, buf), 3, 'v1'); if (r.regs.length){ regs = r.regs; f = r.usados[0]; } }
     if (!regs){
       [f] = await window.Archivos.buscar('supervisores', 1);
       if (!f) throw new Error('sin-archivo');
-      regs = procesar(XLSX, await window.Archivos.bajar(f));
+      regs = await procesar(XLSX, await window.Archivos.bajar(f));
       if (!regs) throw new Error('El Excel de marcaciones de supervisores no tiene las columnas SPV, Subcliente y Date');
     }
     REGS = regs; fArchivo = f.fecha; usado = f;
