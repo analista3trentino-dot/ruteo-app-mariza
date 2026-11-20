@@ -41,7 +41,7 @@ const VENDEDORES = {
   "TR1621": "LORENA MENDEZ",                        // PV. SUPER CAACUPE
   "TR1632": "TOMMY GIMENEZ",                        // VD. ZONAL CAACUPE
   "TR1633": "PEDRO FARIÑA",                            // RV. SANBER
-  "TR1634": "EVERT GAMARRA",                        // RV. ALTOS/ATYRA
+  "TR1634": "VACANTE",                        // RV. ALTOS/ATYRA
   "TR1635": "MARIA GONZALEZ",                       // RV. TOBATI
   "TR1637": "VACANTE",                      // RV. EUSEBIO AYALIA
   "TR1638": "VACANTE",                      // VD. CARAGUATAY
